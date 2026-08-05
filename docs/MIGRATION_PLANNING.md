@@ -94,8 +94,8 @@ shipped to production until cutover.
 |---|---|---|---|
 | P0 | Foundations | Baseline diff empty; boot on copy; restore drill passes | ✅ Passed (local copy; formal prod drill at staging) |
 | P1 | Auth + RBAC | Login works by username; single-device force-logout; every v1 page-permission row enforced | ✅ Passed (14 tests green; see `IMPLEMENTATION_LOG.md`) |
-| P2 | Clients + households | Client CRUD, household assignment, duplicate detection match v1 | 🔄 In progress |
-| P3 | Transactions + reports/exports | Filters/sorts match; CSV export byte-comparable to v1 | Not started |
+| P2 | Clients + households | Client CRUD, household assignment, duplicate detection match v1 | 🔄 In progress (all P2 v1 files ported incl. delete_client, duplicates, photos, student — 59 tests green; parity script + manual spot-check pending) |
+| P3 | Transactions + reports/exports | Filters/sorts match; CSV export byte-comparable to v1 | 🔄 In progress (CRUD + filters + inline edit + CSV-with-BOM exports done; byte-comparison parity script pending — 12 tests green) |
 | P4 | Scanner engine + 17 programs | Per-program matrix: every duplicate-rule variant + scan path reproduces v1 | Not started |
 | P5 | Payout attendance + unpaid | Unique-key behavior, seats, proxy capture match v1 | Not started |
 | P6 | Scholars/GIP/exam | Reports totals match v1 exports | Not started |

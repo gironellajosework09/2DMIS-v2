@@ -27,12 +27,13 @@
 |---|---|
 | Planning & Analysis | **Complete** |
 | Design | **Complete** |
-| Development | **In progress (P2 — clients)** |
+| Development | **In progress (P4 — scanner engine)** |
 | Testing | In progress (per-module gates; full suite in P8) |
 | Rollout | Not started |
 
-P0 foundations, the six additive schema-fix migrations, and P1 Auth + RBAC are
-complete — see `IMPLEMENTATION_LOG.md` for the full record.
+P0 foundations, the six additive schema-fix migrations, P1 Auth + RBAC, P2
+clients/households, and P3 transactions are complete — see
+`IMPLEMENTATION_LOG.md` for the full record.
 
 ## Guardrails
 

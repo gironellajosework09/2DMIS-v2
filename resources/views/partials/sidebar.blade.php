@@ -10,6 +10,24 @@
         </a>
     @endif
 
+    @if ($acl->canAccessPage($user, 'clients.php'))
+        <a href="{{ route('clients.index') }}" @class(['active' => request()->routeIs('clients.*')])>
+            Clients
+        </a>
+    @endif
+
+    @if ($acl->canAccessPage($user, 'household.php'))
+        <a href="{{ route('households.index') }}" @class(['active' => request()->routeIs('households.*')])>
+            Households
+        </a>
+    @endif
+
+    @if ($acl->canAccessPage($user, 'all_transactions.php'))
+        <a href="{{ route('transactions.index') }}" @class(['active' => request()->routeIs('transactions.*')])>
+            All Transactions
+        </a>
+    @endif
+
     @if ($acl->canAccessProgram($user, 'AICS'))
         <a href="#">AICS</a>
     @endif

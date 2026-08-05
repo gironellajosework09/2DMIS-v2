@@ -130,8 +130,10 @@ in git.
 
 ## Current milestone
 
-**P2 — Clients** next (see `docs/ENGINEERING_BLUEPRINT.md` §5 for the phase
-deliverables).
+**P2 — Clients + households** and **P3 — Transactions** are done (see
+`docs/ENGINEERING_BLUEPRINT.md` §5 for the phase deliverables and
+`docs/IMPLEMENTATION_LOG.md` for the record). Next up is **P4 — Scanner
+engine**.
 
 Done so far:
 - Planning + P0 bootstrap (assets, storage, CI, baseline diff verification).
@@ -144,3 +146,27 @@ Done so far:
   All checks go through the ACL service — no hard-coded usernames or
   `user_id = 1`. `db:seed` grants the local `jordi` account full access via a
   `tbl_permissions` row (`page_name = '*'`), not a magic id.
+- **P2 — Client registry**: `ClientService` (single `full_name`/`match_name`/
+  age/category derivation — v1 A6 fix), page-gated `clients.php` list with
+  server-side DataTables feed + municipality/barangay filters, add/edit forms
+  with geography cascade, aff-org assignment, audit on create/update.
+  21 tests green (7 new ClientTest).
+- **P2 — Households + family members + profile**: `HouseholdService`
+  (`VIG-00001` codegen, audit, detach-on-delete), households index/create/
+  show with server-side feed + search, `FamilyMemberService` (relationships,
+  inverse mapping, SIBLING fan-out), client profile page (`clients.show`)
+  replacing the slide-over panel, `verify_mobile.php` port. 28 tests green.
+- **P3 — Transactions**: `TransactionService` (17 programs, TYPES, STATUSES,
+  CRUD + audits, patient-name resolution, TUPAD nulls), page-gated
+  `all_transactions.php` list with server-side DataTables + program/status/
+  geography/date filters, beneficiary picker (self/custom/existing), inline
+  row edit (v1-compatible normalize + date parse), CSV exports with UTF-8 BOM
+  (standard/custom/custom2/gip). 40 tests green (12 new TransactionTest).
+- **P2 completion — delete + duplicates + photos + student**: `ClientService::destroy`
+  (transaction-guard, family-link cleanup, `DELETE_CLIENT` audit) + page-gated
+  `ClientPolicy`; duplicate detection (`DuplicateService` — v1's name+
+  municipality group key) with server-side feed, filters, and batch delete
+  (`duplicates/index`); client photo upload via file or camera capture
+  (`PhotoService`, JPEG magic check); public student self-service flow
+  (search → birthdate/mobile verify → photo upload) for scholar programs.
+  59 tests green (19 new).

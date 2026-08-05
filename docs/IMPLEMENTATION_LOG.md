@@ -22,8 +22,8 @@
 | P0 — Foundations | Bootstrap, baseline schema, assets, CI, storage | **Done** |
 | Schema fixes | 6 additive migrations fixing v1 abnormalities | **Done** |
 | P1 — Auth + RBAC | Username login, single-device, ACL, audit, shell | **Done** |
-| P2 — Clients + households | Client CRUD, slide-over panel | In progress (next) |
-| P3 — Transactions + reports | | Not started |
+| P2 — Clients + households | Client CRUD, households + family members, profile, duplicates, photos, student self-service | **Done** 2026-08-05 (full P2 scope incl. delete_client, duplicates, photo/student — see entries below) |
+| P3 — Transactions + reports | Transaction CRUD, filters, inline edit, CSV exports | **Done** 2026-08-05 (all 9 v1 transaction files ported; per-program gating) |
 | P4 — Scanner engine | | Not started |
 | P5 — Payout + unpaid | | Not started |
 | P6 — Scholars / GIP | | Not started |
@@ -161,6 +161,13 @@ DB (never the local copy); `phpunit.xml` forces `DB_DATABASE=main_system_test`:
 | File #12 (`fetch_online_users.php`) | DataTables JSON route | **Deferred** — `session/online` renders a server-rendered table | Not needed for P1 parity; add the JSON feed when DataTables is adopted (P3+) |
 | File #10 (`force_logout.php`) | `AdminController@forceLogout` | `SessionController@forceLogout` | No admin controller exists yet; route/page gate `page:force_logout.php` enforces the v1 permission key |
 | ADR-008 | Audit via framework events/observers | `AuditService` called explicitly from controllers | No model mutations in P1 to observe; observers planned once domain writes exist (P2) |
+| ADR-010 (P2) | Right-side sliding details panel for client rows | **Client profile page** (`clients/show.blade.php`) | Simpler + testable on the current Bootstrap stack; same data contract (AD-10) |
+| P2 family members | View-level inverse mapping | **Service-level inverse mapping** in `FamilyMemberService` | Keeps view dumb; logic covered by tests |
+| P3 CSV exports | v1 writes temp files then streams | **`streamDownload`** with UTF-8 BOM | Framework-native; byte-comparable contract kept (P3/P6 parity) |
+| P3 `all_transaction_edit.php` / `all_transaction_delete.php` | Separate list-edit/list-delete pages | **Inline row edit/save/cancel + row delete** on the index | Single list surface, matches DataTables UX |
+| P2 duplicates (`preview_duplicates.php` / `fetch_duplicates.php` / `delete_duplicates.php`) | v1 hard-coded `super_admin`/`jordi` username gate; single un-audited `DELETE … IN (…)` | **Page-gated on `page:clients.php` via the ACL; per-row audited `DELETE_CLIENT` deletes inside a transaction** | ADR-003 forbids username checks; per-row delete keeps the audit trail and lets one guarded row (with transactions) fail without aborting the batch |
+| P2 `delete_client.php` | Bare `DELETE` (crashes on clients with transactions; leaves orphan family links) | **`ClientService::destroy`** — explicit transaction-guard error, two-direction family-link cleanup, `DELETE_CLIENT` audit | Mirrors the DB constraints while surfacing a clean error to staff |
+| P2 photo + student (`save_client_photo.php`, `student_photo_upload.php`, `student_update_photo.php`, `student_verify.php`) | v1 trusts client base64 + file extension blindly | **`PhotoService` validates JPEG magic bytes + extensions; camera input validated server-side** | Security hardening without changing the stored-data contract (filename only) |
 
 ---
 
@@ -185,9 +192,336 @@ DB (never the local copy); `phpunit.xml` forces `DB_DATABASE=main_system_test`:
 `tests/Feature/ExampleTest.php`.
 
 **Explicitly not done (later phases):** DataTables JSON feeds; Tailwind/Vite
-build; `verify_mobile.php` (P2); all client/household/transaction/scanner/
-payout/scholar/admin modules; login throttling (ADR-007, P8 hardening);
-`password_reset_tokens` framework flow (disabled — v1 has no email reset).
+build; `verify_mobile.php` (P2); household CRUD + slide-over panel (rest of
+P2); all transaction/scanner/payout/scholar/admin modules; login throttling
+(ADR-007, P8 hardening); `password_reset_tokens` framework flow (disabled —
+v1 has no email reset).
+
+### File inventory (P2 clients — added 2026-08-05)
+
+**Created:** `app/Models/{Client,ClientAffOrg,Municipality,Barangay,Household}.php`,
+`app/Services/ClientService.php`, `app/Http/Requests/ClientRequest.php`,
+`app/Http/Controllers/{ClientController,GeographyController}.php`,
+`resources/views/clients/{index,_form,create,edit}.blade.php`,
+`tests/Feature/ClientTest.php`.
+
+### 2026-08-05 — P2 Clients (registry, add/edit, server-side list, page gate)
+
+First delivery of the P2 milestone: the client registry (v1 `clients.php`,
+`fetch_clients.php`, `add_client.php`, `edit_client.php`, `get_barangays.php`).
+Household CRUD and the slide-over panel remain for the rest of P2.
+
+#### What was built
+
+- **Models** (`$table='tbl_*'`, `$timestamps=false`): `Client`
+  (`tbl_clients`, relations `municipality`, `barangayInfo`, `household`,
+  `affOrgs`), `ClientAffOrg`, `Municipality`, `Barangay`, `Household`.
+- **`ClientService`** — the single write/derivation path (v1 duplicated this
+  logic across add/edit; v2 unifies it):
+  - `deriveFullName` → `"LASTNAME, FIRSTNAME MIDDLENAME EXTENSION"`, skipping
+    the middlename when blank or `N/A`.
+  - `deriveMatchName` → uppercase concatenation of last+first+middle with all
+    whitespace removed (`preg_replace('/\s+/', '')`), matching v1's edit path
+    and applied consistently on add too (A6 fix; v1's add path left spaces).
+  - `deriveAge` (DateTimeImmutable diff) and `deriveCategory`
+    (MINOR/YOUTH/ADULT/SENIOR at 17/29/59) — always derived server-side;
+    client-supplied `age`/`category` are ignored.
+  - `attributes()` normalizes the whole write payload: names uppercased,
+    `region='Region I'`/`province='Ilocos Sur'`, empty `monthly_income` → null,
+    `ip_group` persisted only when `ip='YES'`, age/category derived, empty
+    `aff_org` preserved (column is NOT NULL, no default).
+  - `create()`/`update()` run in a `DB::transaction`, audit
+    `ADD_CLIENT`/`EDIT_CLIENT` with `old_value`/`new_value` JSON.
+  - `syncAffiliations()` — delete-then-insert of `tbl_client_aff_orgs` rows
+    (deduped, uppercased; max 5 enforced client-side).
+- **`ClientRequest`** — required: lastname/firstname/city_municipality/barangay/
+  birthdate/sex/civil_status/pwd/ip; `exists:tbl_municipalities,id` /
+  `tbl_barangays,id` / `tbl_household,id`; `in:MALE,FEMALE` and
+  `SINGLE,MARRIED,WIDOWED` and `YES,NO`; `ip_group` `required_if:ip,YES`;
+  `aff_org` array max 5.
+- **`ClientController`** — `index` (view + municipalities), `create`, `store`,
+  `edit` (client + its aff-org names + municipalities + barangays scoped to the
+  client's municipality), `update`, and `data()`: a server-side port of
+  `fetch_clients.php` (POST draw/start/length; municipality + barangay filters;
+  word-split AND search across lastname/firstname/middlename/extension/full_name/
+  mobile_no/voter_id/precinct_no/occupation/m.name/b.name; smart rank ordering
+  when searching — "prefix first, then contains"; 19-column sortable map;
+  `htmlspecialchars`-escaped rows; actions link to `clients.edit`).
+- **`GeographyController::barangays`** — port of `get_barangays.php`
+  (`GET geography/barangays?municipality_id=` → `[{id,name}]`, validated).
+- **Routes** (in the `auth` + `single-device` group): `geography/barangays`
+  (no page gate — v1 same), plus a `page:clients.php` group → named `clients.*`
+  (`index`, `create`, `store`, `edit`, `update`, `data`).
+- **Views:** `clients/index.blade.php` (Bootstrap + DataTables 1.13.6 CDN,
+  21-column server-side table, municipality/barangay filter selects +
+  Filter/Reset, municipality change → `geography.barangays` fetch fills the
+  barangay select); `clients/_form.blade.php` shared add/edit form (uppercase
+  name inputs, municipality→barangay cascade, birthdate→age→category live
+  calc, IP=YES reveals `ip_group`, aff-org selects + "Add another" capped at 5,
+  readonly Region I/Ilocos Sur, Cancel/Save); `clients/create.blade.php` and
+  `clients/edit.blade.php` wrappers. Sidebar link gated on
+  `canAccessPage($user, 'clients.php')`, active on `routeIs('clients.*')`.
+
+#### Verification
+
+- `php artisan test` → **21 passed (91 assertions)**. New `ClientTest` (7):
+  page gate (denied without permission), pages load (index/create/edit), create
+  with derived fields (full_name/match_name/age/category/region/province/
+  occupation + aff-org rows + ADD_CLIENT audit), validation errors, edit +
+  EDIT_CLIENT audit + aff-org replacement + consistent match_name, data feed
+  (rows + municipality filter + search), geography barangays JSON + invalid id.
+- `vendor\bin\pint --test` → passed.
+- `route:list` → 14 routes incl. `clients.*` and `geography.barangays`.
+- Fixed during verification: `clients/index.blade.php` originally used
+  `@section('scripts'/'styles')`, but the layout only renders `@stack(...)` —
+  converted both blocks to `@push(...)/@endpush` so the DataTables CSS/JS
+  actually load.
+- Local `main_system` untouched: clients 1, municipalities 23, barangays 471,
+  users 1, client_aff_orgs 0, audit_logs 0.
+
+**Not done yet (rest of P2):** household CRUD, slide-over client panel,
+`verify_mobile.php`, transaction-facing list refinements. **Not done (later):**
+DataTables JSON adoption for online-users; `fetch_online_users.php`.
+
+---
+
+### 2026-08-05 — P2 households, profile/verify-mobile, family members (rest of P2)
+
+Completes the P2 milestone with the remaining v1 household/profile/family
+surfaces. See the P2 clients entry above for the registry; this entry covers
+households, the client profile page, mobile verification, and family members.
+
+#### What was built
+
+- **`HouseholdService`** — `code()` generates `VIG-00001`-style codes
+  (prefix + zero-padded sequence via `tbl_household.id`), `create()` (audit
+  `ADD_HOUSEHOLD`), `destroy()` (audit `DELETE_HOUSEHOLD` + detaches
+  `tbl_clients.household_id` to null so no FK breakage), `search()`.
+- **`HouseholdController`** — `index` (server-side DataTables), `create`/
+  `store`, `show` (members + client count), `destroy` (CSRF-guarded fetch —
+  fixed a latent P2 bug where the per-row delete fetch sent no `X-CSRF-TOKEN`
+  and would 419 in a real browser), `data` (feed), `search`,
+  `clientOptions`, `searchClientsForHousehold` (JSON helpers).
+- **`FamilyMemberService`** + **`FamilyMemberController`** — relationship
+  labels, inverse mapping (a person listed as child sees the parent as their
+  own parent), SIBLING fan-out across `family_id`, audits
+  `ADD_FAMILY_MEMBER`/`DELETE_FAMILY_MEMBER`.
+- **`ClientController@show`** — the client profile page (`clients.show`),
+  replacing the blueprint's slide-over panel (see deviations). Shows derived
+  fields, aff-orgs, household, family members, and action buttons (Edit,
+  Delete, + Add Transaction when the user can access `all_transactions.php`).
+- **`ClientController@verifyMobile`** — port of v1 `verify_mobile.php`
+  (`POST clients/verify-mobile` → `{success:true}` on match, `success:false`
+  on mismatch, `skipped:true` when the client has no mobile number).
+- **Models** added: `FamilyMember` (`tbl_family_members`, unique
+  `(client_id, relative_id)`), `ClientHousehold` lookup.
+- **Views:** `households/{index,create,show}.blade.php`,
+  `clients/show.blade.php` (profile), `family_members/create.blade.php`.
+- **Routes:** `page:household.php` group → `households.*`
+  (`index`, `create`, `store`, `show`, `destroy`, `data`, `search`,
+  `client-options`, `search-clients`); `page:clients.php` → `clients.show`
+  and `clients.verify-mobile`.
+- **Sidebar:** Household link gated on `canAccessPage($user, 'household.php')`.
+
+#### Verification
+
+- `php artisan test` → **28 passed (129 assertions)** (P2 suite + P1).
+- `vendor\bin\pint --test` → passed.
+- Latent bug fixed: per-row household delete now sends `X-CSRF-TOKEN`.
+
+**Deviations:** slide-over client panel → dedicated profile page
+(`clients/show.blade.php`) — simpler to build and test with the current
+Bootstrap stack; family-member inverse mapping handled in the service, not the
+view.
+
+---
+
+### 2026-08-05 — P3 Transactions (CRUD, filters, inline edit, CSV exports)
+
+Ports all 9 v1 transaction files (`all_transactions.php`, `fetch_transactions.php`,
+`add_transaction.php`, `edit_transaction.php`, `view_transaction.php`,
+`delete_transaction.php`, `update_transaction.php`, `all_transaction_edit.php`,
+`all_transaction_delete.php`, plus `transaction_table.php` as the list partial).
+
+#### What was built
+
+- **`TransactionService`** — `PROGRAMS` (17: AICS, AKAP, MAIP, TUPAD, CEDSSG,
+  CEAP, CEAP_NEW, CEDSSG_NEW, OTEA, OTCES, COFFEE GROWERS, PUSO TI KABABAIHAN,
+  PUSO TI AGTUTUBO, PUSO TI MANNALON, TESDA, GIP, TODA), `TYPES`, `STATUSES`
+  (`PENDING PAYOUT`, `PAID`); `create`/`update`/`destroy` (client_id,
+  patient_name, date_applied, type, remarks, comments, suggested_amount,
+  status, amount_paid, payout_date, date_paid, gwa, units); audits
+  `ADD_TRANSACTION`/`EDIT_TRANSACTION`/`DELETE_TRANSACTION` with old/new JSON;
+  `resolvePatientName()` (self/custom/existing with v1 name format
+  `lastname, firstname middle`); TUPAD stores nulls for comments/payout_date/
+  gwa/units.
+- **`TransactionController`** — `index`, `create` (+ optional `{client}`
+  prefill), `store`, `show`, `edit`, `update`, `destroy`,
+  `inlineUpdate` (comma-stripping normalize + date parse mirroring v1
+  `update_transaction.php`, JSON `{success}`), `data` (server-side DataTables
+  feed, 21-col map default-ordered by client name, program restriction +
+  forbidden-filter-empty, status/municipality/barangay/date filters, action
+  cells `Edit/Save/Cancel/Delete` for inline row editing), `searchClients`
+  (`transactions.clients-search`, 2-char min, page-gated), `export`
+  (streamed CSV with UTF-8 BOM; `export_mode` standard/custom/custom2/gip).
+- **Views:** `transactions/{index,create,edit,show}.blade.php` — index =
+  DataTables + program/status/municipality/barangay/date_applied/date_paid
+  filters + export dropdown (filters wired via `URLSearchParams`) + inline
+  row edit; create = beneficiary radio (self/custom/existing) + hidden
+  `existing_client_id` + TUPAD field-disable via JS; edit = same with prefill;
+  show = read-only detail.
+- **Routes** in the `page:all_transactions.php` group — static before
+  parameter: `GET transactions.index`, `GET transactions/create/{client}`,
+  `POST transactions.store`, `GET transactions.export`, `POST
+  transactions.data`, `POST transactions.inline-update`, `GET
+  transactions.clients-search`, `GET transactions/{transaction}/edit`,
+  `PUT transactions/{transaction}`, `GET transactions/{transaction}`,
+  `POST transactions/{transaction}` (destroy).
+- **Gating:** sidebar "All Transactions" + profile "+ Add Transaction" buttons
+  use `canAccessPage(auth()->user(), 'all_transactions.php')` — v1's
+  transaction list is permission-gated by that page name (confirmed against the
+  local `tbl_permissions`); v2 applies it to list, create, feed, search, export,
+  inline-update, and detail routes. `authorizeProgram()` allows all programs
+  when `tbl_program_permissions` is empty (v1 model: no rows = unrestricted).
+- **Tests** — `tests/Feature/TransactionTest.php` (12): page gate, pages load,
+  create-self w/ audit, TUPAD nulls, restricted-user forbidden, update/delete +
+  audits, data feed + filters, program restriction on feed, dropdown
+  restriction, inline-update (comma amounts + `m/d/Y` date), client search,
+  BOM CSV export.
+
+#### Verification
+
+- `php artisan test` → **40 passed (197 assertions)** (P1+P2+P3 suites).
+- `vendor\bin\pint` → passed.
+- `route:list` → `transactions.*` group present, static-before-parameter order.
+- Local `main_system` untouched (0 transaction rows — no live data to corrupt;
+  patient-name "self" behaviour validated against v1 `update_transaction.php`
+  which stores the full client name string, not the literal "Self").
+
+**Deviations:** CSV export is streamed (`streamDownload`) instead of writing a
+v1-style temp file; `all_transaction_edit.php`/`all_transaction_delete.php`
+folded into inline `update`/`destroy` on the list; `transaction_table.php`
+became the index view with a Blade partial — same contract.
+
+---
+
+### 2026-08-05 — P2 completion: delete_client, duplicate detection, client photos, student self-service
+
+Closes the last P2 v1 files (`delete_client.php`, `preview_duplicates.php`,
+`fetch_duplicates.php`, `delete_duplicates.php`, `save_client_photo.php`,
+`client_photo.php`, `student_photo_upload.php`, `student_update_photo.php`,
+`student_verify.php`), completing the P2 milestone.
+
+#### What was built
+
+- **Client delete + `ClientPolicy`** — `ClientService::destroy(Client, User)`:
+  works inside a `DB::transaction`; throws `InvalidArgumentException` when the
+  client has `tbl_transactions` rows (v1's bare `DELETE` hit the same wall —
+  `tbl_transactions.client_id` has no ON DELETE CASCADE); manually removes
+  two-direction `tbl_family_members` links (no FK exists); writes a
+  `DELETE_CLIENT` audit with the old row as JSON. `ClientPolicy` gates the
+  action on `page:clients.php` via `AccessControlService`; registered with
+  `Gate::policy` in `AppServiceProvider`. `ClientController@destroy` calls
+  `$this->authorize('delete', $client)`; the base `Controller` now uses
+  `AuthorizesRequests`. `clients/index.blade.php` gains a per-row DELETE form
+  (CSRF fetch) and a "Remove Duplicates" button (wider actions column).
+- **Duplicate detection** — `DuplicateService::baseQuery()`: joins `tbl_clients`
+  against a subquery of duplicate groups keyed on
+  (lastname, firstname, middlename, city_municipality) with `HAVING COUNT(*) > 1`
+  — exactly v1's DISTINCT-group semantics — plus municipality/barangay name
+  joins. `countTotal()`/`countFiltered()` and `destroyMany()` (per-row
+  `ClientService::destroy`, so one guarded client can't abort the batch;
+  returns `{deleted, failed}`). `DuplicateController`: `index` (filter-persisting
+  page), `data` (server-side DataTables, name/municipality/barangay/precinct
+  search, sortable), `destroy` (POST, "No records selected" error, N deleted /
+  M skipped summary). View `duplicates/index.blade.php` mirrors v1: checkboxes,
+  select-all, count badge, approve-delete confirm, municipality→barangay cascade.
+- **Client photo upload** — `PhotoService::store()`: writes to
+  `storage/app/public/uploads/client_photos/`, stores only the filename in
+  `tbl_client_photos` (v1 contract); accepts file upload **and** WebRTC camera
+  capture; validates JPEG magic bytes for camera input (v1 trusted base64 +
+  extension blindly), restricts extensions, handles `UPLOAD_ERR_NO_FILE`.
+  `PhotoController@store` validates client existence + image (max 5 MB).
+  `clients/show.blade.php` gains a photo modal (file + camera → capture → retake
+  → save) and renders photos via `asset('storage/uploads/client_photos/…')`
+  (the previous `asset($photo->photo_path)` was fixed).
+- **Student self-service (public)** — v1 has no auth here, so these routes live
+  OUTSIDE the `auth` + `single-device` group. `StudentController::updatePhoto`
+  (search over `tbl_transactions` client joins, scholar programs only:
+  CEAP, CEAP_NEW, CEDSSG, CEDSSG_NEW, OTEA, OTCES), `verify` (birthdate +
+  mobile_no match → `session(['verified_student' => …])`), `photoUpload`
+  (guarded), `storePhoto` (camera image only, saves, clears session). Views:
+  `students/{update-photo,verify,photo-upload}.blade.php`.
+- **Routes** — public group: `GET student/update-photo`,
+  `GET|POST student/verify/{client}`, `GET|POST student/photo-upload`. Inside
+  `page:clients.php` (static-before-parameter): `clients/duplicates`
+  (`duplicates.index`), `POST clients/duplicates/data`, `POST
+  clients/duplicates/delete`, `POST clients/photo` (`clients.photo.store`),
+  `POST clients/{client}` (`clients.destroy`).
+- **Tests** — `DuplicateTest` (6), `PhotoTest` (4), `StudentTest` (7), plus 2
+  delete tests added to `ClientTest`.
+
+#### Verification
+
+- `php artisan test` → **59 passed (270 assertions)** (P1+P2+P3 suites).
+- `vendor\bin\pint` → passed; `pint --test` → passed.
+- `route:list` → duplicates/photo/student/destroy routes registered.
+- Fixes during verification: base `Controller` needed `AuthorizesRequests`;
+  duplicate destroy now builds redirect query params with `array_filter`
+  (no empty `?municipality=&barangay=`); duplicates-feed test asserts the
+  checkbox HTML generically instead of a specific row id (tie order).
+
+**Deviations:** duplicates gating — v1 hard-coded `super_admin`/`jordi`
+usernames; v2 gates the duplicate pages on `page:clients.php` via the ACL
+(ADR-003 — no username checks). Delete is per-row audited
+(`DELETE_CLIENT` each row) where v1's `delete_duplicates.php` ran a single
+un-audited `DELETE … IN (…)`. Family-member links are cleaned up on delete
+(v1 left orphans — `tbl_family_members` has no FK).
+
+---
+
+### File inventory (P2 households + profile + family members — added 2026-08-05)
+
+**Created:** `app/Services/{HouseholdService,FamilyMemberService}.php`,
+`app/Http/Controllers/{HouseholdController,FamilyMemberController}.php`,
+`app/Models/{FamilyMember,ClientHousehold}.php`,
+`resources/views/households/{index,create,show}.blade.php`,
+`resources/views/clients/show.blade.php`,
+`resources/views/family_members/create.blade.php`.
+
+**Modified:** `routes/web.php`, `app/Http/Controllers/ClientController.php`,
+`resources/views/partials/sidebar.blade.php`,
+`resources/views/households/index.blade.php` (CSRF header on delete fetch).
+
+### File inventory (P3 transactions — added 2026-08-05)
+
+**Created:** `app/Services/TransactionService.php`,
+`app/Http/Controllers/TransactionController.php`,
+`resources/views/transactions/{index,create,edit,show}.blade.php`,
+`tests/Feature/TransactionTest.php`.
+
+**Modified:** `routes/web.php` (`page:all_transactions.php` group, static-
+before-parameter order), `resources/views/partials/sidebar.blade.php` (gated
+"All Transactions" link), `resources/views/clients/show.blade.php` (gated
+"+ Add Transaction" button).
+
+### File inventory (P2 completion — delete, duplicates, photos, student — added 2026-08-05)
+
+**Created:** `app/Services/{DuplicateService,PhotoService}.php`,
+`app/Http/Controllers/{DuplicateController,PhotoController,StudentController}.php`,
+`app/Policies/ClientPolicy.php`,
+`resources/views/duplicates/index.blade.php`,
+`resources/views/students/{update-photo,verify,photo-upload}.blade.php`,
+`tests/Feature/{DuplicateTest,PhotoTest,StudentTest}.php`.
+
+**Modified:** `app/Http/Controllers/{Controller,ClientController}.php` (base
+controller now uses `AuthorizesRequests`; destroy + authorize),
+`app/Providers/AppServiceProvider.php` (`Gate::policy`),
+`app/Services/ClientService.php` (`destroy`),
+`resources/views/clients/{index,show}.blade.php` (delete form, Remove
+Duplicates button, photo modal + storage-URL fix),
+`routes/web.php` (public student group + duplicates/photo/destroy routes),
+`tests/Feature/ClientTest.php` (+2 delete tests).
 
 ---
 

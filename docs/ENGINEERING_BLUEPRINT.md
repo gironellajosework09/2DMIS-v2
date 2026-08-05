@@ -392,47 +392,47 @@ Dead files (`default.php`, `client_photo.php`) are deliberately excluded.
 | 10 | `force_logout.php` | `AdminController@forceLogout` | P1 | **Done** (`SessionController@forceLogout` — see IMPLEMENTATION_LOG deviations) |
 | 11 | `currently_logged_users.php` | `SessionController@online` + view | P1 | **Done** |
 | 12 | `fetch_online_users.php` | DataTables route (online) | P1 | **Deferred** (server-rendered table in P1) |
-| 13 | `verify_mobile.php` | `ClientController@verifyMobile` | P2 | Planned |
+| 13 | `verify_mobile.php` | `ClientController@verifyMobile` | P2 | **Done** (`POST clients/verify-mobile`; skipped when no mobile) |
 | 14 | `navbar.php` | Blade layout partial | P1 | **Done** |
 | 15 | `sidebar.php` | Blade component (role-driven) | P1 | **Done** |
 | 16 | `sidebar.css/js` | Tailwind + Vite asset | P1 | **Done** (Bootstrap 5 CDN + inline CSS — see IMPLEMENTATION_LOG deviations) |
 | 17 | `favicon.php` | layout `<link>` | P1 | **Done** (`public/favicon.ico`) |
 | 18 | `index.php` | `DashboardController@index` + view | P1 | **Done** |
-| 19 | `clients.php` | `ClientController@index` + view | P2 | Planned |
-| 20 | `fetch_clients.php` | DataTables route (clients) | P2 | Planned |
-| 21 | `add_client.php` | `ClientController@store` + `ClientService` | P2 | Planned |
-| 22 | `edit_client.php` | `ClientController@edit/update` | P2 | Planned |
-| 23 | `view_client.php` | `ClientController@show` + slide-over panel | P2 | Planned |
-| 24 | `delete_client.php` | `ClientController@destroy` + Policy | P2 | Planned |
-| 25 | `search_clients.php` | `ClientController@search` | P2 | Planned |
-| 26 | `search_clients_hh.php` | `ClientController@searchForHousehold` | P2 | Planned |
-| 27 | `get_client_hh.php` | `ClientController@hhOptions` (JSON) | P2 | Planned |
-| 28 | `preview_duplicates.php` | `DuplicateController@preview` + view | P2 | Planned |
-| 29 | `fetch_duplicates.php` | DataTables route (duplicates) | P2 | Planned |
-| 30 | `delete_duplicates.php` | `DuplicateController@destroyMany` | P2 | Planned |
-| 31 | `save_client_photo.php` | `PhotoController@store` | P2 | Planned |
-| 32 | `student_photo_upload.php` | `StudentController@uploadPhoto` | P2 | Planned |
-| 33 | `student_update_photo.php` | `StudentController@updatePhoto` | P2 | Planned |
-| 34 | `student_verify.php` | `StudentController@verify` | P2 | Planned |
-| 35 | `get_barangays.php` | `GeographyController@barangays` | P2 | Planned |
-| 36 | `household.php` | `HouseholdController@index` + view | P2 | Planned |
-| 37 | `add_household.php` | `HouseholdController@store` | P2 | Planned |
-| 38 | `view_household.php` | `HouseholdController@show` (+ panel) | P2 | Planned |
-| 39 | `delete_household.php` | `HouseholdController@destroy` + Policy | P2 | Planned |
-| 40 | `add_family_member.php` | `FamilyMemberController@store` | P2 | Planned |
-| 41 | `fetch_households.php` | DataTables route (households) | P2 | Planned |
-| 42 | `get_household.php` | `HouseholdController@show` (JSON) | P2 | Planned |
-| 43 | `search_households.php` | `HouseholdController@search` | P2 | Planned |
-| 44 | `all_transactions.php` | `TransactionController@index` + view | P3 | Planned |
-| 45 | `fetch_transactions.php` | DataTables route (transactions) | P3 | Planned |
-| 46 | `add_transaction.php` | `TransactionController@create/store` | P3 | Planned |
-| 47 | `edit_transaction.php` | `TransactionController@edit/update` | P3 | Planned |
-| 48 | `view_transaction.php` | `TransactionController@show` (+ panel) | P3 | Planned |
-| 49 | `delete_transaction.php` | `TransactionController@destroy` + Policy | P3 | Planned |
-| 50 | `update_transaction.php` | merged into edit flow | P3 | Planned |
-| 51 | `all_transaction_edit.php` | `TransactionController@editFromList` | P3 | Planned |
-| 52 | `all_transaction_delete.php` | `TransactionController@destroyFromList` | P3 | Planned |
-| 53 | `transaction_table.php` | Blade partial component | P3 | Planned |
+| 19 | `clients.php` | `ClientController@index` + view | P2 | **Done** |
+| 20 | `fetch_clients.php` | DataTables route (clients) | P2 | **Done** (POST feed in `ClientController@data`) |
+| 21 | `add_client.php` | `ClientController@store` + `ClientService` | P2 | **Done** |
+| 22 | `edit_client.php` | `ClientController@edit/update` | P2 | **Done** |
+| 23 | `view_client.php` | `ClientController@show` + **profile page** | P2 | **Done** (profile page replaces slide-over — see IMPLEMENTATION_LOG deviations) |
+| 24 | `delete_client.php` | `ClientController@destroy` + Policy | P2 | **Done** (`ClientService::destroy` — transaction-guard, family cleanup, `DELETE_CLIENT` audit; `ClientPolicy` page-gated) |
+| 25 | `search_clients.php` | `ClientController@search` | P2 | **Done** (`transactions.clients-search` + household search helpers) |
+| 26 | `search_clients_hh.php` | `HouseholdController@searchClientsForHousehold` | P2 | **Done** |
+| 27 | `get_client_hh.php` | `HouseholdController@clientOptions` (JSON) | P2 | **Done** |
+| 28 | `preview_duplicates.php` | `DuplicateController@preview` + view | P2 | **Done** (page-gated `duplicates.index` — v1 username gate replaced by ACL) |
+| 29 | `fetch_duplicates.php` | DataTables route (duplicates) | P2 | **Done** (POST feed in `DuplicateController@data`) |
+| 30 | `delete_duplicates.php` | `DuplicateController@destroyMany` | P2 | **Done** (per-row audited deletes; guarded rows skipped) |
+| 31 | `save_client_photo.php` | `PhotoController@store` | P2 | **Done** (`PhotoService` — file/camera, JPEG magic check, `uploads/client_photos`) |
+| 32 | `student_photo_upload.php` | `StudentController@uploadPhoto` | P2 | **Done** (public route + session `verified_student` guard) |
+| 33 | `student_update_photo.php` | `StudentController@updatePhoto` | P2 | **Done** (public scholar search) |
+| 34 | `student_verify.php` | `StudentController@verify` | P2 | **Done** (birthdate + mobile match) |
+| 35 | `get_barangays.php` | `GeographyController@barangays` | P2 | **Done** |
+| 36 | `household.php` | `HouseholdController@index` + view | P2 | **Done** |
+| 37 | `add_household.php` | `HouseholdController@store` | P2 | **Done** |
+| 38 | `view_household.php` | `HouseholdController@show` (+ panel) | P2 | **Done** |
+| 39 | `delete_household.php` | `HouseholdController@destroy` + Policy | P2 | **Done** (CSRF-guarded fetch) |
+| 40 | `add_family_member.php` | `FamilyMemberController@store` | P2 | **Done** (unique `(client_id, relative_id)`) |
+| 41 | `fetch_households.php` | DataTables route (households) | P2 | **Done** (POST feed in `HouseholdController@data`) |
+| 42 | `get_household.php` | `HouseholdController@show` (JSON) | P2 | **Done** |
+| 43 | `search_households.php` | `HouseholdController@search` | P2 | **Done** |
+| 44 | `all_transactions.php` | `TransactionController@index` + view | P3 | **Done** |
+| 45 | `fetch_transactions.php` | DataTables route (transactions) | P3 | **Done** (POST feed in `TransactionController@data`) |
+| 46 | `add_transaction.php` | `TransactionController@create/store` | P3 | **Done** |
+| 47 | `edit_transaction.php` | `TransactionController@edit/update` | P3 | **Done** |
+| 48 | `view_transaction.php` | `TransactionController@show` (+ panel) | P3 | **Done** |
+| 49 | `delete_transaction.php` | `TransactionController@destroy` + Policy | P3 | **Done** |
+| 50 | `update_transaction.php` | merged into edit flow | P3 | **Done** (`inlineUpdate` on the list, v1-compatible normalize/date-parse) |
+| 51 | `all_transaction_edit.php` | `TransactionController@editFromList` | P3 | **Done** (inline row Edit/Save/Cancel) |
+| 52 | `all_transaction_delete.php` | `TransactionController@destroyFromList` | P3 | **Done** (inline row Delete) |
+| 53 | `transaction_table.php` | Blade partial component | P3 | **Done** (index view + partial — same contract) |
 | 54 | `scanner_ceap(.php/_action.php)` | Scanner engine config entry + routes | P4 | Planned |
 | 55 | `scanner_ceap_new` | config entry | P4 | Planned |
 | 56 | `scanner_cedssg` | config entry | P4 | Planned |

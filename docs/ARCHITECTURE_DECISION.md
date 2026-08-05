@@ -110,7 +110,17 @@ status JSON ported. 6 auth tests green.
 cached permissions) + `AuthorizePage` middleware (`page:<v1_page_name>`) +
 `page`/`program` Gates. Super-admin is a `tbl_permissions` row with
 `page_name = '*'` — no hard-coded usernames, no `user_id = 1`. 7 ACL tests
-green. Permission screens (P7) will build on the same service.
+green. Permission screens (P7) will build on the same service. ✅ Extended in
+P2: the client registry routes sit behind `page:clients.php` + `single-device`
+(7 ClientTest gate tests green). ✅ Extended in P2/P3: households behind
+`page:household.php`, all 13 transaction routes behind
+`page:all_transactions.php` (v1's list permission key), `authorizeProgram()`
+gates programs (empty `tbl_program_permissions` = unrestricted, matching v1).
+✅ P2 completion: `ClientPolicy` (delete gate on `page:clients.php`,
+`Gate::policy` in `AppServiceProvider`), duplicate pages gated on
+`page:clients.php` — replacing v1's hard-coded `super_admin`/`jordi`
+username gate — student self-service routes intentionally public (v1 had no
+auth; ADR-003 only covers app-authenticated surfaces).
 
 **Context**
 - v1 has **two** conflicting models: `tbl_permissions`/`tbl_program_permissions`
@@ -204,7 +214,14 @@ contract and CSV-with-BOM export behavior are retained conceptually.
 5 (CDN) + inline CSS**, not Tailwind/Vite — no Node toolchain is installed and
 Bootstrap is what staff already know. Recorded in `IMPLEMENTATION_LOG.md`
 "Deviations from the blueprint". The slide-over panel (AD-10) is still planned
-for P2.
+for P2. ✅ P2 clients list follows the same deviation: Bootstrap + DataTables
+1.13.6 (CDN), server-side POST feed (`clients/data`). ✅ P2 households and
+✅ P3 transactions lists follow the same deviation (Bootstrap + DataTables
+1.13.6, POST feeds `households/data` and `transactions/data`). ✅ P2
+completion: the slide-over was replaced by the **client profile page**
+(`clients/show.blade.php`), which now also hosts the delete action and the
+photo-upload modal; the duplicates page (`duplicates/index.blade.php`) and
+student screens (`students/*`) follow the same Bootstrap stack.
 
 **Original decision (retained as history):**
 
@@ -257,8 +274,14 @@ for P2.
 
 **Implementation:** ✅ `AuditService::log()` (v1 `tbl_audit_logs` field
 contract) built in P1 and called from auth/session flows
-(`LOGIN`/`LOGOUT`/`FORCE_LOGOUT`). Framework events/observers are deferred to
-P2, when domain writes (clients, transactions) exist to observe.
+(`LOGIN`/`LOGOUT`/`FORCE_LOGOUT`). ✅ Called from P2/P3 domain writes:
+`ADD_CLIENT`/`EDIT_CLIENT`/`ADD_HOUSEHOLD`/`DELETE_HOUSEHOLD`/
+`ADD_FAMILY_MEMBER`/`DELETE_FAMILY_MEMBER`/`ADD_TRANSACTION`/
+`EDIT_TRANSACTION`/`DELETE_TRANSACTION` with `old_value`/`new_value` JSON.
+✅ P2 completion: `DELETE_CLIENT` audits per deleted row (single-client delete
+and each row of a duplicate-batch delete), `old_value` = the client row as
+JSON.
+Framework events/observers remain deferred until P7.
 
 **Context**
 - v1 audits every mutation to `tbl_audit_logs` (+ `tbl_update_logs`,
@@ -281,6 +304,12 @@ P2, when domain writes (clients, transactions) exist to observe.
 ## ADR-009 — Reporting & exports
 
 **Status:** Proposed.
+
+**Implementation:** ✅ P3 transaction CSV exports ported with the v1
+contract: UTF-8 BOM + `number_format(…,2)` amounts + `m/d/Y` dates; four
+`export_mode` variants (standard/custom/custom2/gip) streamed via
+`streamDownload` from `TransactionController@export`. 1 export test green.
+Report queries remain for P6.
 
 **Context**
 - v1 reports are server-rendered queries with CSV export (`../v1/SYSTEM_DESIGN.md`
