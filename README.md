@@ -1,66 +1,146 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 2DMIS v2 — Laravel rewrite of the municipal assistance MIS
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 rewrite of the legacy plain-PHP municipal assistance system
+("2D MIS", Ilocos Sur). The v1 codebase lives read-only at
+`C:\xampp\htdocs\system` (~115 PHP files, no framework).
 
-## About Laravel
+The production MySQL database (`main_system`) must remain byte-identical to
+v1 — this project only adds application code around it. **Never** run
+`migrate:fresh` or `db:wipe`; all schema changes are additive and reviewed.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Full roadmap: `docs/ENGINEERING_BLUEPRINT.md` (mirror in
+`C:\xampp\htdocs\system\doc\v2`).
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+**Every change made to this project is documented** in
+`docs/IMPLEMENTATION_LOG.md` — a running record of what was built, file
+inventory, verification results, and deviations from the blueprint. Append to
+it on every update, and keep the status tables in `docs/README.md`,
+`ENGINEERING_BLUEPRINT.md` §8, `ARCHITECTURE_DECISION.md`, `MIGRATION_PLAN.md`
+§4, and `MIGRATION_PLANNING.md` §6 in sync.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Stack
 
-## Learning Laravel
+- Laravel 12.x on PHP 8.2.12 (XAMPP CLI); production targets PHP 8.3+
+- MySQL `127.0.0.1:3306`, database `main_system`, user `root`, empty password (local only)
+- Session/cache/queue on `file`/`file`/`sync`
+- XAMPP MySQL must be running (see "MySQL not running" below)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+## Local setup
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+1. XAMPP Apache + MySQL running (`http://localhost` works).
+2. Copy `.env.example` to `.env` and confirm the DB block
+   (`main_system` / `root` / empty password).
+3. Build the schema — pick the path that matches the DB you are on:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+   **Fresh / empty database** (CI, new staging): `migrate` auto-loads
+   `database/schema/mysql-schema.sql` (fully fixed schema, no legacy rows) and
+   records all migrations itself:
+   ```pwsh
+   $env:PATH = "C:\xampp\mysql\bin;" + $env:PATH
+   php artisan migrate
+   php artisan db:seed
+   ```
 
-## Laravel Sponsors
+   **Database that must keep its rows** (local `main_system` copy, production
+   restore): Laravel loads the schema dump — which starts with
+   `DROP TABLE IF EXISTS` for every table — whenever *no migrations have been
+   recorded yet*, so a plain `migrate` wipes all rows. Mark a baseline record
+   first so the dump is skipped and the additive migrations run on top:
+   ```pwsh
+   php artisan migrate:install
+   & "C:\xampp\mysql\bin\mysql.exe" -u root main_system -e "INSERT INTO migrations (migration, batch) VALUES ('__legacy_v1_baseline_schema__', 1);"
+   php artisan migrate
+   ```
+   Back up before any schema work:
+   `& "C:\xampp\mysql\bin\mysqldump.exe" -u root main_system > backup.sql`.
+4. Link uploads storage:
+   ```pwsh
+   php artisan storage:link
+   ```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Schema fixes (additive, applied by migrations)
 
-### Premium Partners
+The six `2026_08_05_*` migrations fix v1 schema abnormalities without touching
+legacy rows; on a data-bearing DB they run only after the baseline record above
+exists. Summary:
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+| Migration | Change |
+|---|---|
+| `drop_redundant_indexes` | Removes duplicate indexes (e.g. `tbl_household.household_id_2`, `tbl_transactions.t_*`, `tbl_payout_scans.ps_*`, `tbl_users.u_un`) |
+| `add_primary_keys_to_legacy_tables` | Gives `gender`, `tbl_absent`, `tbl_kababaihan`, `tbl_details`, `temp_details` auto-increment PKs |
+| `make_clients_email_nullable` | Relaxes `tbl_clients.email` to allow NULL |
+| `add_unique_permission_constraints` | UNIQUE on `tbl_permissions(user_id,page_name)` and `tbl_program_permissions(user_id,program_name)` |
+| `unify_table_collations` | Converts the 5 `utf8mb4_general_ci` tables to `utf8mb4_unicode_ci` |
+| `add_payout_scan_foreign_keys` | FKs from `tbl_payout_scans2`/`tbl_payout_scans_unpaid` to `tbl_transactions`/`tbl_users` |
 
-## Contributing
+The four conditional ones (`add_primary_keys_to_legacy_tables`,
+`add_unique_permission_constraints`, `add_payout_scan_foreign_keys`,
+`make_clients_email_nullable`'s revert) skip with a warning — never corrupt —
+if the data isn't consistent (duplicates/orphans), so they can be applied to a
+copy of production safely.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Preview / run
 
-## Code of Conduct
+- Dev server: `php artisan serve` → http://127.0.0.1:8000
+- XAMPP Apache: http://localhost/2dmis-v2/public
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Assets
 
-## Security Vulnerabilities
+Static (tracked in git):
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+| Source (v1, read-only) | Target (v2) |
+|---|---|
+| `system\seal_logo.png` | `public\seal_logo.png` |
+| `system\sounds\*.mp3` | `public\sounds\` |
 
-## License
+Uploads (untracked, user data; copied into local storage):
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Source (v1, read-only) | Target (v2) |
+|---|---|
+| `system\uploads\client_photos\` | `storage\app\public\uploads\client_photos\` |
+| `system\uploads\profile_photos\` | `storage\app\public\uploads\profile_photos\` |
+
+Served at `/storage/uploads/...` via `public\storage` (symlink). Re-run
+`php artisan storage:link` after a fresh clone; the photos themselves are not
+in git.
+
+## Commands
+
+- `php artisan serve` — dev server at http://127.0.0.1:8000
+- `php artisan test` — PHPUnit suite
+- `vendor\bin\pint` — code style (run before finishing changes)
+- `php artisan schema:dump` — regenerate baseline (needs `C:\xampp\mysql\bin` on PATH for mysqldump)
+
+## Gotchas
+
+- `php artisan schema:dump` fails with "mysqldump is not recognized" unless
+  `C:\xampp\mysql\bin` is on PATH for the process. It also prints a harmless
+  `mysqldump: unknown variable 'column-statistics=0'` warning under MariaDB.
+- `php artisan test` needs `C:\xampp\mysql\bin` on PATH too: RefreshDatabase
+  reloads `database/schema/mysql-schema.sql` through the `mysql` client and
+  otherwise fails with `ProcessFailedException`. Prefix commands with
+  `$env:PATH = "C:\xampp\mysql\bin;" + $env:PATH` (also handles migrate/db:seed
+  when mysqldump/mysql aren't on PATH).
+- MySQL not running? Start it:
+  ```pwsh
+  Start-Process "C:\xampp\mysql\bin\mysqld.exe" -ArgumentList "--defaults-file=C:\xampp\mysql\bin\my.ini"
+  ```
+- PHP prints a harmless "Module openssl is already loaded" warning on every
+  run (duplicate line in `C:\xampp\php\php.ini`).
+
+## Current milestone
+
+**P2 — Clients** next (see `docs/ENGINEERING_BLUEPRINT.md` §5 for the phase
+deliverables).
+
+Done so far:
+- Planning + P0 bootstrap (assets, storage, CI, baseline diff verification).
+- Six additive schema-fix migrations (see above) applied to the local DB with
+  sample data intact.
+- **P1 — Auth + RBAC**: username login on `tbl_users`, single-device
+  `session_token` middleware (ADR-002), one ACL service + page/program Gates
+  (ADR-003), permission seeding, login/logout/force-logout, session-status and
+  online-users routes, Blade layout/sidebar, audit writes to `tbl_audit_logs`.
+  All checks go through the ACL service — no hard-coded usernames or
+  `user_id = 1`. `db:seed` grants the local `jordi` account full access via a
+  `tbl_permissions` row (`page_name = '*'`), not a magic id.
