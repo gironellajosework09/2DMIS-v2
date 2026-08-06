@@ -252,12 +252,14 @@
                 <button type="button" class="btn btn-outline btn-xs" data-sim="Viewing all transactions" onclick="showPage('transactions')">View All</button>
               </div>
             </div>
-            <table class="data-table">
-              <thead>
-                <tr><th>Client</th><th>Program</th><th>Amount</th><th>Status</th></tr>
-              </thead>
-              <tbody id="recentTxBody"></tbody>
-            </table>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr><th>Client</th><th>Program</th><th>Amount</th><th>Status</th></tr>
+                </thead>
+                <tbody id="recentTxBody"></tbody>
+              </table>
+            </div>
           </div>
 
           <div class="data-card">
@@ -408,20 +410,22 @@
               <input type="search" id="clientsSearch" placeholder="Search name, ID, barangay..." aria-label="Search clients">
             </div>
           </div>
-          <table class="data-table" data-table="clients">
-            <thead>
-              <tr>
-                <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
-                <th class="sortable" data-sort="municipality">Municipality <span class="sort-ind" aria-hidden="true">↕</span></th>
-                <th class="sortable" data-sort="barangay">Barangay <span class="sort-ind" aria-hidden="true">↕</span></th>
-                <th>Category</th>
-                <th>Mobile</th>
-                <th>Status</th>
-                <th class="chevron-cell" aria-hidden="true"></th>
-              </tr>
-            </thead>
-            <tbody id="clientsBody"></tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="data-table" data-table="clients">
+              <thead>
+                <tr>
+                  <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th class="sortable" data-sort="municipality">Municipality <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th class="sortable" data-sort="barangay">Barangay <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th>Category</th>
+                  <th>Mobile</th>
+                  <th>Status</th>
+                  <th class="chevron-cell" aria-hidden="true"></th>
+                </tr>
+              </thead>
+              <tbody id="clientsBody"></tbody>
+            </table>
+          </div>
           <div class="data-card-footer">
             <span id="clientsCount">Showing 0 of 0 clients</span>
             <div class="pagination" id="clientsPager"></div>
@@ -451,10 +455,12 @@
               <input type="search" id="householdsSearch" placeholder="Search household code, head, barangay..." aria-label="Search households">
             </div>
           </div>
-          <table class="data-table">
-            <thead><tr><th>Household Code</th><th>Head of Household</th><th>Members</th><th>Barangay</th><th>Municipality</th><th class="actions-col">Actions</th><th class="chevron-cell" aria-hidden="true"></th></tr></thead>
-            <tbody id="householdsBody"></tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead><tr><th>Household Code</th><th>Head of Household</th><th>Members</th><th>Barangay</th><th>Municipality</th><th class="actions-col">Actions</th><th class="chevron-cell" aria-hidden="true"></th></tr></thead>
+              <tbody id="householdsBody"></tbody>
+            </table>
+          </div>
           <div class="data-card-footer">
             <span id="householdsCount">Showing 0 of 0 households</span>
             <div class="pagination" id="householdsPager"></div>
@@ -494,22 +500,24 @@
               <button type="button" class="filter-chip" data-filter="transactions" data-value="AKAP">AKAP</button>
             </div>
           </div>
-          <table class="data-table" data-table="transactions">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
-                <th>Program</th>
-                <th>Type</th>
-                <th class="sortable" data-sort="date">Date Applied <span class="sort-ind" aria-hidden="true">↕</span></th>
-                <th class="sortable" data-sort="amount">Amount <span class="sort-ind" aria-hidden="true">↕</span></th>
-                <th>Status</th>
-                <th class="actions-col">Actions</th>
-                <th class="chevron-cell" aria-hidden="true"></th>
-              </tr>
-            </thead>
-            <tbody id="transactionsBody"></tbody>
-          </table>
+          <div class="table-scroll">
+            <table class="data-table" data-table="transactions">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th>Program</th>
+                  <th>Type</th>
+                  <th class="sortable" data-sort="date">Date Applied <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th class="sortable" data-sort="amount">Amount <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th>Status</th>
+                  <th class="actions-col">Actions</th>
+                  <th class="chevron-cell" aria-hidden="true"></th>
+                </tr>
+              </thead>
+              <tbody id="transactionsBody"></tbody>
+            </table>
+          </div>
           <div class="data-card-footer">
             <span id="transactionsCount">Showing 0 of 0 transactions</span>
             <div class="pagination" id="transactionsPager"></div>
