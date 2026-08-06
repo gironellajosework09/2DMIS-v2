@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2DMIS v2 — Municipal Assistance MIS Prototype</title>
+<meta name="description" content="2nd District Municipal Information System — Assistance Management Prototype">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+<a class="skip-link" href="#mainContent">Skip to main content</a>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LOGIN PAGE
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="login-page active" id="loginPage">
+  <div class="login-bg-pattern"></div>
+  <div class="login-card">
+    <div class="login-header">
+      <div class="login-seal"><img src="../public/seal_logo.png" alt="2DMIS Seal"></div>
+      <h1>2DMIS — Municipal Assistance</h1>
+      <p>2nd District Management Information System</p>
+    </div>
+    <div class="login-body">
+      <form id="loginForm">
+        <div class="form-group">
+          <label class="form-label" for="loginUser">Username</label>
+          <input type="text" class="form-input" id="loginUser" placeholder="Enter your username" value="jordi" autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="loginPass">Password</label>
+          <input type="password" class="form-input" id="loginPass" placeholder="Enter your password" value="••••••••" autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3"/></svg>
+          Sign In
+        </button>
+        <div style="text-align: center; margin-top: 16px; font-size: 0.75rem; color: var(--text-muted);">
+          Single-device session enforcement active
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     APP SHELL (Sidebar + Main)
+     ═══════════════════════════════════════════════════════════════ -->
+<div class="app-shell" id="appShell">
+
+  <!-- Mobile sidebar backdrop -->
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar" aria-label="Primary">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-seal"><img src="../public/seal_logo.png" alt="2DMIS Seal"></div>
+      <div class="sidebar-brand-text">
+        <h2>2DMIS</h2>
+        <span>Municipal Assistance</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Main navigation">
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Overview</div>
+        <button type="button" class="sidebar-link active" data-page="dashboard">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          Dashboard
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Registry</div>
+        <button type="button" class="sidebar-link" data-page="clients">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          Clients
+          <span class="badge" id="sidebarClientsBadge">25</span>
+        </button>
+        <button type="button" class="sidebar-link" data-page="households">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Households
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Assistance</div>
+        <button type="button" class="sidebar-link" data-page="transactions">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Transactions
+          <span class="badge" id="sidebarTxBadge">20</span>
+        </button>
+        <button type="button" class="sidebar-link" data-page="scanner">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+          Scanner Engine
+        </button>
+        <button type="button" class="sidebar-link" data-page="payouts">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          Payouts
+        </button>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-section-label">Administration</div>
+        <button type="button" class="sidebar-link" data-page="users">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Access Control
+        </button>
+        <button type="button" class="sidebar-link" data-page="audit">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Audit Logs
+        </button>
+      </div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="sidebar-avatar" aria-hidden="true">JA</div>
+        <div class="sidebar-user-info">
+          <h4>Jordi Admin</h4>
+          <span>Super Admin</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content" id="mainContent">
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="btn btn-icon topbar-hamburger" id="sidebarToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="topbar-breadcrumb">
+          2DMIS &rsaquo; <span id="breadcrumbPage">Dashboard</span>
+        </div>
+      </div>
+      <div class="topbar-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="search" id="globalSearch" placeholder="Search clients, transactions, programs..." aria-label="Search the client registry">
+      </div>
+      <div class="topbar-right">
+        <button type="button" class="btn btn-icon notif-btn" id="notifBtn" aria-label="Notifications" aria-expanded="false" aria-haspopup="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span class="notif-dot" id="notifDot" hidden>3</span>
+        </button>
+        <div class="notif-menu" id="notifMenu" role="region" aria-label="Notifications panel">
+          <div class="notif-menu-header">
+            <span>Notifications</span>
+            <button type="button" id="notifMarkAll">Mark all read</button>
+          </div>
+          <div id="notifList"></div>
+          <div class="notif-menu-footer">View all notifications</div>
+        </div>
+        <div class="topbar-indicator">
+          <span class="dot"></span>
+          Online &middot; Single Device
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" id="logoutBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Logout
+        </button>
+      </div>
+    </header>
+
+    <div class="page-container">
+
+      <!-- ════════ DASHBOARD ════════ -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-header">
+          <div>
+            <h1>Dashboard</h1>
+            <p>Municipal Assistance Overview — Ilocos Sur, 2nd District</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" class="btn btn-outline btn-sm" data-sim="Export started (mock)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export
+            </button>
+            <button type="button" class="btn btn-gold btn-sm" data-add-tx>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              New Transaction
+            </button>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card navy">
+            <div class="metric-top">
+              <div class="metric-icon navy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+              <span class="metric-trend up">&#9650; 12%</span>
+            </div>
+            <div class="metric-value" id="metricClients">1,247</div>
+            <div class="metric-label">Total Registered Clients</div>
+          </div>
+          <div class="metric-card gold">
+            <div class="metric-top">
+              <div class="metric-icon gold"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+              <span class="metric-trend up">&#9650; 8%</span>
+            </div>
+            <div class="metric-value" id="metricTx">3,582</div>
+            <div class="metric-label">Assistance Transactions</div>
+          </div>
+          <div class="metric-card teal">
+            <div class="metric-top">
+              <div class="metric-icon teal"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+              <span class="metric-trend up">&#9650; 15%</span>
+            </div>
+            <div class="metric-value" id="metricDisbursed">₱2.4M</div>
+            <div class="metric-label">Total Amount Disbursed</div>
+          </div>
+          <div class="metric-card red">
+            <div class="metric-top">
+              <div class="metric-icon red"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <span class="metric-trend down">&#9660; 3%</span>
+            </div>
+            <div class="metric-value" id="metricPending">142</div>
+            <div class="metric-label">Pending Approvals</div>
+          </div>
+        </div>
+
+        <div class="quick-actions" aria-label="Quick actions">
+          <button type="button" class="quick-action" data-add-client>
+            <span class="qa-icon navy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></span>
+            Add Client
+          </button>
+          <button type="button" class="quick-action" data-add-tx>
+            <span class="qa-icon gold"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+            New Transaction
+          </button>
+          <button type="button" class="quick-action" data-add-hh>
+            <span class="qa-icon teal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+            Register Household
+          </button>
+          <button type="button" class="quick-action" data-sim="Launching scanner" onclick="showPage('scanner')">
+            <span class="qa-icon red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
+            Scan QR
+          </button>
+        </div>
+
+        <div class="grid-2">
+          <div class="data-card">
+            <div class="data-card-header">
+              <h3>Recent Transactions</h3>
+              <div class="data-card-toolbar">
+                <button type="button" class="btn btn-outline btn-xs" data-sim="Viewing all transactions" onclick="showPage('transactions')">View All</button>
+              </div>
+            </div>
+            <table class="data-table">
+              <thead>
+                <tr><th>Client</th><th>Program</th><th>Amount</th><th>Status</th></tr>
+              </thead>
+              <tbody id="recentTxBody"></tbody>
+            </table>
+          </div>
+
+          <div class="data-card">
+            <div class="data-card-header">
+              <h3>Program Distribution</h3>
+            </div>
+            <div style="padding: 24px;">
+              <div style="margin-bottom: 18px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.82rem;">
+                  <span style="font-weight:600;">AICS</span>
+                  <span style="color:var(--text-muted)">1,240 transactions</span>
+                </div>
+                <div style="height:8px; background:var(--bg-alt); border-radius:99px; overflow:hidden;">
+                  <div style="height:100%; width:72%; background:linear-gradient(90deg, var(--navy), var(--navy-light)); border-radius:99px;"></div>
+                </div>
+              </div>
+              <div style="margin-bottom: 18px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.82rem;">
+                  <span style="font-weight:600;">TUPAD</span>
+                  <span style="color:var(--text-muted)">856 transactions</span>
+                </div>
+                <div style="height:8px; background:var(--bg-alt); border-radius:99px; overflow:hidden;">
+                  <div style="height:100%; width:54%; background:linear-gradient(90deg, var(--gold), var(--gold-light)); border-radius:99px;"></div>
+                </div>
+              </div>
+              <div style="margin-bottom: 18px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.82rem;">
+                  <span style="font-weight:600;">CEAP</span>
+                  <span style="color:var(--text-muted)">523 transactions</span>
+                </div>
+                <div style="height:8px; background:var(--bg-alt); border-radius:99px; overflow:hidden;">
+                  <div style="height:100%; width:38%; background:linear-gradient(90deg, var(--teal), var(--teal-light)); border-radius:99px;"></div>
+                </div>
+              </div>
+              <div style="margin-bottom: 18px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.82rem;">
+                  <span style="font-weight:600;">MAIP</span>
+                  <span style="color:var(--text-muted)">412 transactions</span>
+                </div>
+                <div style="height:8px; background:var(--bg-alt); border-radius:99px; overflow:hidden;">
+                  <div style="height:100%; width:30%; background:linear-gradient(90deg, var(--blue-accent), #60a5fa); border-radius:99px;"></div>
+                </div>
+              </div>
+              <div style="margin-bottom: 18px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.82rem;">
+                  <span style="font-weight:600;">GIP</span>
+                  <span style="color:var(--text-muted)">298 transactions</span>
+                </div>
+                <div style="height:8px; background:var(--bg-alt); border-radius:99px; overflow:hidden;">
+                  <div style="height:100%; width:22%; background:linear-gradient(90deg, var(--amber), #f5c462); border-radius:99px;"></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:6px; font-size:0.82rem;">
+                  <span style="font-weight:600;">Others (TODA, OTEA, OTCES, CEDSSG)</span>
+                  <span style="color:var(--text-muted)">253 transactions</span>
+                </div>
+                <div style="height:8px; background:var(--bg-alt); border-radius:99px; overflow:hidden;">
+                  <div style="height:100%; width:16%; background:linear-gradient(90deg, var(--red), var(--red-light)); border-radius:99px;"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-3" style="margin-top:24px;">
+          <div class="data-card">
+            <div class="data-card-header">
+              <h3>Announcements</h3>
+            </div>
+            <div class="announcement">
+              <div class="announcement-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg></div>
+              <div class="announcement-body">
+                <h4>Payout schedule for August</h4>
+                <p>AICS batch #12 payout will be released on August 18 at the district office.</p>
+                <time>August 4, 2026</time>
+              </div>
+            </div>
+            <div class="announcement">
+              <div class="announcement-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+              <div class="announcement-body">
+                <h4>Registration drive in Candon City</h4>
+                <p>Barangay captains are encouraged to submit their senior citizen lists by Friday.</p>
+                <time>August 2, 2026</time>
+              </div>
+            </div>
+          </div>
+
+          <div class="data-card">
+            <div class="data-card-header">
+              <h3>Activity Calendar</h3>
+            </div>
+            <div class="calendar-widget">
+              <div class="calendar-header">
+                <h4 id="calendarTitle">August 2026</h4>
+                <div class="calendar-nav">
+                  <button type="button" id="calPrev" aria-label="Previous month">&lsaquo;</button>
+                  <button type="button" id="calNext" aria-label="Next month">&rsaquo;</button>
+                </div>
+              </div>
+              <div class="calendar-grid" id="calendarGrid"></div>
+              <div class="calendar-legend">
+                <span class="lg"><i class="ev"></i> Scheduled activity</span>
+                <span class="lg"><i class="td"></i> Today</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="data-card">
+            <div class="data-card-header">
+              <h3>Recent Activity</h3>
+            </div>
+            <div id="activityList"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ CLIENTS ════════ -->
+      <div class="page" id="page-clients">
+        <div class="page-header">
+          <div>
+            <h1>Client Registry</h1>
+            <p>Click any row to open the resident details panel</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" class="btn btn-outline btn-sm" data-sim="Export CSV started (mock)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export CSV
+            </button>
+            <button type="button" class="btn btn-gold btn-sm" data-add-client>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Add Client
+            </button>
+          </div>
+        </div>
+
+        <div class="data-card">
+          <div class="table-toolbar" data-filter-group="clients">
+            <div class="filter-group">
+              <button type="button" class="filter-chip active" data-filter="clients" data-value="all">All Clients</button>
+              <button type="button" class="filter-chip" data-filter="clients" data-value="muni:Candon City">Candon City</button>
+              <button type="button" class="filter-chip" data-filter="clients" data-value="cat:Senior (60+)">Senior Citizens</button>
+              <button type="button" class="filter-chip" data-filter="clients" data-value="cat:PWD">PWD</button>
+              <button type="button" class="filter-chip" data-filter="clients" data-value="cat:Adult (30-59)">Adults</button>
+            </div>
+            <div class="table-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="clientsSearch" placeholder="Search name, ID, barangay..." aria-label="Search clients">
+            </div>
+          </div>
+          <table class="data-table" data-table="clients">
+            <thead>
+              <tr>
+                <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
+                <th class="sortable" data-sort="municipality">Municipality <span class="sort-ind" aria-hidden="true">↕</span></th>
+                <th class="sortable" data-sort="barangay">Barangay <span class="sort-ind" aria-hidden="true">↕</span></th>
+                <th>Category</th>
+                <th>Mobile</th>
+                <th>Status</th>
+                <th class="chevron-cell" aria-hidden="true"></th>
+              </tr>
+            </thead>
+            <tbody id="clientsBody"></tbody>
+          </table>
+          <div class="data-card-footer">
+            <span id="clientsCount">Showing 0 of 0 clients</span>
+            <div class="pagination" id="clientsPager"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ HOUSEHOLDS ════════ -->
+      <div class="page" id="page-households">
+        <div class="page-header">
+          <div>
+            <h1>Households</h1>
+            <p>Household registry and family member management</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" class="btn btn-gold btn-sm" data-add-hh>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Register Household
+            </button>
+          </div>
+        </div>
+        <div class="data-card">
+          <div class="table-toolbar">
+            <div class="filter-group"></div>
+            <div class="table-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="householdsSearch" placeholder="Search household code, head, barangay..." aria-label="Search households">
+            </div>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Household Code</th><th>Head of Household</th><th>Members</th><th>Barangay</th><th>Municipality</th><th class="actions-col">Actions</th><th class="chevron-cell" aria-hidden="true"></th></tr></thead>
+            <tbody id="householdsBody"></tbody>
+          </table>
+          <div class="data-card-footer">
+            <span id="householdsCount">Showing 0 of 0 households</span>
+            <div class="pagination" id="householdsPager"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ TRANSACTIONS ════════ -->
+      <div class="page" id="page-transactions">
+        <div class="page-header">
+          <div>
+            <h1>All Transactions</h1>
+            <p>Assistance transactions across all 17 programs</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" class="btn btn-outline btn-sm" data-sim="Export CSV started (mock)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export CSV
+            </button>
+            <button type="button" class="btn btn-gold btn-sm" data-add-tx>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              New Transaction
+            </button>
+          </div>
+        </div>
+        <div class="data-card">
+          <div class="data-card-header" data-filter-group="transactions">
+            <div class="data-card-toolbar">
+              <button type="button" class="filter-chip active" data-filter="transactions" data-value="all">All Programs</button>
+              <button type="button" class="filter-chip" data-filter="transactions" data-value="AICS">AICS</button>
+              <button type="button" class="filter-chip" data-filter="transactions" data-value="TUPAD">TUPAD</button>
+              <button type="button" class="filter-chip" data-filter="transactions" data-value="CEAP">CEAP</button>
+              <button type="button" class="filter-chip" data-filter="transactions" data-value="MAIP">MAIP</button>
+              <button type="button" class="filter-chip" data-filter="transactions" data-value="GIP">GIP</button>
+              <button type="button" class="filter-chip" data-filter="transactions" data-value="TODA">TODA</button>
+              <button type="button" class="filter-chip" data-filter="transactions" data-value="OTEA">OTEA</button>
+              <button type="button" class="filter-chip" data-filter="transactions" data-value="AKAP">AKAP</button>
+            </div>
+          </div>
+          <table class="data-table" data-table="transactions">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
+                <th>Program</th>
+                <th>Type</th>
+                <th class="sortable" data-sort="date">Date Applied <span class="sort-ind" aria-hidden="true">↕</span></th>
+                <th class="sortable" data-sort="amount">Amount <span class="sort-ind" aria-hidden="true">↕</span></th>
+                <th>Status</th>
+                <th class="actions-col">Actions</th>
+                <th class="chevron-cell" aria-hidden="true"></th>
+              </tr>
+            </thead>
+            <tbody id="transactionsBody"></tbody>
+          </table>
+          <div class="data-card-footer">
+            <span id="transactionsCount">Showing 0 of 0 transactions</span>
+            <div class="pagination" id="transactionsPager"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ SCANNER ENGINE ════════ -->
+      <div class="page" id="page-scanner">
+        <div class="page-header">
+          <div>
+            <h1>Scanner Engine</h1>
+            <p>QR / Barcode scan-to-validate for payout processing</p>
+          </div>
+          <div class="page-actions">
+            <div class="data-card-toolbar" data-filter-group="scanner">
+              <button type="button" class="filter-chip active" data-filter="scanner" data-value="AICS">AICS</button>
+              <button type="button" class="filter-chip" data-filter="scanner" data-value="TUPAD">TUPAD</button>
+              <button type="button" class="filter-chip" data-filter="scanner" data-value="CEAP">CEAP</button>
+              <button type="button" class="filter-chip" data-filter="scanner" data-value="GIP">GIP</button>
+            </div>
+          </div>
+        </div>
+        <div class="scanner-layout">
+          <div class="scanner-viewport">
+            <div class="scanner-frame">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            </div>
+            <div class="scanner-label">Position QR code within the frame to scan</div>
+            <div class="scanner-sim">
+              <button type="button" id="scanSimulate">Simulate scan (mock)</button>
+            </div>
+          </div>
+          <div class="scanner-result-card">
+            <div class="scanner-result-header">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" aria-hidden="true"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <h3>Scan Result</h3>
+            </div>
+            <div id="scannerResult">
+              <div class="scanner-result-placeholder">Run a simulated scan to preview the validated result.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ PAYOUTS (Placeholder) ════════ -->
+      <div class="page" id="page-payouts">
+        <div class="page-header"><div><h1>Payouts</h1><p>Payout attendance and unpaid grantee tracking (P5)</p></div></div>
+        <div class="data-card" style="padding:48px;text-align:center;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" aria-hidden="true" style="margin:0 auto 16px;display:block;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <h3 style="color:var(--text-secondary);margin-bottom:4px;">Coming Soon — P5 Milestone</h3>
+          <p style="color:var(--text-muted);font-size:0.85rem;">Payout attendance tracking and unpaid grantee management will be implemented next.</p>
+        </div>
+      </div>
+
+      <!-- ════════ ACCESS CONTROL (Placeholder) ════════ -->
+      <div class="page" id="page-users">
+        <div class="page-header"><div><h1>Access Control</h1><p>User management, page permissions, and program access</p></div></div>
+        <div class="data-card" style="padding:48px;text-align:center;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" aria-hidden="true" style="margin:0 auto 16px;display:block;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <h3 style="color:var(--text-secondary);margin-bottom:4px;">Administration — P7 Milestone</h3>
+          <p style="color:var(--text-muted);font-size:0.85rem;">User registration, permission grants, and multi-device exemptions.</p>
+        </div>
+      </div>
+
+      <!-- ════════ AUDIT LOGS (Placeholder) ════════ -->
+      <div class="page" id="page-audit">
+        <div class="page-header"><div><h1>Audit Logs</h1><p>Activity log and system audit trail</p></div></div>
+        <div class="data-card" style="padding:48px;text-align:center;">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" aria-hidden="true" style="margin:0 auto 16px;display:block;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          <h3 style="color:var(--text-secondary);margin-bottom:4px;">Audit Trail — P7 Milestone</h3>
+          <p style="color:var(--text-muted);font-size:0.85rem;">Full audit log with user attribution and operation tracking.</p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     RESIDENT DETAILS SLIDE-IN PANEL
+     ═══════════════════════════════════════════════════════════════ -->
+<aside class="details-panel" id="detailsPanel" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="detailsPanelTitle">
+  <div class="details-header" id="detailsHeader"></div>
+  <div class="details-actions" id="detailsActions"></div>
+  <div class="details-body" id="detailsBody"></div>
+</aside>
+
+<button type="button" class="details-backdrop" id="detailsBackdrop" aria-label="Close details panel" tabindex="-1"></button>
+
+<div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+<script src="js/app.js"></script>
+
+</body>
+</html>

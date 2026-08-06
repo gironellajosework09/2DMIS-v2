@@ -218,10 +218,13 @@ for P2. ✅ P2 clients list follows the same deviation: Bootstrap + DataTables
 1.13.6 (CDN), server-side POST feed (`clients/data`). ✅ P2 households and
 ✅ P3 transactions lists follow the same deviation (Bootstrap + DataTables
 1.13.6, POST feeds `households/data` and `transactions/data`). ✅ P2
-completion: the slide-over was replaced by the **client profile page**
-(`clients/show.blade.php`), which now also hosts the delete action and the
-photo-upload modal; the duplicates page (`duplicates/index.blade.php`) and
-student screens (`students/*`) follow the same Bootstrap stack.
+completion: the client detail surface moved into a **right-side slide-over
+panel** (Bootstrap Offcanvas, `clients/_details` shared partial) opened by row
+click / the "View" button — blueprint AD-10's slide-over is now primary; the
+dedicated page (`clients/show.blade.php`) remains as a deep link and also
+hosts the delete action and the photo-upload modal. The duplicates page
+(`duplicates/index.blade.php`) and student screens (`students/*`) follow the
+same Bootstrap stack.
 
 **Original decision (retained as history):**
 

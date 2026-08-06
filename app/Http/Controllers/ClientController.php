@@ -12,6 +12,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 class ClientController extends Controller
 {
@@ -79,7 +80,7 @@ class ClientController extends Controller
             ->with('success', 'Client deleted successfully.');
     }
 
-    public function show(Client $client): View
+    public function show(Request $request, Client $client): View|Response
     {
         $client->load([
             'municipality',
@@ -90,6 +91,13 @@ class ClientController extends Controller
             'familyMembers.relative',
             'transactions',
         ]);
+
+        if ($request->boolean('panel')) {
+            return response()->view('clients._details', [
+                'client' => $client,
+                'panel' => true,
+            ]);
+        }
 
         return view('clients.show', ['client' => $client]);
     }
@@ -241,8 +249,7 @@ class ClientController extends Controller
                 'occupation' => htmlspecialchars((string) $row->occupation),
                 'income' => htmlspecialchars((string) $row->monthly_income),
                 'voter_id' => htmlspecialchars((string) $row->voter_id),
-                'actions' => '<a href="'.route('clients.show', $row->id)
-                    .'" class="btn btn-info btn-sm">View</a> '
+                'actions' => '<button type="button" class="btn btn-info btn-sm" onclick="openClientPanel('.$row->id.')">View</button> '
                     .'<a href="'.route('clients.edit', $row->id)
                     .'" class="btn btn-warning btn-sm">✎</a> '
                     .'<form method="POST" action="'.route('clients.destroy', $row->id)

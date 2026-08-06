@@ -72,9 +72,11 @@ feed, search, page-gated `household.php`, CSRF-safe delete), family members
 client delete (`ClientService::destroy` + page-gated `ClientPolicy`,
 transaction-guard + family cleanup + audit), duplicate detection
 (`DuplicateService` + page-gated `duplicates.*` feed/delete), client photo
-upload (file + camera, `PhotoService`), and the public student self-service
-flow (update-photo → verify → photo-upload for scholar programs) — 59 tests
-green. P3 delivered: `TransactionService` (17 programs, CRUD + audits,
+upload (file + camera, `PhotoService`), the public student self-service
+flow (update-photo → verify → photo-upload for scholar programs), and the
+client-details **right-side slide-over panel** (row click / View button →
+responsive Bootstrap Offcanvas loading the shared `clients/_details` partial;
+full page kept as deep link) — 60 tests green. P3 delivered: `TransactionService` (17 programs, CRUD + audits,
 patient-name resolution, TUPAD nulls), page-gated `all_transactions.php` list
 + server-side feed + filters + inline edit + client search + CSV exports
 (UTF-8 BOM, standard/custom/custom2/gip), 12 TransactionTest — 40 tests green.

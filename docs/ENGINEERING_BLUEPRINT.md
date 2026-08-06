@@ -402,7 +402,7 @@ Dead files (`default.php`, `client_photo.php`) are deliberately excluded.
 | 20 | `fetch_clients.php` | DataTables route (clients) | P2 | **Done** (POST feed in `ClientController@data`) |
 | 21 | `add_client.php` | `ClientController@store` + `ClientService` | P2 | **Done** |
 | 22 | `edit_client.php` | `ClientController@edit/update` | P2 | **Done** |
-| 23 | `view_client.php` | `ClientController@show` + **profile page** | P2 | **Done** (profile page replaces slide-over — see IMPLEMENTATION_LOG deviations) |
+| 23 | `view_client.php` | `ClientController@show` + **slide-over details panel** | P2 | **Done** (right-side Offcanvas panel via shared `clients/_details` partial; page kept as deep link — blueprint AD-10) |
 | 24 | `delete_client.php` | `ClientController@destroy` + Policy | P2 | **Done** (`ClientService::destroy` — transaction-guard, family cleanup, `DELETE_CLIENT` audit; `ClientPolicy` page-gated) |
 | 25 | `search_clients.php` | `ClientController@search` | P2 | **Done** (`transactions.clients-search` + household search helpers) |
 | 26 | `search_clients_hh.php` | `HouseholdController@searchClientsForHousehold` | P2 | **Done** |

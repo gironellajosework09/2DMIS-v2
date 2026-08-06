@@ -168,5 +168,7 @@ Done so far:
   municipality group key) with server-side feed, filters, and batch delete
   (`duplicates/index`); client photo upload via file or camera capture
   (`PhotoService`, JPEG magic check); public student self-service flow
-  (search → birthdate/mobile verify → photo upload) for scholar programs.
-  59 tests green (19 new).
+  (search → birthdate/mobile verify → photo upload) for scholar programs;
+  client details open in a **right-side slide-over panel** on row click
+  (responsive Bootstrap Offcanvas; full page kept as a deep link).
+  60 tests green (20 new).

@@ -267,6 +267,27 @@ class ClientTest extends TestCase
         $this->assertNull($audit->new_value);
     }
 
+    public function test_client_details_panel_returns_partial_without_layout(): void
+    {
+        [$municipality, $barangay] = $this->place();
+
+        $this->logInAs($this->clientUser());
+
+        $this->post(route('clients.store'), $this->validPayload($municipality, $barangay));
+
+        $client = Client::query()->firstOrFail();
+
+        $this->get(route('clients.show', $client).'?panel=1')
+            ->assertOk()
+            ->assertSee('Client Profile')
+            ->assertSee($client->full_name)
+            ->assertDontSee('<html', false);
+
+        $this->get(route('clients.show', $client))
+            ->assertOk()
+            ->assertSee('<html', false);
+    }
+
     public function test_client_with_transactions_cannot_be_deleted(): void
     {
         [$municipality, $barangay] = $this->place();

@@ -24,6 +24,22 @@
             padding: 2px 6px;
             font-size: 11px;
         }
+
+        .actions-col form {
+            display: inline;
+        }
+
+        #clientsTable tbody tr {
+            cursor: pointer;
+        }
+
+        #clientDetailsPanel {
+            width: min(680px, 94vw);
+        }
+
+        #clientDetailsPanel .offcanvas-body {
+            overflow-y: auto;
+        }
     </style>
 @endpush
 
@@ -99,6 +115,18 @@
             </table>
         </div>
     </div>
+
+    <div class="offcanvas offcanvas-end" tabindex="-1" id="clientDetailsPanel" aria-labelledby="clientDetailsTitle">
+        <div class="offcanvas-header border-bottom">
+            <h5 class="offcanvas-title" id="clientDetailsTitle">Client Details</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+        </div>
+        <div class="offcanvas-body" id="clientDetailsBody">
+            <div class="p-5 text-center text-muted">
+                <p class="mb-0">Click a client row to view its details.</p>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -156,7 +184,57 @@
                     [0, 'asc']
                 ],
                 pageLength: 25,
-                lengthMenu: [25, 50, 100]
+                lengthMenu: [25, 50, 100],
+                createdRow: function(row, data) {
+                    $(row).attr('data-id', data.id);
+                }
+            });
+
+            function executeScripts(container) {
+                container.querySelectorAll('script').forEach(function(oldScript) {
+                    var fresh = document.createElement('script');
+                    fresh.textContent = oldScript.textContent;
+                    oldScript.parentNode.replaceChild(fresh, oldScript);
+                });
+            }
+
+            window.openClientPanel = function(id) {
+                var body = document.getElementById('clientDetailsBody');
+                var offcanvas = document.getElementById('clientDetailsPanel');
+                var url = '{{ route('clients.show', '__ID__') }}'.replace('__ID__', id) + '?panel=1';
+                var instance = bootstrap.Offcanvas.getOrCreateInstance(offcanvas);
+
+                document.getElementById('clientDetailsTitle').textContent = 'Client #' + id;
+                body.innerHTML = '<div class="p-5 text-center text-muted">' +
+                    '<div class="spinner-border text-secondary" role="status"></div>' +
+                    '<p class="mt-3 mb-0">Loading client details…</p></div>';
+                instance.show();
+
+                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(function(response) {
+                        if (!response.ok) {
+                            throw new Error('Failed to load client details');
+                        }
+                        return response.text();
+                    })
+                    .then(function(html) {
+                        body.innerHTML = html;
+                        executeScripts(body);
+                    })
+                    .catch(function() {
+                        body.innerHTML = '<div class="p-5 text-center text-danger">' +
+                            'Failed to load client details.</div>';
+                    });
+            };
+
+            $('#clientsTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).closest('.actions-col').length) {
+                    return;
+                }
+                var id = $(this).data('id');
+                if (id) {
+                    openClientPanel(id);
+                }
             });
 
             $('#applyFilters').on('click', function() {

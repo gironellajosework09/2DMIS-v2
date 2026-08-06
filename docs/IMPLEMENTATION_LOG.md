@@ -22,7 +22,7 @@
 | P0 — Foundations | Bootstrap, baseline schema, assets, CI, storage | **Done** |
 | Schema fixes | 6 additive migrations fixing v1 abnormalities | **Done** |
 | P1 — Auth + RBAC | Username login, single-device, ACL, audit, shell | **Done** |
-| P2 — Clients + households | Client CRUD, households + family members, profile, duplicates, photos, student self-service | **Done** 2026-08-05 (full P2 scope incl. delete_client, duplicates, photo/student — see entries below) |
+| P2 — Clients + households | Client CRUD, households + family members, profile, duplicates, photos, student self-service | **Done** 2026-08-05 (full P2 scope incl. delete_client, duplicates, photo/student — see entries below); 2026-08-06 slide-over details panel added |
 | P3 — Transactions + reports | Transaction CRUD, filters, inline edit, CSV exports | **Done** 2026-08-05 (all 9 v1 transaction files ported; per-program gating) |
 | P4 — Scanner engine | | Not started |
 | P5 — Payout + unpaid | | Not started |
@@ -47,6 +47,16 @@
 ---
 
 ## Changelog
+
+### 2026-08-05 — Sample Data Seeder for Local Development Environment
+
+- **Created [`SampleDataSeeder.php`](file:///c:/xampp/htdocs/2DMIS-v2/database/seeders/SampleDataSeeder.php)** to safely populate the local `main_system` development database with realistic dummy records for local browser testing.
+- **Seeded Records:**
+  - 5 Households (`HH-2026-*` codes)
+  - 25 Clients (Heads of Household, Spouses, Children across Candon City barangays, mapped with ages, categories, civil status, contact numbers, and unique voter IDs)
+  - 56 Family Member bidirectional relationship pairs (`PARENT`, `CHILD`, `SPOUSE`)
+  - 20 Assistance Transactions across multiple programs (`AICS`, `MAIP`, `TUPAD`, `GIP`, `TODA`, `CEAP`, `OTEA`, `OTCES`, `CEDSSG`) with various statuses (`PAID`, `APPROVED`) and amounts.
+- **Verification:** Ran `php artisan db:seed --class=SampleDataSeeder` against `main_system` (25 clients, 6 households, 56 family members, 20 transactions created) and confirmed all 59 PHPUnit tests remain 100% green (`php artisan test`).
 
 ### 2026-08-05 — P0 Foundations + schema fixes + P1 Auth/RBAC (initial delivery)
 
@@ -161,7 +171,7 @@ DB (never the local copy); `phpunit.xml` forces `DB_DATABASE=main_system_test`:
 | File #12 (`fetch_online_users.php`) | DataTables JSON route | **Deferred** — `session/online` renders a server-rendered table | Not needed for P1 parity; add the JSON feed when DataTables is adopted (P3+) |
 | File #10 (`force_logout.php`) | `AdminController@forceLogout` | `SessionController@forceLogout` | No admin controller exists yet; route/page gate `page:force_logout.php` enforces the v1 permission key |
 | ADR-008 | Audit via framework events/observers | `AuditService` called explicitly from controllers | No model mutations in P1 to observe; observers planned once domain writes exist (P2) |
-| ADR-010 (P2) | Right-side sliding details panel for client rows | **Client profile page** (`clients/show.blade.php`) | Simpler + testable on the current Bootstrap stack; same data contract (AD-10) |
+| ADR-010 (P2) / blueprint AD-10 | Right-side sliding details panel for client rows | Profile extracted into a shared partial (`clients/_details.blade.php`); the dedicated page stays as a deep link, and the client list now opens the details in a **right-side slide-over panel** (Bootstrap Offcanvas) on row click | Panel is primary as planned (AD-10); page kept for deep links/print. See the P2 UI entry below |
 | P2 family members | View-level inverse mapping | **Service-level inverse mapping** in `FamilyMemberService` | Keeps view dumb; logic covered by tests |
 | P3 CSV exports | v1 writes temp files then streams | **`streamDownload`** with UTF-8 BOM | Framework-native; byte-comparable contract kept (P3/P6 parity) |
 | P3 `all_transaction_edit.php` / `all_transaction_delete.php` | Separate list-edit/list-delete pages | **Inline row edit/save/cancel + row delete** on the index | Single list surface, matches DataTables UX |
@@ -480,6 +490,52 @@ un-audited `DELETE … IN (…)`. Family-member links are cleaned up on delete
 
 ---
 
+### 2026-08-06 — P2 UI: client details slide-over panel (blueprint AD-10)
+
+Implements the blueprint's right-side sliding details panel for client rows,
+per prototype feedback ("details should show on the right side of the screen,
+not go to another page; clicking a row opens the panel; responsive").
+
+#### What was built
+
+- **Shared partial `clients/_details.blade.php`** — the profile content
+  (photo, fields, household, family members, transactions, photo-upload modal)
+  extracted from the old `show` view. Panel-aware: in panel mode the "Back"
+  button becomes an "Open full page" deep link. The camera script now runs in
+  an IIFE so it can be injected repeatedly into the list page without `const`
+  redeclaration errors.
+- **`clients/show.blade.php`** — now a thin wrapper that renders the partial
+  (`panel=false`); the full profile page is preserved as a deep link and for
+  direct navigation.
+- **`ClientController@show(Request, Client)`** — returns the bare partial
+  (no layout) when the request has `?panel=1`; full page otherwise.
+- **`clients/index.blade.php`** — a Bootstrap **Offcanvas panel fixed to the
+  right edge** (`width: min(680px, 94vw)` → responsive: 680 px desktop, ~94 %
+  of the viewport on small screens) with a spinner placeholder. Row click
+  (skipping the Actions cell) fetches `clients/{id}?panel=1`, injects the
+  HTML, and re-executes the partial's inline scripts via a small
+  `executeScripts()` helper (innerHTML does not run `<script>` tags). DataTables
+  `createdRow` stamps `data-id` on each row; `window.openClientPanel(id)` is
+  also used by the Actions-column "View" button (replacing the previous link to
+  the profile page).
+- **Tests** — `ClientTest::test_client_details_panel_returns_partial_without_layout`
+  asserts `?panel=1` returns the partial (profile content, no `<html>` layout)
+  and the full page still renders the layout.
+
+#### Verification
+
+- `php artisan test` → **60 passed (276 assertions)** (P1+P2+P3 suites).
+- `vendor\bin\pint` → passed.
+- Bootstrap's data API uses document-level delegation, so the injected
+  photo-upload modal (data-bs-toggle) works without re-initialization; the
+  offcanvas is driven via the JS API (`bootstrap.Offcanvas.getOrCreateInstance`).
+
+**Deviations:** none beyond the earlier recorded ones — this brings the client
+detail surface in line with blueprint AD-10 (slide-over is primary; the page
+remains for deep links/print, matching the blueprint's compatibility table).
+
+---
+
 ### File inventory (P2 households + profile + family members — added 2026-08-05)
 
 **Created:** `app/Services/{HouseholdService,FamilyMemberService}.php`,
@@ -522,6 +578,17 @@ controller now uses `AuthorizesRequests`; destroy + authorize),
 Duplicates button, photo modal + storage-URL fix),
 `routes/web.php` (public student group + duplicates/photo/destroy routes),
 `tests/Feature/ClientTest.php` (+2 delete tests).
+
+### File inventory (P2 slide-over details panel — added 2026-08-06)
+
+**Created:** `resources/views/clients/_details.blade.php` (shared profile
+partial), `tests/Feature/ClientTest.php` (+1 panel test).
+
+**Modified:** `app/Http/Controllers/ClientController.php` (`show` supports
+`?panel=1`; data-feed "View" button now calls `openClientPanel(id)`),
+`resources/views/clients/index.blade.php` (right-side Offcanvas panel + row
+click + `openClientPanel`/`executeScripts` JS),
+`resources/views/clients/show.blade.php` (thin wrapper over the partial).
 
 ---
 
