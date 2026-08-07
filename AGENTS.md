@@ -64,40 +64,25 @@ must remain byte-identical to v1 — this project only adds application code aro
 - `vendor\bin\pint` — code style (run before finishing changes)
 - `php artisan schema:dump` — regenerate baseline (needs `C:\xampp\mysql\bin` on PATH for mysqldump)
 
-## Phase & next steps
-Planning + P0 bootstrap + P1 auth + P2 clients/households + P3 transactions
-are done. P1 delivered: username provider on `tbl_users`, `EnsureSingleDevice`
-middleware (`session_token` contract, ADR-002), single `AccessControlService` +
-`AuthorizePage` middleware + `page`/`program` Gates (ADR-003), permission
-seeding, login/logout/force-logout, session-status and online-users routes,
-audit writes to `tbl_audit_logs`. There is no `user_id = 1` or inline username
-check anywhere — super-admin is a `tbl_permissions` row with `page_name = '*'`.
-Tests run against a dedicated `main_system_test` database (phpunit.xml), never
-the local copy.
-P2 delivered: client registry (index + add/edit + server-side list + geography
-cascade, page-gated `clients.php`, 7 ClientTest), households (codegen, CRUD,
-feed, search, page-gated `household.php`, CSRF-safe delete), family members
-(unique pair, inverse mapping, SIBLING fan-out), client profile page
-(`clients.show` — replaces the slide-over panel), `verify_mobile.php`,
-client delete (`ClientService::destroy` + page-gated `ClientPolicy`,
-transaction-guard + family cleanup + audit), duplicate detection
-(`DuplicateService` + page-gated `duplicates.*` feed/delete), client photo
-upload (file + camera, `PhotoService`), the public student self-service
-flow (update-photo → verify → photo-upload for scholar programs), and the
-client-details **right-side slide-over panel** (row click / View button →
-responsive Bootstrap Offcanvas loading the shared `clients/_details` partial;
-full page kept as deep link) — 60 tests green. P3 delivered: `TransactionService` (17 programs, CRUD + audits,
-patient-name resolution, TUPAD nulls), page-gated `all_transactions.php` list
-+ server-side feed + filters + inline edit + client search + CSV exports
-(UTF-8 BOM, standard/custom/custom2/gip), 12 TransactionTest — 40 tests green.
-Current milestone: **P5 payout + unpaid screens** (payout attendance, seats,
-unpaid verification — blueprint §1.9/§1.10; v1 `scanned_payouts*.php`,
-`unpaid_verifications.php`). P4 delivered the scanner engine: `config/scanner.php`
-(14 keys) drives `ScanService` (8 modes, no key branching), a thin
-`ScannerController`, one shared `scanners/scan.blade.php` view, literal per-key
-routes with `page:scanner_*.php` gates (`->defaults('key', …)`), ACL-gated
-sidebar links, and 14 scanner tests — 74 tests green. Full roadmap:
-`docs/ENGINEERING_BLUEPRINT.md` (also in `C:\xampp\htdocs\system\doc\v2`).
+## Current Development Status
+
+The current implementation status is maintained in:
+
+`docs/SESSION_HANDOFF.md`
+
+`SESSION_HANDOFF.md` is the authoritative source for:
+
+- Current implementation phase
+- Completed milestones
+- Current milestone
+- Development priorities
+- Open decisions
+- Current risks
+- Next-session handoff
+
+Detailed implementation contracts and phase documentation are located in:
+
+`docs/implementation/`
 
 ## Open decisions (do not silently decide)
 - Framework confirmation: Laravel vs CI4 fallback (Laravel is the default).
