@@ -1,16 +1,21 @@
-# P5 — Payout Attendance Screens and Unpaid Verification (Planned)
+# P5 — Payout Attendance Screens and Unpaid Verification (Delivered)
 
-> **Status:** **Not yet implemented** — this is the current milestone. The
-> P4 scanner engine already provides the **write side** of payout attendance
-> (the `payout` and `payout_unpaid` scanner keys append to
-> `tbl_payout_scans2` / `tbl_payout_scans_unpaid`). P5 delivers the **read /
-> verification side**: the three payout-attendance list screens, the unpaid
-> grantee verification workflow, their DataTables feeds, and CSV exports.
+> **Status:** Delivered, tested, and documented.
+> **Scope of this document:** the P5 payout module — `config/payout.php` (the
+> three payout-attendance list variants), `PayoutAttendanceController` (shared
+> index + DataTables feed), the unpaid-verification workflow
+> (`UnpaidVerificationController` + `UnpaidService`: admin screen, **public**
+> self-service form, search/verify, delete, BOM CSV export), and the
+> `GranteeSearchController` searches. §2 documents the v1 legacy behavior
+> (ground truth for parity); the P4 scanner engine already provides the
+> **write side** of payout attendance (the `payout` and `payout_unpaid` scanner
+> keys append to `tbl_payout_scans2` / `tbl_payout_scans_unpaid`), and P5 adds
+> the **read / verification side** on top.
 >
-> This document is a **hybrid**: §2 documents the v1 legacy behavior (ground
-> truth for parity), §3 describes what already exists in v2, and §4 onward are
-> the exact extension points for the P5 build. It is a forward engineering
-> contract, not a change record.
+> Deviations from the build contract: **no audit on any P5 write path** (v1
+> performs zero `audit_log` writes in these files), and `disabled_unpaid.php`
+> is a **public self-service form**, not a delete screen — removal is a plain
+> `DELETE` via `fetch_unpaid_verifications.php?delete_id=N`.
 
 ---
 
@@ -233,6 +238,6 @@ Port `unpaid_verifications.php` / `unpaid_save.php` / `disabled_unpaid.php` /
   and friends; §3 table rows for the payout-scan tables and
   `tbl_unpaid_verifications`.
 - `docs/REQUIREMENTS_ANALYSIS.md` FR-6.4 / FR-6.5 / FR-6.6.
-- `docs/IMPLEMENTATION_LOG.md` — append the P5 entry when delivered.
+- `docs/IMPLEMENTATION_LOG.md` — P5 entry appended 2026-08-07.
 - `docs/SCANNER_ANALYSIS.md` §4.13/§4.14 — the scan-time behavior that produces
   the data these screens display.
