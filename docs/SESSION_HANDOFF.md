@@ -16,7 +16,7 @@
 
 ### Current Milestone
 
-**P5 — Payout Attendance and Unpaid Verification** (not yet started)
+**P6 — Scholars / GIP** (not yet started; P5 complete)
 
 ---
 
@@ -66,66 +66,62 @@ Status: Complete — Tests: Passing
 
 ---
 
+### P5 — Payout Attendance & Unpaid Verification
+
+- Config-driven payout module (`config/payout.php`, 3 attendance variants) with
+  one shared list view + DataTables feeds; unpaid verification admin screen,
+  **public** self-service form (`disabled_unpaid.php` equivalent), verify/search,
+  delete, and BOM CSV export. No audit on any P5 write path (v1 parity).
+
+Status: Complete — Tests: Passing
+
+---
+
 ## Last Session Summary
 
 **Completed:**
 
-- P4 Scanner Engine
-- Config-driven `ScanService`
-- 14 scanner routes
-- 74 tests passing
+- P5 Payout Attendance & Unpaid Verification
+- Config-driven `payout.php` (3 variants) + shared attendance view/feeds
+- Unpaid verification admin + public self-service + search/verify + delete + export
+- 89 tests passing (15 new in `PayoutTest.php`)
+- Corrected `docs/implementation/P5_PAYOUT.md` §2.2 ground-truth error
 - Documentation completed
 
 **Next:**
 
-- Begin P5 Payout module
+- Begin P6 Scholars / GIP
 
 ---
 
-## Current Work — P5 Payout Attendance & Unpaid Verification
+## Current Work — P6 Scholars / GIP
 
-**Goal:** Port the v1 payout module onto the attendance data the P4 engine
-already writes, preserving v1 behavior exactly.
+**Goal:** Port the v1 scholars/GIP module
+(`docs/implementation/P6_SCHOLARS.md`).
 
 **Focus:**
 
-- Attendance management
-- Payout attendance
-- Unpaid verification
-- Preserve v1 payout behavior
+- Scholar management / exam results
+- GIP info screens
+- Preserve v1 behavior
 - Preserve database parity
 - Build automated tests
 
-Reference contract: `docs/implementation/P5_PAYOUT.md` (v1 ground truth,
-extension points, acceptance gates). The P4 engine already provides the
-**write side** (`payout` / `payout_unpaid` scanner keys → `tbl_payout_scans2` /
-`tbl_payout_scans_unpaid`); P5 is the read/verification side, so no schema
-change and no duplicated write path.
+Reference contract: `docs/implementation/P6_SCHOLARS.md`. P5 delivered the
+payout attendance lists, unpaid verification (admin + public self-service),
+grantee search/verify, and CSV exports — all reads, with **no audit** on any
+P5 write path (v1 parity confirmed in `docs/implementation/P5_PAYOUT.md`).
 
 ---
 
-## Development Priorities (P5)
+## Development Priorities (P6)
 
-1. Port the three payout attendance list screens
-   (`scanned_payouts.php`, `scanned_payouts2.php`, `scanned_payouts_unpaid.php`)
-   into **one shared view** driven by a variant/backing-table argument, plus
-   their DataTables feeds (`fetch_scanned_payouts*.php`).
-2. Port the unpaid verification workflow (`unpaid_verifications.php`,
-   `unpaid_save.php`, `disabled_unpaid.php`, `fetch_unpaid_verifications.php`,
-   `export_unpaid_verifications.php`, `search_grantee.php`,
-   `search_unpaid_grantee.php`) into a controller + service.
-3. Honor the one-scan-per-transaction contract via the DB `UNIQUE` on the
-   payout-scan tables — never add an app-level dedup workaround.
-4. Keep the proxy identity block in `tbl_unpaid_verifications` a denormalized
-   snapshot (v1 design intent).
-5. Confirm v1 `disabled_unpaid.php` semantics (delete vs disable) before coding.
-6. Confirm the exact v1 audit `action` strings for payout/unpaid writes before
-   inventing new ones.
-7. Port CSV exports with the UTF-8 BOM (reuse the P3 streamed-download pattern);
-   the v1 `export_scanned_payouts_unpaid.php` link is dead — implement the
-   export deliberately.
-8. Write feature tests (list feeds, unpaid create/disable/search/export,
-   duplicate-rejection) and keep the full suite green on `main_system_test`.
+1. Read `docs/implementation/P6_SCHOLARS.md` (§2 v1 ground truth, §4 extension
+   points) and the matching v1 files under `C:\xampp\htdocs\system` (read-only).
+2. Confirm the v1 audit `action` strings before inventing new ones.
+3. Port the scholars/GIP screens following the P3/P4/P5 conventions
+   (config/controller-driven where several pages share one shape).
+4. Write feature tests and keep the full suite green on `main_system_test`.
 
 ---
 
@@ -142,44 +138,37 @@ change and no duplicated write path.
 
 ### Highest Risk
 
-Payout parity.
+Payout parity (now delivered — remaining watch items).
 
-Every payout attendance, unpaid verification, and export behavior must exactly
-match the v1 implementation, including:
-
-- The one-scan-per-transaction unique constraint contract.
-- The proxy snapshot semantics.
-- The exact audit action strings and v1 column sets.
+- The one-scan-per-transaction unique constraint contract is preserved (no
+  app-level dedup added).
+- The proxy snapshot semantics are preserved; removal is a plain delete
+  (no `disabled` flag), matching v1.
+- No P5 write path audits (v1 does zero audit calls in these files) — verify
+  this remains true if any P5 file is touched again.
 
 ### Secondary Risks
 
 - `tbl_payout_scans` (legacy variant 1) rows may no longer be meaningful in
-  production — verify before wiring the first screen.
-- The dead `export_scanned_payouts_unpaid.php` link must be resolved
-  deliberately rather than silently dropped.
+  production — the first screen is wired but real data was never eyeballed.
+- The dead `export_scanned_payouts_unpaid.php` link: v1 has no working payout
+  export; P5 deliberately ships only the unpaid-verification export.
 
 ---
 
 ## Before Next Session
 
-Continue **P5 — Payout Attendance & Unpaid Verification** using
-`docs/implementation/P5_PAYOUT.md` as the build contract.
+Continue **P6 — Scholars / GIP** using `docs/implementation/P6_SCHOLARS.md` as
+the build contract.
 
 Priority:
 
-1. Read `docs/implementation/P5_PAYOUT.md` (§2 v1 ground truth, §4 extension
-   points) and `docs/SCANNER_ANALYSIS.md` §4.13/§4.14 for the scan-time
-   behavior that produces the data these screens display.
-2. Read the v1 payout files in `C:\xampp\htdocs\system` (read-only):
-   `scanned_payouts*.php`, `fetch_scanned_payouts*.php`,
-   `unpaid_verifications.php`, `unpaid_save.php`, `disabled_unpaid.php`,
-   `export_unpaid_verifications.php`, `search_grantee.php`,
-   `search_unpaid_grantee.php`.
-3. Confirm the exact `disabled_unpaid.php` and audit `action` string semantics.
-4. Build the shared payout-attendance view + feeds.
-5. Build the unpaid verification service + screens.
-6. Write automated tests; run `vendor\bin\pint` before finishing.
-7. Append the P5 entry to `docs/IMPLEMENTATION_LOG.md` when delivered.
+1. Read `docs/implementation/P6_SCHOLARS.md` (§2 v1 ground truth, §4 extension
+   points).
+2. Read the matching v1 files under `C:\xampp\htdocs\system` (read-only).
+3. Confirm the exact v1 audit `action` strings.
+4. Build the screens + feeds + tests; run `vendor\bin\pint` before finishing.
+5. Append the P6 entry to `docs/IMPLEMENTATION_LOG.md` when delivered.
 
 Do not redesign behavior. Parity comes before optimization.
 
@@ -196,6 +185,7 @@ Current documents:
 - Architecture Decisions
 - Implementation Log
 - P5 Payout contract (`docs/implementation/P5_PAYOUT.md`)
+- P6 Scholars contract (`docs/implementation/P6_SCHOLARS.md`)
 
 Status: Up to date.
 

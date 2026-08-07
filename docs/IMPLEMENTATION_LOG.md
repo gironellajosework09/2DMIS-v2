@@ -25,7 +25,7 @@
 | P2 — Clients + households | Client CRUD, households + family members, profile, duplicates, photos, student self-service | **Done** 2026-08-05 (full P2 scope incl. delete_client, duplicates, photo/student — see entries below); 2026-08-06 slide-over details panel added |
 | P3 — Transactions + reports | Transaction CRUD, filters, inline edit, CSV exports | **Done** 2026-08-05 (all 9 v1 transaction files ported; per-program gating) |
 | P4 — Scanner engine | One `ScanService` (8 modes) + program config + shared view + routes | **Done** 2026-08-07 (all 14 v1 scanners as config; 14 tests green — see entry below) |
-| P5 — Payout + unpaid | | Not started |
+| P5 — Payout + unpaid | | **Done** 2026-08-07 (3 payout lists + unpaid verification admin/self-service + CSV export; 15 tests green — see entry below) |
 | P6 — Scholars / GIP | | Not started |
 | P7 — Administration | | Not started |
 | P8 — Hardening + cutover | | Not started |
@@ -677,6 +677,88 @@ reads hardcoded program→(amount, date) maps; v2 keeps those values in
 architecture review of the v1 paid/failed scan paths is recommended next
 (informational). `scan_success_sound` is only enabled for the generic scanner
 today (v1 toggled it per page); the flag exists in config for the rest.
+
+---
+
+### 2026-08-07 — P5 Payout attendance lists + unpaid verification (admin + public self-service)
+
+Completes the P5 milestone. Ports the three v1 payout-attendance list screens
+(`scanned_payouts.php` / `scanned_payouts2.php` / `scanned_payouts_unpaid.php`
++ `fetch_scanned_payouts*.php`) and the unpaid-verification workflow
+(`unpaid_verifications.php` admin screen, `disabled_unpaid.php` **public**
+self-service form, `unpaid_save.php`, `search_unpaid_grantee.php`,
+`fetch_unpaid_verifications.php` delete + feed, `export_unpaid_verifications.php`).
+The P4 lesson was reused: one config-driven controller/view for the three
+payout lists, not three copies.
+
+#### What was built
+
+- **`config/payout.php`** — 3 attendance variants
+  (`scanned_payouts`/`scanned_payouts2`/`scanned_payouts_unpaid`) with
+  `table`, `seat_table`, `title`, `programs`, `client_name` SQL fragment
+  (`CONCAT(c.lastname, ', ', c.firstname, …)` for paid, `t.patient_name` for
+  unpaid), and `labels`. Source of truth for the route/view loop.
+- **Models** — `PayoutScan`/`PayoutScan2`/`PayoutScanUnpaid`
+  (`tbl_payout_scans*`), `UnpaidVerification` (`tbl_unpaid_verifications`,
+  fillable incl. `created_at`, casts), `Seat`/`Seat2` (`tbl_seats*`); all
+  `$timestamps = false`.
+- **`app/Services/UnpaidService.php`** — `create()` (uppercase/trim every proxy
+  field, empty → `NULL`, `created_at = now()`, requires `client_id` +
+  `municipality_id`, duplicate guard "You have already submitted your
+  confirmation. Multiple submissions are not allowed.") and `destroy()`. No
+  audit — v1 parity.
+- **`PayoutAttendanceController`** — config-driven `index`/`data` handling
+  single-record `id` / delete `delete_id` / DataTables feed modes on the shared
+  view; `scanned_at` converted UTC → Asia/Manila `m/d/Y - h:i A`; seats attached
+  via batch lookup on the variant's seat table keyed by client name + program.
+  Filters: municipality, program, scanned_start/scanned_end; global search over
+  name/program/username. Deletes address the variant table, no audit.
+- **`UnpaidVerificationController`** — public self-service `store` (mirrors
+  `unpaid_save.php`, `proxy_name_display` computed for the success message only),
+  admin `data` (single/delete/DataTables; 9-part search; municipality + date
+  filters; `created_at` returned raw as v1 does), and streamed BOM CSV export
+  (12 v1 columns, `unpaid_verifications_{Y-m-d_H-i-s}.csv`).
+- **`GranteeSearchController`** — `search` (kind = `grantee`: 6 programs no
+  status filter; `unpaid`: CEAP/CEAP_NEW/OTEA/OTCES with
+  `t.status = 'PENDING PAYOUT'`) and `verify` (action=verify; municipality
+  match check; latest qualifying program). Public, no auth.
+- **Views** — `payouts/attendance.blade.php` (shared, DataTables, delete modal),
+  `unpaid_verifications/index.blade.php` (admin table + filters + export +
+  delete), `unpaid_verifications/self-service.blade.php` (public form).
+- **Routes/sidebar** — public P5 routes (`grantee-search/{kind?}`,
+  `unpaid-verification`, `unpaid-verification/submit`) outside the auth group
+  (like `student/*`); protected P5 routes inside the auth group via a
+  `config('payout.attendance')` loop with `->defaults('variant', …)` and
+  `page:` gates (`scanned_payouts*.php`, `unpaid_verifications.php`); sidebar
+  shows the three payout links + Unpaid Grantees, ACL-gated.
+
+#### Verification
+
+- `php artisan test` → **89 passed (491 assertions)** (P1–P5 suites), including
+  the new `tests/Feature/PayoutTest.php` (15 tests: gates, shared screens, seat
+  feed/filters, delete-no-audit, unpaid patient-name feed, self-service public,
+  munis/search/verify, store-requires/duplicate/audit-free, feed/filters,
+  export BOM+columns).
+- `vendor\bin\pint` → passed on all new/changed files.
+- Three defects found and fixed during verification: (1) creating a `Client`
+  without `barangay` (NOT NULL) broke the unpaid-search test — the test helper
+  now builds municipality + barangay per client; (2) empty proxy fields were
+  stored as `''`, which MySQL rejects on the DATE `proxy_birthdate` column —
+  the store method now maps blank → `NULL`; (3) `fputcsv` quotes fields with
+  spaces (`"Client Name"`, …), so the export test parses the header with
+  `str_getcsv` instead of asserting a bare string.
+- Local `main_system` untouched — no schema or data changes; all P5 tests
+  exercise `main_system_test`.
+- Corrected a ground-truth error in `docs/implementation/P5_PAYOUT.md` §2.2:
+  `disabled_unpaid.php` is the **public self-service form** (no `session.php`),
+  not a "disable" screen; removal is a bare `DELETE` via
+  `fetch_unpaid_verifications.php?delete_id=N`, and none of the P5 write paths
+  audit.
+
+**Deviations:** none of the P5 write paths write `tbl_audit_logs` (v1 parity —
+v1 does zero audit calls in these files). Admin list pages are gated by the
+`page:` middleware per v1 page key; the self-service form and its
+search/verify/save endpoints are intentionally public, exactly as v1 ships them.
 
 ---
 

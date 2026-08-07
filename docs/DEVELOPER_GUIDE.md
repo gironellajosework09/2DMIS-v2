@@ -293,16 +293,17 @@ Say you must add a page gated by a new v1 page key:
   - `RefreshDatabase` on the suite base.
 - **Coverage today:** Auth (login/logout/single-device/session status/force
   logout/ACL), Clients (7 tests), Households, Duplicates, Photos, Transactions
-  (12 tests), Students, Scanners (14 tests), AccessControl — the full suite was
-  **74 tests / 386 assertions green** at P4 close-out.
+  (12 tests), Students, Scanners (14 tests), Payout/unpaid (15 tests),
+  AccessControl — the full suite was
+  **89 tests / 491 assertions green** at P5 close-out.
 - **Never** let a test touch the local `main_system` copy.
 
 ---
 
 ## 9. Future development (roadmap)
 
-- **P5** — payout attendance list screens + unpaid verification
-  (`docs/implementation/P5_PAYOUT.md`).
+- **P5** — ✅ payout attendance list screens + unpaid verification
+  (`docs/implementation/P5_PAYOUT.md`) — delivered 2026-08-07.
 - **P6** — scholars module (enrollment, GIP, grantee updates, reports, QR
   viewer) (`docs/implementation/P6_SCHOLARS.md`).
 - **P7** — administration (permission screens, user CRUD, audit viewer +

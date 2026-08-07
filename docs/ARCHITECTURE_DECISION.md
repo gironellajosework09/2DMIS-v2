@@ -155,7 +155,10 @@ and one shared `scanners/scan.blade.php` view; 14 v1 scanners as config with
 per-key `page:` ACL gates and literal routes using `->defaults('key', …)`.
 Source-of-truth: `SCANNER_ANALYSIS.md` + `SCANNER_CONFIGURATION_MATRIX.md`; 14
 scanner feature tests green (74 total). ADR-003 applies to the generic scanner
-(v1's username-only gate replaced by the ACL).
+(v1's username-only gate replaced by the ACL). ✅ Extended in P5 (2026-08-07):
+`config/payout.php` drives the three payout-attendance lists the same way
+(one `PayoutAttendanceController` + one shared view, `->defaults('variant', …)`
+route loop, per-key `page:` gates).
 
 **Context**
 - v1 replicates the scanner ~16 times with per-program duplicate rules

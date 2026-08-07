@@ -47,13 +47,13 @@ anti-duplicate belt — the list views never see duplicate transactions.
 
 | File | Role |
 |---|---|
-| `unpaid_verifications.php` | main screen: table of unpaid grantees + "record verification" entry |
-| `disabled_unpaid.php` | disables/removes an unpaid record |
-| `unpaid_save.php` | saves a verification row to `tbl_unpaid_verifications` |
-| `fetch_unpaid_verifications.php` | DataTables feed |
+| `unpaid_verifications.php` | admin main screen (session-gated): table of unpaid grantees + delete + CSV export |
+| `disabled_unpaid.php` | **public self-service form** (no `session.php`): search name, pick municipality, verify, self/proxy confirmation; posts to `search_unpaid_grantee.php` + `unpaid_save.php` |
+| `unpaid_save.php` | public JSON save to `tbl_unpaid_verifications` (no `session.php`) |
+| `fetch_unpaid_verifications.php` | DataTables feed; also handles delete via POST `delete_id` (bare `DELETE`, no audit) |
 | `export_unpaid_verifications.php` | CSV export (UTF-8 BOM) |
 | `search_grantee.php` | client search for picking the grantee |
-| `search_unpaid_grantee.php` | search restricted to unpaid grantees |
+| `search_unpaid_grantee.php` | search restricted to unpaid grantees (public, used by the self-service form) |
 
 Semantics (from the schema + Blueprint):
 
@@ -63,8 +63,9 @@ Semantics (from the schema + Blueprint):
   occupation/monthlyincome`.
 - `client_id` + `municipality_id` are FKs (both constrained) — every unpaid
   record belongs to a client and a municipality.
-- `disabled_unpaid.php` effectively removes a verification (v1 used a
-  disable/delete semantics; exact wording must be confirmed against the file).
+- **Removal is a plain delete, not a "disable".** The admin screen posts
+  `delete_id` to `fetch_unpaid_verifications.php`, which runs a bare
+  `DELETE FROM tbl_unpaid_verifications WHERE id = ?` — no status flag, no audit.
 
 ### 2.3 Unpaid verification — table facts (from `database/schema/mysql-schema.sql`)
 
@@ -95,7 +96,8 @@ recording) and should be kept that way.
   `tbl_seats2`) and the partial patient match used at scan time.
 - **`tbl_payout_scans2` / `tbl_payout_scans_unpaid`** tables are ready
   (indexes, FKs, UNIQUE on `transaction_id`).
-- **`tbl_unpaid_verifications`** exists untouched (no v2 writer yet).
+- **`tbl_unpaid_verifications`** now has a v2 writer (`UnpaidService::create`)
+  matching `unpaid_save.php` (no audit, see §2.2).
 
 So P5 is purely additive on the read side: no schema change required, and the
 write path must not be duplicated.
@@ -139,18 +141,17 @@ Port `unpaid_verifications.php` / `unpaid_save.php` / `disabled_unpaid.php` /
 `search_grantee.php` / `search_unpaid_grantee.php` into:
 
 - `UnpaidVerificationController` + `UnpaidService` (Blueprint P5 row).
-- `UnpaidService::create(...)` — transactional insert + audit; the row records
-  the grantee (client + municipality) and, when the staff member ticks proxy,
-  the proxy identity block. Follow the v1 contract that the proxy fields are a
-  snapshot, and that `client_id`/`municipality_id` must reference existing rows.
-- `UnpaidService::disable(...)` — port the exact `disabled_unpaid.php`
-  semantics (confirm from the v1 file whether it deletes the row or flips a
-  flag; the schema has no `disabled` column, so v1 almost certainly **deletes**
-  the row — verify before coding).
+- `UnpaidService::create(...)` — insert mirroring `unpaid_save.php`:
+  uppercases/trims every proxy field (empty → `NULL`), sets `created_at = now()`,
+  requires `client_id` + `municipality_id`, and blocks duplicates
+  ("You have already submitted your confirmation…"). **No audit** (v1 parity).
+- `UnpaidService::destroy(...)` — the admin delete; v1 removes via a bare
+  `DELETE FROM tbl_unpaid_verifications WHERE id = ?` on `delete_id` (no flag,
+  no audit), so v2 uses destroy, **not** a `disable`/status flip.
 - Feed + CSV export (UTF-8 BOM) reusing the P3 streamed-download pattern.
-- Two searches: full grantee search (`search_grantee.php`) and
-  unpaid-only search (`search_unpaid_grantee.php` — restrict to clients who
-  have an unpaid-verification or unpaid payout-scan, per v1).
+- Two searches: full grantee search (`search_grantee.php`) and the unpaid-only
+  search used by the self-service form (`search_unpaid_grantee.php` — pending
+  grantees in the CEAP/CEAP_NEW/OTEA/OTCES programs only, per v1).
 
 ### 4.3 Data rules to honor
 
@@ -159,9 +160,9 @@ Port `unpaid_verifications.php` / `unpaid_save.php` / `disabled_unpaid.php` /
 - Unpaid verification is **not** an attendance write — it records the grantee
   who could not be paid and optionally a proxy receiver; it must not touch
   `tbl_payout_scans*` or `tbl_transactions`.
-- All writes audited (`AuditService`) with actions following the existing
-  `*_PAYOUT`/`UNPAID_*` naming; confirm the exact v1 `action` strings from the
-  source before inventing new ones.
+- **No audit on any P5 write path** — v1 (`fetch_scanned_payouts*.php`,
+  `fetch_unpaid_verifications.php`, `unpaid_save.php`) performs zero
+  `audit_log` writes, so v2 does the same (parity over convention).
 
 ---
 
@@ -183,8 +184,8 @@ Port `unpaid_verifications.php` / `unpaid_save.php` / `disabled_unpaid.php` /
   `page:unpaid_verifications.php`). No new permissions rows are needed — the
   page rows already exist in the carried-over `tbl_permissions` data.
 - `unpaid_save` validates: `client_id` exists, `municipality_id` exists,
-  `is_proxy` boolean, proxy fields nullable strings/dates. Mirror the 
-  P2/P3 request style with a `FormRequest`.
+  `is_proxy` boolean, proxy fields nullable strings/dates. v2 validates
+  manually in the controller (mirroring the v1 `if`-guards), not a `FormRequest`.
 - All queries parameter-bound; feeds select from a fixed column map for
   ordering; exports reuse `applyExportFilters`-style gating.
 

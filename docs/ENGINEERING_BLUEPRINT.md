@@ -291,6 +291,7 @@ completion criteria. Gates build on `MIGRATION_PLANNING.md` §6.
 - **Dependencies:** P3.
 - **Risks:** duplicate-race (mitigate: keep UNIQUE + app pre-check).
 - **Completion criteria:** P5 parity + tests green.
+- **Status:** **Done** 2026-08-07 — `config/payout.php` (3 variants) + shared attendance view/feeds; unpaid verification admin + **public** self-service + search/verify + delete + BOM CSV export; no audit on any P5 write path (v1 parity). See `docs/IMPLEMENTATION_LOG.md` P5 entry.
 
 ### P6 — Scholars / GIP / exam
 - **Deliverables:** `ScholarController`/`GipController`/exam handling; grantee updates (`tbl_update_logs`); scholarship reports + export; QR viewer.
@@ -447,19 +448,19 @@ Dead files (`default.php`, `client_photo.php`) are deliberately excluded.
 | 65 | `scanner_payout` | config entry (seat-aware, `lookup_ignore_scan`) | P4 | **Done** (`payout` key, `seat_attendance` mode; exact→partial fallback) |
 | 66 | `scanner_payout_unpaid` | config entry | P4 | **Done** (`payout_unpaid` key, `unpaid_attendance` mode) |
 | 67 | `scanner_generic` | config entry (program chosen in form) | P4 | **Done** (`generic` key, `generic_form` mode; AICS/AKAP/MAIP/TUPAD/CEDSSG/CEAP only; ACL-gated — see deviations) |
-| 68 | `scanned_payouts.php` | `PayoutAttendanceController` (screen 1) | P5 | Planned |
-| 69 | `scanned_payouts2.php` | screen 2 | P5 | Planned |
-| 70 | `scanned_payouts_unpaid.php` | screen 3 | P5 | Planned |
-| 71 | `fetch_scanned_payouts.php` | DataTables route (scans 1) | P5 | Planned |
-| 72 | `fetch_scanned_payouts2.php` | DataTables route (scans 2) | P5 | Planned |
-| 73 | `fetch_scanned_payouts_unpaid.php` | DataTables route (scans unpaid) | P5 | Planned |
-| 74 | `unpaid_verifications.php` | `UnpaidVerificationController@index` + view | P5 | Planned |
-| 75 | `disabled_unpaid.php` | merged into 74 | P5 | Planned |
-| 76 | `unpaid_save.php` | `UnpaidVerificationController@store` + service | P5 | Planned |
-| 77 | `fetch_unpaid_verifications.php` | DataTables route (unpaid) | P5 | Planned |
-| 78 | `export_unpaid_verifications.php` | ExportService route | P5 | Planned |
-| 79 | `search_grantee.php` | `SearchController@grantee` | P5 | Planned |
-| 80 | `search_unpaid_grantee.php` | `SearchController@unpaidGrantee` | P5 | Planned |
+| 68 | `scanned_payouts.php` | `PayoutAttendanceController` (screen 1) | P5 | **Done** (`payout.attendance.scanned_payouts`, shared view) |
+| 69 | `scanned_payouts2.php` | screen 2 | P5 | **Done** (`payout.attendance.scanned_payouts2`, shared view) |
+| 70 | `scanned_payouts_unpaid.php` | screen 3 | P5 | **Done** (`payout.attendance.scanned_payouts_unpaid`, shared view) |
+| 71 | `fetch_scanned_payouts.php` | DataTables route (scans 1) | P5 | **Done** (`PayoutAttendanceController@data`, variant loop) |
+| 72 | `fetch_scanned_payouts2.php` | DataTables route (scans 2) | P5 | **Done** (same, variant loop) |
+| 73 | `fetch_scanned_payouts_unpaid.php` | DataTables route (scans unpaid) | P5 | **Done** (same, variant loop) |
+| 74 | `unpaid_verifications.php` | `UnpaidVerificationController@index` + view | P5 | **Done** (gated `unpaid-verifications.index` + admin view) |
+| 75 | `disabled_unpaid.php` | merged into 74 | P5 | **Done** — v1 file is the **public self-service form**, not a delete screen; ported as `unpaid_verifications/self-service.blade.php` |
+| 76 | `unpaid_save.php` | `UnpaidVerificationController@store` + service | P5 | **Done** (`UnpaidService::create`; uppercase/trim, empty→NULL, dup guard, no audit) |
+| 77 | `fetch_unpaid_verifications.php` | DataTables route (unpaid) | P5 | **Done** (`UnpaidVerificationController@data` + `delete_id` destroy, no audit) |
+| 78 | `export_unpaid_verifications.php` | ExportService route | P5 | **Done** (streamed BOM CSV, `UnpaidVerificationController@export`) |
+| 79 | `search_grantee.php` | `SearchController@grantee` | P5 | **Done** (`GranteeSearchController@search`, kind=`grantee`, public) |
+| 80 | `search_unpaid_grantee.php` | `SearchController@unpaidGrantee` | P5 | **Done** (`GranteeSearchController@search`, kind=`unpaid`, public) |
 | 81 | `scholars.php` | `ScholarController@index` + view | P6 | Planned |
 | 82 | `save_scholarship.php` | `ScholarController@store/update` | P6 | Planned |
 | 83 | `fetch_scholars.php` | DataTables route (scholars) | P6 | Planned |

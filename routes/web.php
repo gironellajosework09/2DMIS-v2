@@ -6,12 +6,15 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DuplicateController;
 use App\Http\Controllers\FamilyMemberController;
 use App\Http\Controllers\GeographyController;
+use App\Http\Controllers\GranteeSearchController;
 use App\Http\Controllers\HouseholdController;
+use App\Http\Controllers\PayoutAttendanceController;
 use App\Http\Controllers\PhotoController;
 use App\Http\Controllers\ScannerController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TransactionController;
+use App\Http\Controllers\UnpaidVerificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -28,6 +31,17 @@ Route::get('student/verify/{client}', [StudentController::class, 'verify'])->nam
 Route::post('student/verify/{client}', [StudentController::class, 'verify'])->name('student.verify.post');
 Route::get('student/photo-upload', [StudentController::class, 'photoUpload'])->name('student.photo-upload');
 Route::post('student/photo-upload', [StudentController::class, 'storePhoto'])->name('student.photo-upload.store');
+
+// P5 public self-service unpaid verification (v1 disabled_unpaid.php +
+// unpaid_save.php + search_unpaid_grantee.php have no session check — the
+// form is a public page grantees use at the payout venue).
+Route::get('unpaid-verification', [UnpaidVerificationController::class, 'selfService'])
+    ->name('unpaid-verification.self-service');
+Route::post('unpaid-verification/submit', [UnpaidVerificationController::class, 'store'])
+    ->name('unpaid-verification.submit');
+
+Route::get('grantee-search/{kind}', [GranteeSearchController::class, 'search'])->name('grantee-search');
+Route::post('grantee-search/{kind}', [GranteeSearchController::class, 'verify'])->name('grantee-search.verify');
 
 Route::middleware(['auth', 'single-device'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
@@ -113,4 +127,27 @@ Route::middleware(['auth', 'single-device'])->group(function () {
                 ->name('scanners.'.$scannerKey.'.save');
         });
     }
+
+    // P5 payout attendance — one shared view + feed per variant, each gated
+    // with its own v1 page key (page:scanned_payouts*.php). Same pattern as
+    // the scanner loop: config drives the variant, defaults() feeds it in.
+    foreach (config('payout.attendance') as $variant => $attendanceConfig) {
+        Route::middleware('page:'.$attendanceConfig['page'])->group(function () use ($variant) {
+            Route::get('payout-attendance/'.$variant, [PayoutAttendanceController::class, 'index'])
+                ->defaults('variant', $variant)
+                ->name('payout-attendance.'.$variant.'.index');
+            Route::post('payout-attendance/'.$variant.'/data', [PayoutAttendanceController::class, 'data'])
+                ->defaults('variant', $variant)
+                ->name('payout-attendance.'.$variant.'.data');
+        });
+    }
+
+    Route::middleware('page:unpaid_verifications.php')->group(function () {
+        Route::get('unpaid-verifications', [UnpaidVerificationController::class, 'index'])
+            ->name('unpaid-verifications.index');
+        Route::post('unpaid-verifications/data', [UnpaidVerificationController::class, 'data'])
+            ->name('unpaid-verifications.data');
+        Route::get('unpaid-verifications/export', [UnpaidVerificationController::class, 'export'])
+            ->name('unpaid-verifications.export');
+    });
 });

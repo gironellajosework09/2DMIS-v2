@@ -36,6 +36,25 @@
         @endif
     @endforeach
 
+    @php($payoutLinks = [
+        'scanned_payouts' => ['page' => 'scanned_payouts.php', 'label' => 'Payout Attendance'],
+        'scanned_payouts2' => ['page' => 'scanned_payouts2.php', 'label' => 'Payout Attendance 2'],
+        'scanned_payouts_unpaid' => ['page' => 'scanned_payouts_unpaid.php', 'label' => 'Payout Attendance Unpaid'],
+    ])
+    @foreach ($payoutLinks as $variant => $link)
+        @if ($acl->canAccessPage($user, $link['page']))
+            <a href="{{ route('payout-attendance.'.$variant.'.index') }}" @class(['active' => request()->routeIs('payout-attendance.'.$variant.'.*')])>
+                {{ $link['label'] }}
+            </a>
+        @endif
+    @endforeach
+
+    @if ($acl->canAccessPage($user, 'unpaid_verifications.php'))
+        <a href="{{ route('unpaid-verifications.index') }}" @class(['active' => request()->routeIs('unpaid-verifications.*')])>
+            Unpaid Grantees
+        </a>
+    @endif
+
     @if ($acl->canAccessProgram($user, 'AICS'))
         <a href="#">AICS</a>
     @endif

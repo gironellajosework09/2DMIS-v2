@@ -30,7 +30,7 @@
 | [implementation/P2_CLIENTS.md](implementation/P2_CLIENTS.md) | P2 delivered — client registry, households, family members, photos, duplicates, student self-service, client details slide-over |
 | [implementation/P3_TRANSACTIONS.md](implementation/P3_TRANSACTIONS.md) | P3 delivered — 17-program `TransactionService`, program-gated list/feed/filters/inline-edit/search, 4 CSV export modes |
 | [implementation/P4_SCANNER_ENGINE.md](implementation/P4_SCANNER_ENGINE.md) | P4 delivered — config-driven 14-key/8-mode scanner engine, one shared scan view, per-key routes + gates, 14 tests |
-| [implementation/P5_PAYOUT.md](implementation/P5_PAYOUT.md) | P5 planned — payout attendance + unpaid verification screens (blueprint §1.9/§1.10) |
+| [implementation/P5_PAYOUT.md](implementation/P5_PAYOUT.md) | P5 delivered — payout attendance lists (3 variants, one shared view/feeds), unpaid verification admin + public self-service + search/verify/delete, BOM CSV export; 15 tests |
 | [implementation/P6_SCHOLARS.md](implementation/P6_SCHOLARS.md) | P6 planned — scholars module: enrollment, GIP, grantee updates, reports, QR viewer (blueprint §1.12) |
 | [implementation/P7_ADMINISTRATION.md](implementation/P7_ADMINISTRATION.md) | P7 planned — permission management, user CRUD, audit viewer + leaderboard (blueprint §1.11); `manage_php.php` excluded |
 
@@ -40,13 +40,14 @@
 |---|---|
 | Planning & Analysis | **Complete** |
 | Design | **Complete** |
-| Development | **In progress (P5 — payouts & unpaid)** |
+| Development | **In progress (P6 — scholars / GIP)** |
 | Testing | In progress (per-module gates; full suite in P8) |
 | Rollout | Not started |
 
 P0 foundations, the six additive schema-fix migrations, P1 Auth + RBAC, P2
-clients/households, P3 transactions, and P4 the scanner engine are complete —
-see `IMPLEMENTATION_LOG.md` for the full record.
+clients/households, P3 transactions, P4 the scanner engine, and P5 payouts +
+unpaid verification are complete — see `IMPLEMENTATION_LOG.md` for the full
+record.
 
 ## Guardrails
 
