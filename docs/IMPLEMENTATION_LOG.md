@@ -24,7 +24,7 @@
 | P1 — Auth + RBAC | Username login, single-device, ACL, audit, shell | **Done** |
 | P2 — Clients + households | Client CRUD, households + family members, profile, duplicates, photos, student self-service | **Done** 2026-08-05 (full P2 scope incl. delete_client, duplicates, photo/student — see entries below); 2026-08-06 slide-over details panel added |
 | P3 — Transactions + reports | Transaction CRUD, filters, inline edit, CSV exports | **Done** 2026-08-05 (all 9 v1 transaction files ported; per-program gating) |
-| P4 — Scanner engine | | Not started |
+| P4 — Scanner engine | One `ScanService` (8 modes) + program config + shared view + routes | **Done** 2026-08-07 (all 14 v1 scanners as config; 14 tests green — see entry below) |
 | P5 — Payout + unpaid | | Not started |
 | P6 — Scholars / GIP | | Not started |
 | P7 — Administration | | Not started |
@@ -589,6 +589,94 @@ partial), `tests/Feature/ClientTest.php` (+1 panel test).
 `resources/views/clients/index.blade.php` (right-side Offcanvas panel + row
 click + `openClientPanel`/`executeScripts` JS),
 `resources/views/clients/show.blade.php` (thin wrapper over the partial).
+
+---
+
+### 2026-08-07 — P4 Scanner engine (one engine, all 14 v1 scanners as config)
+
+Completes the P4 milestone. All 14 v1 scanner pages + their action handlers
+(`scanner_*.php` + `scanner_*_action.php`) collapse into **one config-driven
+engine**: a `ScanService` with 8 behavioral modes, a thin `ScannerController`,
+one shared Blade view, per-program routes/sidebar links, and 14 feature tests.
+Behavior was transcribed byte-for-byte from the v1 action handlers into
+`config/scanner.php` (source-of-truth: `docs/SCANNER_ANALYSIS.md` +
+`docs/SCANNER_CONFIGURATION_MATRIX.md`); the service has **no branching on
+scanner key**.
+
+#### What was built
+
+- **`config/scanner.php`** — 14 scanner keys (`ceap`, `ceap_new`, `cedssg`,
+  `cedssg_new`, `cedssg_update`, `otces`, `otea`, `toda`, `tupad`,
+  `new_scholars`, `ongoing_scholars`, `payout`, `payout_unpaid`, `generic`).
+  Each entry: `key`, `mode`, `title`, `page` (ACL gate = the v1 file name),
+  `lookup` (mode + `lookup_miss_message`), `programs`, `insert`/`update`,
+  `duplicate` (rule, message, optional `show_existing`), `audit`
+  (action/fields/values or `null`), `attendance`, and `ui` (fields, resume,
+  success message, `amount_paid_readonly` for cedssg_update, types/statuses
+  from `TransactionService` consts, `scan_success_sound`). Semester dates and
+  amounts are config data, never hardcoded. Generic exposes only AICS, AKAP,
+  MAIP, TUPAD, CEDSSG, CEAP.
+- **`app/Services/ScanService.php`** — `lookup()`/`save()` dispatch by mode:
+  lookups `client`, `client_geo`, `transaction`, `transaction_partial`,
+  `exam_derived`, `existing_program`, `seat_attendance` (exact → partial
+  fallback, `lookup_ignore_scan` variant); saves `scholarship_transaction`,
+  `date_guarded_transaction`, `update_in_place`, `exam_derived`,
+  `validate_existing`, `seat_attendance`/`unpaid_attendance`, `generic_form`.
+  Helpers: `findClientByName`, `municipalityName`, `barangayName`,
+  `remarkKeyDuplicateExists`, `alreadyScanned`, `missMessage`,
+  `duplicateMessage`, `resolveGenericPatient`, `writeAudit` (via
+  `AuditService::log`).
+- **`app/Http/Controllers/ScannerController.php`** — `show($key)` (view),
+  `lookup($key)` / `save($key)` (JSON), private `requireAccess` (config lookup,
+  404, `AccessControlService::canAccessPage`, 403) so runtime JSON calls
+  re-check the ACL even though the GET pages are middleware-gated.
+- **`resources/views/scanners/scan.blade.php`** — the single shared scanner
+  view: `html5-qrcode` camera + manual input, date/amount fields per
+  `ui.fields`, `amount_paid_readonly`, mode-aware result rendering, modal with
+  OK → reload/resume, success/error sounds, and the generic form
+  (self/custom/existing + client search via `transactions.clients-search`).
+  CSRF via `X-CSRF-TOKEN` header (existing AJAX convention). JS config is built
+  in the controller and passed as `$scannerJs` (a multi-line `@json([…])` broke
+  Blade's one-line directive — moved to the controller).
+- **Routes** (`routes/web.php`) — one GET page + POST `lookup`/`save` per key,
+  each registered with **literal URLs** and `->defaults('key', $key)` (the
+  controller receives `{key}` with no route parameter), gated by
+  `page:scanner_*.php` middleware per key.
+- **Sidebar** (`partials/sidebar.blade.php`) — loops `config('scanner.scanners')`
+  rendering each title, gated via `canAccessPage($user, $page)`.
+- **Tests** — `tests/Feature/ScannerTest.php` (14): page gate; all pages load
+  for super admin; CEAP lookup/save + audit; CEAP duplicate blocked; OTEA/OTCES
+  semester templates; TODA geo + date-guarded save; TUPAD stored-vs-audit
+  remarks; CEDSSG update marks pending 2nd sem paid (idempotent); new_scholars
+  derives program from exam results; ongoing_scholars latest program + no audit;
+  payout seat-attendance one-scan-per-transaction (exact → partial,
+  `lookup_ignore_scan`); payout_unpaid partial match + one-scan pre-check;
+  generic self + custom patient name, no audit.
+
+#### Verification
+
+- `php artisan test` → **74 passed (386 assertions)** (P1+P2+P3+P4 suites).
+- `vendor\bin\pint` → passed on `ScanService`, `ScannerController`, `routes`,
+  `ScannerTest`, `config/scanner.php`.
+- Two defects found and fixed during verification: (1) scanner routes originally
+  used a `{key}` placeholder + `->where('key', …)` which produced URLs like
+  `scanners/{key}/lookup` that never matched the test's `route('scanners.X.lookup')`
+  calls — switched to literal URLs with `->defaults('key', …)`; (2) the view's
+  multi-line `@json([…])` array was truncated by Blade's end-of-line directive
+  (compile-time `ParseError`) — the JS config now lives in the controller
+  (`$scannerJs`).
+- Local `main_system` untouched — no schema or data changes; the engine reads
+  `tbl_transactions`, `tbl_exam`, `tbl_results`, `tbl_seats2`,
+  `tbl_payout_scans2`, `tbl_payout_scans_unpaid` and writes only through the
+  same service paths the tests exercise on `main_system_test`.
+
+**Deviations:** the generic scanner **does** get ACL/program gates (v1 gap —
+username-only check — not preserved; ADR-003). V1 `scanner_new_scholars.php`
+reads hardcoded program→(amount, date) maps; v2 keeps those values in
+`config/scanner.php` (semester data, so still config-driven). Formal P4.5
+architecture review of the v1 paid/failed scan paths is recommended next
+(informational). `scan_success_sound` is only enabled for the generic scanner
+today (v1 toggled it per page); the flag exists in config for the rest.
 
 ---
 

@@ -28,6 +28,14 @@
         </a>
     @endif
 
+    @foreach (config('scanner.scanners') as $scannerKey => $scannerConfig)
+        @if ($acl->canAccessPage($user, $scannerConfig['page']))
+            <a href="{{ route('scanners.'.$scannerKey) }}" @class(['active' => request()->routeIs('scanners.'.$scannerKey)])>
+                {{ $scannerConfig['title'] }}
+            </a>
+        @endif
+    @endforeach
+
     @if ($acl->canAccessProgram($user, 'AICS'))
         <a href="#">AICS</a>
     @endif

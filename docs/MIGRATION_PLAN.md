@@ -53,7 +53,7 @@ the v2.0 rebuild. It is a plan; nothing here has been executed.
 | P1 Baseline | Framework scaffold, baseline migration, CI, env config, backups | v2 boots against a copy of `main_system` | ✅ Complete (baseline + assets + CI; formal backup drill still pending at staging) |
 | P2 Core | Auth, ACL, client registry, households | Login + CRUD parity on copy | ✅ Complete 2026-08-05 (auth + ACL + client registry + households + family members + profile + verify-mobile + delete_client + duplicate detection + client photos + student self-service — see `IMPLEMENTATION_LOG.md`) |
 | P3 Transactions | Transactions, filtering, exports | Parity with v1 `all_transactions.php` | ✅ Complete 2026-08-05 (all 9 v1 transaction files ported; program-gated; inline edit; CSV-with-BOM exports — see `IMPLEMENTATION_LOG.md`) |
-| P4 Scanner engine | One scanner engine + all 17 programs as config | Each program passes v1-equivalent scan tests | Not started |
+| P4 Scanner engine | One scanner engine + all 17 programs as config | Each program passes v1-equivalent scan tests | ✅ Complete 2026-08-07 (14 v1 scanners as one config-driven `ScanService`, 8 modes, 14 scanner tests green — see `IMPLEMENTATION_LOG.md`) |
 | P5 Payouts & unpaid | Payout attendance, seats, unpaid verification | Parity with v1 screens | Not started |
 | P6 Scholars & reports | Scholar flows, all reports/exports | Parity with v1 | Not started |
 | P7 Hardening | CSRF, rate limiting, audit observers, tests | Security gaps C1–C5 closed | Not started |

@@ -32,12 +32,22 @@ must remain byte-identical to v1 — this project only adds application code aro
   Never hardcode `user_id = 1` or check usernames inline — route all access checks
   through the single ACL service.
 - Never modify files under `C:\xampp\htdocs\system` except for read-only analysis.
-- **Document every update.** Every change must be recorded in
-  `docs/IMPLEMENTATION_LOG.md` (new dated changelog entry + file inventory +
-  verification) and reflected in the status tables of `docs/README.md`,
-  `docs/ENGINEERING_BLUEPRINT.md` §8, `docs/ARCHITECTURE_DECISION.md`
-  (Implementation lines), `docs/MIGRATION_PLAN.md` §4, and
-  `docs/MIGRATION_PLANNING.md` §6. No code commit ships without its doc update.
+
+- **Document every completed change.** Every completed change must be
+  recorded in `docs/IMPLEMENTATION_LOG.md` (dated changelog entry, affected
+  files, verification, and test results).
+
+- Update other documentation only when affected by the change:
+
+  - `docs/README.md` — project overview, feature list, or milestone status.
+  - `docs/ENGINEERING_BLUEPRINT.md` — implementation progress or engineering status.
+  - `docs/ARCHITECTURE_DECISION.md` — only when architectural decisions or ADRs change.
+  - `docs/MIGRATION_PLAN.md` — when migration milestones or roadmap progress change.
+  - `docs/MIGRATION_PLANNING.md` — when migration strategy, risks, or planning status change.
+
+- Do not modify documentation that is unaffected simply to keep timestamps synchronized.
+
+- No completed change is considered finished until all affected documentation has been updated.
 
 ## Stack & environment
 - Laravel 12.x on PHP 8.2.12 (XAMPP CLI). Production targets PHP 8.3+.
@@ -80,9 +90,13 @@ full page kept as deep link) — 60 tests green. P3 delivered: `TransactionServi
 patient-name resolution, TUPAD nulls), page-gated `all_transactions.php` list
 + server-side feed + filters + inline edit + client search + CSV exports
 (UTF-8 BOM, standard/custom/custom2/gip), 12 TransactionTest — 40 tests green.
-Current milestone: **P4 scanner engine** (study v1 paid/failed scan + all 17
-programs incl. GIP/OTEA/OTCES/CEDSSG/TODA/MAIP/CEAP/TUPAD; build `ScanService`
-+ program config + views + tests). Full roadmap:
+Current milestone: **P5 payout + unpaid screens** (payout attendance, seats,
+unpaid verification — blueprint §1.9/§1.10; v1 `scanned_payouts*.php`,
+`unpaid_verifications.php`). P4 delivered the scanner engine: `config/scanner.php`
+(14 keys) drives `ScanService` (8 modes, no key branching), a thin
+`ScannerController`, one shared `scanners/scan.blade.php` view, literal per-key
+routes with `page:scanner_*.php` gates (`->defaults('key', …)`), ACL-gated
+sidebar links, and 14 scanner tests — 74 tests green. Full roadmap:
 `docs/ENGINEERING_BLUEPRINT.md` (also in `C:\xampp\htdocs\system\doc\v2`).
 
 ## Open decisions (do not silently decide)

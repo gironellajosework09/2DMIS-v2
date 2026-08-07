@@ -21,19 +21,32 @@
 | [ENGINEERING_BLUEPRINT.md](ENGINEERING_BLUEPRINT.md) | Final engineering blueprint: legacy inventory, transformation matrix, DB→model mapping, technical strategy, module deliverables, dependency matrix, compatibility guarantees, file-migration checklist, readiness assessment |
 | [IMPLEMENTATION_LOG.md](IMPLEMENTATION_LOG.md) | **Running record of what has been built** (P0 → P8), file inventory, v1→v2 mapping, verification results, deviations from the blueprint. Append on every update |
 
+### Developer documentation
+
+| Document | Contents |
+|---|---|
+| [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) | **Primary maintainer reference**: overview, directory map, workflow, coding/doc standards, adding features, debugging, testing, roadmap, non-negotiables |
+| [implementation/P1_AUTHENTICATION.md](implementation/P1_AUTHENTICATION.md) | P1 delivered — username auth on `tbl_users`, single-device `session_token`, ACL service + Gates, audit logging, session status/routes |
+| [implementation/P2_CLIENTS.md](implementation/P2_CLIENTS.md) | P2 delivered — client registry, households, family members, photos, duplicates, student self-service, client details slide-over |
+| [implementation/P3_TRANSACTIONS.md](implementation/P3_TRANSACTIONS.md) | P3 delivered — 17-program `TransactionService`, program-gated list/feed/filters/inline-edit/search, 4 CSV export modes |
+| [implementation/P4_SCANNER_ENGINE.md](implementation/P4_SCANNER_ENGINE.md) | P4 delivered — config-driven 14-key/8-mode scanner engine, one shared scan view, per-key routes + gates, 14 tests |
+| [implementation/P5_PAYOUT.md](implementation/P5_PAYOUT.md) | P5 planned — payout attendance + unpaid verification screens (blueprint §1.9/§1.10) |
+| [implementation/P6_SCHOLARS.md](implementation/P6_SCHOLARS.md) | P6 planned — scholars module: enrollment, GIP, grantee updates, reports, QR viewer (blueprint §1.12) |
+| [implementation/P7_ADMINISTRATION.md](implementation/P7_ADMINISTRATION.md) | P7 planned — permission management, user CRUD, audit viewer + leaderboard (blueprint §1.11); `manage_php.php` excluded |
+
 ## Phase status
 
 | Phase | Status |
 |---|---|
 | Planning & Analysis | **Complete** |
 | Design | **Complete** |
-| Development | **In progress (P4 — scanner engine)** |
+| Development | **In progress (P5 — payouts & unpaid)** |
 | Testing | In progress (per-module gates; full suite in P8) |
 | Rollout | Not started |
 
 P0 foundations, the six additive schema-fix migrations, P1 Auth + RBAC, P2
-clients/households, and P3 transactions are complete — see
-`IMPLEMENTATION_LOG.md` for the full record.
+clients/households, P3 transactions, and P4 the scanner engine are complete —
+see `IMPLEMENTATION_LOG.md` for the full record.
 
 ## Guardrails
 

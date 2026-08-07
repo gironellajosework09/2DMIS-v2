@@ -1,0 +1,227 @@
+# P6 — Scholars Module (Planned)
+
+> **Status:** **Not yet implemented.** P6 is the scholars module — scholar
+> enrollment, GIP profiles, grantee updates, scholarship reports, and QR
+> viewer (Blueprint §1.7). Much of the **scan-time** scholar behavior already
+> exists via the P4 scanner engine (CEAP/CEAP_NEW/CEDSSG/CEDSSG_NEW/OTEA/OTCES,
+> `new_scholars`, `ongoing_scholars`, `cedssg_update`); P6 is the
+> **enrollment/maintenance/reporting** side that the scanner keys presuppose.
+>
+> This is a **hybrid** document: §2 is v1 ground truth, §3 lists what v2
+> already touches, §4 onward is the build contract and extension points.
+
+---
+
+## 1. Purpose
+
+P6 delivers the scholar lifecycle: register/update scholar profiles
+(`tbl_scholar_info`), record GIP enrollment data (`tbl_gip_info`), let staff
+and scholars update grantee details with an audit trail (`tbl_update_logs`),
+produce scholarship reports with CSV export, and display a scholar's QR code
+for use by the payout scanners.
+
+---
+
+## 2. Legacy v1 behavior (ground truth)
+
+Blueprint §1.7 lists the major files:
+
+| File | Role |
+|---|---|
+| `scholars.php` + `fetch_scholars.php` | scholar list + DataTables feed |
+| `save_scholarship.php` | add/update scholar record (`tbl_scholar_info`) |
+| `update_client_id.php` | relink a scholar row to a client |
+| `scholarship_reports.php` + `fetch_scholarship_reports.php` + `export_scholarship_reports.php` | reports + feed + CSV (BOM) |
+| `save_gip.php` | GIP profile (`tbl_gip_info`) |
+| `save_grantee_update.php` | record a grantee detail update |
+| `disabled_update_grantee.php` | disable/remove an update entry |
+| `update_logs.php` + `fetch_update_logs.php` | update-history viewer |
+| `view_qrcode.php` | render the scholar's QR code |
+
+### 2.1 `tbl_scholar_info` (from the schema)
+
+```
+id, client_id (FK→tbl_clients, ON DELETE CASCADE),
+full_name, program enum('CEDSSG','CEAP','CEDSSG_NEW','CEAP_NEW','OTEA','OTCES'),
+school, school_type, campus, college_department, course, year_level,
+is_regular tinyint default 1, year_started, landbank_no,
+created_at, updated_at,
+normalized_name (GENERATED lcase(trim(full_name)) STORED), match_name
+```
+
+Key facts:
+
+- `normalized_name` is a **generated stored column** — do not write to it.
+- `match_name` is a writable denormalized search key (like `tbl_clients.match_name`).
+- The `program` enum matches the six P4 scholar scanner programs exactly — the
+  scanner keys write transactions for these programs, and P6 must keep the same
+  strings.
+
+### 2.2 `tbl_gip_info` (from the schema)
+
+```
+id, client_id (FK, no cascade), full_name,
+valid_govt_id, id_number, insurance_beneficiary, emergency_contact,
+ecp_contact_number, ecp_address, college, course, year_graduated (YEAR),
+high_school, elementary_school, latest_work_experience, position,
+period_of_engagement, special_skills, achievements,
+created_at, updated_at, normalized_name, match_name
+```
+
+- `normalized_name` here is a **plain varchar** (v1 populated it in PHP), not a
+  generated column — the P3 `gip` CSV export already joins this table.
+
+### 2.3 `tbl_update_logs` (from the schema)
+
+```
+id, client_id, full_name, ip_address, action, created_at (datetime)
+```
+
+- Append-only audit of grantee detail updates (`save_grantee_update.php` writes
+  here; `update_logs.php`/`fetch_update_logs.php` display it).
+- Distinct from `tbl_audit_logs` — this is a **module-specific** change log with
+  an IP address, kept separate for the scholars screen.
+
+### 2.4 `tbl_exam` / `tbl_results`
+
+- `tbl_exam`: `exam_no, fullname, barangay, town, email_address, contact,
+  school, course, year, scholarship, exam_date, exam_time, permit_confirmed,
+  score`, plus a **generated** `normalized_name` (STORED `lcase(trim(fullname))`).
+- `tbl_results`: `exam_no, score, approved` — `approved` drives the
+  `new_scholars` scanner's automatic program.
+
+---
+
+## 3. What already exists in v2 (P4 touchpoints)
+
+- The **P4 scanner engine** reads/writes the transaction side of scholars:
+  - `ceap`, `ceap_new`, `cedssg`, `cedssg_new`, `otea`, `otces` — fixed
+    scholarship inserts (`type=SCHOLARSHIP`, `status=PENDING PAYOUT`).
+  - `new_scholars` — exam→results→program derivation.
+  - `ongoing_scholars` — program from the client's latest transaction.
+  - `cedssg_update` — pays the 2nd-sem installment (in-place UPDATE).
+- `TransactionService::PROGRAMS` and the `tbl_transactions.program` enum include
+  the six scholar programs plus `GIP`.
+- The P3 `custom2`/`gip` CSV exports already **read** `tbl_scholar_info` and
+  `tbl_gip_info`.
+- `PhotoService` / `StudentController` operate on scholar-program clients for
+  the self-service photo flow (SCHOLAR_PROGRAMS whitelist).
+
+P6 adds the management screens; it must not duplicate any of the above.
+
+---
+
+## 4. Extension points (the P6 build contract)
+
+Port the v1 files into (Blueprint §2 rows):
+
+- `ScholarController` + `ScholarService` — `scholars.php`, `save_scholarship.php`,
+  `fetch_scholars.php`, `update_client_id.php`.
+  - `ScholarService::save(...)` — upsert `tbl_scholar_info`; derive `full_name`
+    from the client (or accept override per v1), populate `match_name` with the
+    same no-space-uppercase convention as `ClientService::deriveMatchName`,
+    **never** write the generated `normalized_name`.
+  - Feed with word-split AND search over `full_name`, `match_name`, school,
+    course, program; join to client/geo for the list.
+  - `update_client_id.php` → a relink action: verify the target client exists
+    and is not already the scholar's client.
+- `GipController` — `save_gip.php` upsert of `tbl_gip_info`, keeping
+  `normalized_name` in sync in PHP (it is a plain column here).
+- `GranteeUpdateController` — `save_grantee_update.php`,
+  `disabled_update_grantee.php`, `update_logs.php`, `fetch_update_logs.php`.
+  - Writes `tbl_update_logs` (append-only; client_id, full_name, **ip_address**,
+    action). Capture the request IP via `$request->ip()`.
+  - Respect the exact `disabled_update_grantee.php` semantics (verify whether it
+    deletes the log row — the table has no `disabled` column, so deletion is the
+    likely v1 behavior).
+- `ReportController` + `ReportService` — `scholarship_reports.php`,
+  `fetch_scholarship_reports.php`, `export_scholarship_reports.php`:
+  streamed CSV with UTF-8 BOM, reusing the P3 export pattern.
+- `QrController` — `view_qrcode.php`: render a QR for the scholar (the P4
+  payout scanners scan a QR whose payload is the **patient name** string, so the
+  QR must encode the name in the exact `TRIM(full_name)`/patient-name form the
+  lookups expect — verify against `ScanService` lookups before choosing the
+  payload).
+
+Route gating: use the v1 page keys from `tbl_permissions` (`scholars.php`,
+`scholarship_reports.php`, `update_logs.php`, `view_qrcode.php`, etc.) via the
+`page:` middleware, following the P3/P4 route-group patterns.
+
+---
+
+## 5. Business rules to honor
+
+1. Scholar `program` values are exactly the six-enum strings; they must agree
+   with the transaction program strings (scanner + transaction module).
+2. `normalized_name` on `tbl_scholar_info` is generated — read-only.
+3. `match_name` on both scholar tables is a writable search key; derive it with
+   the established convention.
+4. GIP is one profile per client; saving re-upserts the same row.
+5. Scholar updates are logged to `tbl_update_logs` with the client's IP — a
+   module log, not `tbl_audit_logs` (keep the distinction).
+6. Exam/results are read-only references for the scanner; P6 does not edit them.
+7. QR codes encode the name form used by the scanners — never a bare id unless
+   the scanner lookup is changed (an ADR would be required).
+
+---
+
+## 6. Security & validation expectations
+
+- All P6 screens behind their v1 `page:` gates; no new permission rows needed
+  (carried-over data already holds them).
+- `save_scholarship`/`save_gip` validate: `client_id` exists; `program` in the
+  enum; `year_started`/`landbank_no` required for scholarship; GIP fields
+  nullable strings, `year_graduated` 4-digit year. Use `FormRequest` classes in
+  the P2/P3 style.
+- Report feeds/CSV gated the same as their screens; all strings escaped;
+  exports streamed with BOM.
+
+---
+
+## 7. Common mistakes to avoid
+
+1. Writing `normalized_name` on `tbl_scholar_info` (generated column → error).
+2. Introducing scholar program strings that drift from the scanner/transaction
+  enum (they must be identical).
+3. Routing scholar updates to `tbl_audit_logs` instead of `tbl_update_logs`
+  (the screens expect the module log with IP).
+4. Encoding the wrong payload in the QR (see §5.7) — test a real scan through
+  the `payout` lookup before releasing.
+5. Duplicating the CSV export machinery — reuse the P3 streamed-download +
+  BOM pattern.
+
+---
+
+## 8. Never-change list
+
+- Never drop/rewrite the generated `normalized_name` columns.
+- Never let P6 mutate `tbl_exam` / `tbl_results`.
+- Never bypass `ScholarService`/`GipController`/`GranteeUpdateController` for
+  writes — they are the single writers for their tables.
+- Never relax the six-program enum agreement.
+
+---
+
+## 9. Verification / acceptance gates
+
+- Scholar CRUD + relink round-trips; scholar feed matches `tbl_scholar_info`.
+- GIP profile save/update idempotent per client.
+- Grantee update recorded in `tbl_update_logs` with IP; update-log viewer
+  renders it.
+- Scholarship reports + CSV (BOM) match v1 columns.
+- QR renders and scans through the existing `payout`/`ongoing_scholars` lookups.
+- Full suite green on `main_system_test`.
+
+---
+
+## 10. Blueprint / ADR references
+
+- `docs/ENGINEERING_BLUEPRINT.md` §1.7 (Scholars module), §2 rows for
+  `scholars.php`/`save_scholarship.php`/`fetch_scholars.php`/`update_client_id.php`,
+  `scholarship_reports.php`+feeds, `save_gip.php`, `save_grantee_update.php`/
+  `disabled_update_grantee.php`/`update_logs.php`, `view_qrcode.php`; §3 rows for
+  `tbl_scholar_info`, `tbl_gip_info`, `tbl_update_logs`, `tbl_exam`,
+  `tbl_results`.
+- `docs/ARCHITECTURE_DECISION.md` — ADR-004 (the scanner engine P6 depends on).
+- `docs/IMPLEMENTATION_LOG.md` — append the P6 entry when delivered.
+- `docs/REQUIREMENTS_ANALYSIS.md` — scholar-related FRs.

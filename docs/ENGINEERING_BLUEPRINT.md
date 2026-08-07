@@ -433,20 +433,20 @@ Dead files (`default.php`, `client_photo.php`) are deliberately excluded.
 | 51 | `all_transaction_edit.php` | `TransactionController@editFromList` | P3 | **Done** (inline row Edit/Save/Cancel) |
 | 52 | `all_transaction_delete.php` | `TransactionController@destroyFromList` | P3 | **Done** (inline row Delete) |
 | 53 | `transaction_table.php` | Blade partial component | P3 | **Done** (index view + partial — same contract) |
-| 54 | `scanner_ceap(.php/_action.php)` | Scanner engine config entry + routes | P4 | Planned |
-| 55 | `scanner_ceap_new` | config entry | P4 | Planned |
-| 56 | `scanner_cedssg` | config entry | P4 | Planned |
-| 57 | `scanner_cedssg_new` | config entry | P4 | Planned |
-| 58 | `scanner_cedssg_update` | config entry (update-in-place rule) | P4 | Planned |
-| 59 | `scanner_tupad` | config entry (monthly guard) | P4 | Planned |
-| 60 | `scanner_toda` | config entry | P4 | Planned |
-| 61 | `scanner_otces` | config entry | P4 | Planned |
-| 62 | `scanner_otea` | config entry | P4 | Planned |
-| 63 | `scanner_new_scholars` | config entry (exam-derived) | P4 | Planned |
-| 64 | `scanner_ongoing_scholars` | config entry (validate-existing) | P4 | Planned |
-| 65 | `scanner_payout` | config entry (seat-aware, `lookup_ignore_scan`) | P4 | Planned |
-| 66 | `scanner_payout_unpaid` | config entry | P4 | Planned |
-| 67 | `scanner_generic` | config entry (program chosen in form) | P4 | Planned |
+| 54 | `scanner_ceap(.php/_action.php)` | Scanner engine config entry + routes | P4 | **Done** (`config/scanner.php` key + routes; `ScanService` scholarship_transaction mode) |
+| 55 | `scanner_ceap_new` | config entry | P4 | **Done** (`ceap_new` key, exam-derived mode) |
+| 56 | `scanner_cedssg` | config entry | P4 | **Done** (`cedssg` key, scholarship_transaction mode) |
+| 57 | `scanner_cedssg_new` | config entry | P4 | **Done** (`cedssg_new` key, exam-derived mode) |
+| 58 | `scanner_cedssg_update` | config entry (update-in-place rule) | P4 | **Done** (`cedssg_update` key, `update_in_place` mode; `amount_paid_readonly`) |
+| 59 | `scanner_tupad` | config entry (monthly guard) | P4 | **Done** (`tupad` key, `date_guarded_transaction` mode; stored vs audit remarks) |
+| 60 | `scanner_toda` | config entry | P4 | **Done** (`toda` key, `client_geo` lookup + `date_guarded_transaction` mode) |
+| 61 | `scanner_otces` | config entry | P4 | **Done** (`otces` key, semester template) |
+| 62 | `scanner_otea` | config entry | P4 | **Done** (`otea` key, semester template) |
+| 63 | `scanner_new_scholars` | config entry (exam-derived) | P4 | **Done** (`new_scholars` key, `exam_derived` mode via `tbl_exam` → `tbl_results`) |
+| 64 | `scanner_ongoing_scholars` | config entry (validate-existing) | P4 | **Done** (`ongoing_scholars` key, `validate_existing` mode; no audit) |
+| 65 | `scanner_payout` | config entry (seat-aware, `lookup_ignore_scan`) | P4 | **Done** (`payout` key, `seat_attendance` mode; exact→partial fallback) |
+| 66 | `scanner_payout_unpaid` | config entry | P4 | **Done** (`payout_unpaid` key, `unpaid_attendance` mode) |
+| 67 | `scanner_generic` | config entry (program chosen in form) | P4 | **Done** (`generic` key, `generic_form` mode; AICS/AKAP/MAIP/TUPAD/CEDSSG/CEAP only; ACL-gated — see deviations) |
 | 68 | `scanned_payouts.php` | `PayoutAttendanceController` (screen 1) | P5 | Planned |
 | 69 | `scanned_payouts2.php` | screen 2 | P5 | Planned |
 | 70 | `scanned_payouts_unpaid.php` | screen 3 | P5 | Planned |

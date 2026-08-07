@@ -1,62 +1,79 @@
 ---
 name: 2dmis-finalize
-description: Run whenever the user asks to "finalize", "finish", "wrap up", "ship", "commit", or otherwise completes a change in the 2DMIS-v2 Laravel project. Load this skill before running the verification/close-out ritual: pint, the PHPUnit suite (with C:\xampp\mysql\bin on PATH), and the mandatory six-document update. Use ONLY for close-out work in this repo, not for mid-task coding.
+description: Run whenever the user asks to "finalize", "finish", "wrap up", "ship", or otherwise completes an implementation and wants it verified and recorded. Load this skill before running the close-out ritual: code style, the test suite, database safety checks, and documentation updates. Use ONLY for close-out work, not for mid-task coding.
 ---
 
-# 2DMIS v2 — Finalize / Close-out Ritual
+# 2DMIS v2 — Finalize Implementation
 
-Trigger whenever a change is complete and the user wants it verified and
-recorded. Run through every step below; do not skip the documentation phase —
-AGENTS.md requires that no code commit ships without its doc update.
+## Purpose
 
-## 1. Verify the environment first
+Use this skill whenever an implementation is complete and needs to be verified
+and recorded — the user says "finalize", "finish", "wrap up", "ship", or asks
+to commit a completed change. Run through every step below before declaring the
+work done. Do not skip the documentation phase: the repository rules require
+that no code commit ships without its documentation update. This skill is
+reusable — it stays valid for every stage of the project lifecycle and must not
+be rewritten per phase or milestone.
 
-- XAMPP MySQL must be running. If not:
-  `Start-Process "C:\xampp\mysql\bin\mysqld.exe" -ArgumentList "--defaults-file=C:\xampp\mysql\bin\my.ini"`
-- `php artisan test` and `php artisan schema:dump` need `C:\xampp\mysql\bin`
-  on PATH. In PowerShell prepend it for the command:
-  `$env:PATH = "C:\xampp\mysql\bin;$env:PATH"` — without it tests fail with
-  `ProcessFailedException` and schema:dump says "mysqldump is not recognized".
-- Ignore the harmless "Module openssl is already loaded" PHP warning.
+## 1. Verify Environment
 
-## 2. Code style
+- Check that the required services are running (MySQL, PHP, queue/worker, etc.).
+- Ensure any binaries the tooling needs are reachable (e.g. the database client
+  on PATH for the test suite or schema dump).
+- Ignore harmless warnings only when they are known to be always applicable and
+  are environment noise rather than failures.
 
-Run `vendor\bin\pint` from the repo root and fix anything it flags. No
-comments unless the user asked for them. Keep diffs to the change only.
+## 2. Code Quality
 
-## 3. Run the test suite
+- Run the project's code-style tool (Pint) from the project root.
+- Fix anything it flags before moving on.
+- Keep changes minimal: the diff should contain only what the change requires.
+- Do not add comments unless the user asked for them.
 
-- `php artisan test` — full PHPUnit suite (tests run against `main_system_test`,
-  never the local `main_system` copy, so real data is safe).
-- Confirm the expected suite size for the current phase (P1: 6+6; P2: ~59;
-  P3: ~40). Report pass/fail counts.
-- If a test fails, fix the code or the test; re-run until green.
+## 3. Validation
 
-## 4. Schema safety (only when the change touched the schema)
+- Run `php artisan test` — the full suite.
+- Report the pass/fail counts.
+- If a test fails, fix the code or the test and re-run until the suite is green.
+- Do not assert a specific expected test count — the suite size changes over
+  time as the project grows.
 
-- Never `migrate:fresh`, `db:wipe`, or drop/alter existing tables. Only
-  additive migrations.
-- Before any schema work: `& "C:\xampp\mysql\bin\mysqldump.exe" -u root main_system > backup.sql`
-- If the baseline changed: `php artisan schema:dump`, then remove the
-  `__legacy_v1_baseline_schema__` row from `database/schema/mysql-schema.sql`
-  before committing.
+## 4. Database Safety
 
-## 5. Documentation (mandatory, six files)
+Only execute when the change touched the schema.
 
-1. `docs/IMPLEMENTATION_LOG.md` — new dated changelog entry + file inventory +
-   verification results.
-2. `docs/README.md` — update the status tables.
-3. `docs/ENGINEERING_BLUEPRINT.md` — §8 status table.
-4. `docs/ARCHITECTURE_DECISION.md` — Implementation lines (and flip ADRs from
-   Proposed to Accepted only when the user approves).
-5. `docs/MIGRATION_PLAN.md` — §4 status table.
-6. `docs/MIGRATION_PLANNING.md` — §6 status table.
+- Never run `migrate:fresh`, `db:wipe`, or drop/alter existing tables. Schema
+  changes are additive only.
+- Take a database backup before any schema work.
+- If the baseline schema changed, regenerate it with `php artisan schema:dump`
+  and remove any deploy-only marker rows before committing.
+- Never drop or alter production tables.
 
-If a change also touched `AGENTS.md`, keep its phase/status section in sync.
+## 5. Documentation Update
 
-## 6. Report and commit
+Update every affected documentation file according to AGENTS.md. AGENTS.md is the
+source of truth for which files must be updated and how — do not hardcode a
+fixed file list here.
 
-- Summarize: what changed, test results, docs updated.
-- Only commit if the user explicitly asked. Commit style is short and matches
-  the repo history (e.g. "implementation log", "P3 transactions"). Stage only
-  intended files; never commit `.env` or secrets.
+Examples of files that may be affected (update only those the change actually
+touches):
+
+- implementation log
+- migration planning
+- engineering blueprint
+- architecture decisions
+- roadmap
+
+If AGENTS.md itself changed, keep its status sections in sync.
+
+## 6. Completion Report
+
+Summarize:
+
+- the implementation completed
+- the verification performed
+- the test results
+- the documentation updated
+
+Only create a git commit if the user explicitly requests it. Never commit
+automatically, and never stage `.env` or secrets.

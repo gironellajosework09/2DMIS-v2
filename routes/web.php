@@ -8,6 +8,7 @@ use App\Http\Controllers\FamilyMemberController;
 use App\Http\Controllers\GeographyController;
 use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\PhotoController;
+use App\Http\Controllers\ScannerController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TransactionController;
@@ -94,4 +95,22 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
         Route::post('transactions/{transaction}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
     });
+
+    // P4 scanner engine — one GET page + lookup + save route per scanner key,
+    // each gated with the matching v1 page name (page:scanner_*.php). Each
+    // registration defaults the {key} route parameter to its literal value so
+    // route names need no argument and the controller still receives the key.
+    foreach (config('scanner.scanners') as $scannerKey => $scannerConfig) {
+        Route::middleware('page:'.$scannerConfig['page'])->group(function () use ($scannerKey) {
+            Route::get('scanners/'.$scannerKey, [ScannerController::class, 'show'])
+                ->defaults('key', $scannerKey)
+                ->name('scanners.'.$scannerKey);
+            Route::post('scanners/'.$scannerKey.'/lookup', [ScannerController::class, 'lookup'])
+                ->defaults('key', $scannerKey)
+                ->name('scanners.'.$scannerKey.'.lookup');
+            Route::post('scanners/'.$scannerKey.'/save', [ScannerController::class, 'save'])
+                ->defaults('key', $scannerKey)
+                ->name('scanners.'.$scannerKey.'.save');
+        });
+    }
 });
