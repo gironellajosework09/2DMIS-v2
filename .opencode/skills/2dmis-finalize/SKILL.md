@@ -51,22 +51,32 @@ Only execute when the change touched the schema.
 
 ## 5. Documentation Update
 
-Update every affected documentation file according to AGENTS.md. AGENTS.md is the
-source of truth for which files must be updated and how — do not hardcode a
-fixed file list here.
+Before updating documentation, review `AGENTS.md` to determine the current
+documentation requirements.
 
-Examples of files that may be affected (update only those the change actually
-touches):
+Update every documentation file required by AGENTS.md. Do not assume the list
+is fixed—the required documents may evolve as the project grows.
 
-- implementation log
-- migration planning
-- engineering blueprint
-- architecture decisions
-- roadmap
+For each required document:
 
-If AGENTS.md itself changed, keep its status sections in sync.
+- record the implementation performed
+- update status/progress tables
+- update implementation state where applicable
+- keep milestone and phase information synchronized
 
-## 6. Completion Report
+If AGENTS.md changed during this implementation, ensure it also reflects the
+current project state before finishing.
+
+## 6. Verify Documentation Consistency
+
+Before declaring the implementation complete:
+
+- ensure documentation matches the implementation
+- verify milestone/progress numbers are consistent
+- confirm roadmap, blueprint, migration, and implementation status agree
+- report any inconsistencies instead of silently fixing assumptions
+
+## 7. Completion Report
 
 Summarize:
 

@@ -29,6 +29,23 @@ const PROGRAMS = [
   'PUSO TI MANNALON', 'TESDA', 'GIP', 'TODA',
 ];
 
+/* P6 — programs a client can hold as a scholar (single source for scholar UI) */
+const SCHOLAR_PROGRAMS = ['CEDSSG', 'CEAP', 'CEDSSG_NEW', 'CEAP_NEW', 'OTEA', 'OTCES'];
+
+/* P6 — programs offered in the Scholars list multi-select filter.
+   GIP grantees are profiled in the GIP Profiles tab but also appear in the
+   Scholars list (tbl_gip_info), so GIP is filterable here as well. */
+const SCHOLAR_FILTER_PROGRAMS = SCHOLAR_PROGRAMS.concat(['GIP']);
+
+/* P6 — program picker groups. Every program belongs to exactly one group
+   (union covers all 17 PROGRAMS, no duplicates). */
+const PROGRAM_GROUPS = [
+  { label: 'Scholarship & Education', programs: ['CEDSSG', 'CEAP', 'CEDSSG_NEW', 'CEAP_NEW', 'OTEA', 'OTCES'] },
+  { label: 'Medical & Financial Assistance', programs: ['AICS', 'AKAP', 'MAIP'] },
+  { label: 'Livelihood & Employment', programs: ['TUPAD', 'COFFEE GROWERS', 'PUSO TI MANNALON', 'TESDA'] },
+  { label: 'Community Programs', programs: ['PUSO TI KABABAIHAN', 'PUSO TI AGTUTUBO', 'TODA', 'GIP'] },
+];
+
 const CATEGORIES = [
   { label: 'Adult (30-59)', cls: 'approved' },
   { label: 'Senior (60+)',  cls: 'pending' },
@@ -90,6 +107,18 @@ function birthdateFor(id, catIdx) {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
+/* P6 — deterministic default program tags shown on the resident profile */
+function defaultPrograms(id) {
+  const pool = PROGRAMS.slice();
+  const picks = [];
+  const count = 1 + (id % 3);
+  for (let k = 0; k < count; k++) {
+    const p = pool[(id * 7 + k * 13) % pool.length];
+    if (!picks.includes(p)) picks.push(p);
+  }
+  return picks;
+}
+
 function govIdsFor(r) {
   const base = [
     { label: 'PhilSys (National ID)', value: '3499-' + String(1000 + r.id) + '-' + String(2000 + r.id) + '-0001' },
@@ -149,6 +178,7 @@ function makeResident(seed, i) {
     email: `${first.toLowerCase().replace(/\s+/g, '.')}.${last.toLowerCase()}@gmail.com`,
     address: `${ADDRESS_PREFIX[id % ADDRESS_PREFIX.length]}, Brgy. ${barangay}, ${municipality}`,
     household: 'HH-2026-' + String(1 + (i % 6)).padStart(3, '0'),
+    programs: defaultPrograms(id),
     notes: 'Registered under the municipal assistance program. Priority category: ' + category.label.toLowerCase() + '. Existing assistance history on record with no flagged duplicates.',
     govIds: govIdsFor({ id, category }),
     docs: docsFor({ id, category }),
@@ -219,6 +249,193 @@ const HOUSEHOLDS = [
   { code: 'HH-2026-006', head: 'Christian Bautista', headId: 14, members: 4, barangay: 'Bagani Camposanto',   muni: 'Candon City' },
 ];
 
+/* ═══════════════════════════════════════════════════════════════
+   P6 — SCHOLARS (tbl_scholar_info) · GIP (tbl_gip_info) · exams
+   (tbl_exam / tbl_results) · update logs (tbl_update_logs)
+   Mock rows mirror the v2 P6 data model. Client details are
+   derived from the resident records above.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* GIP (Government Internship Program) profiles — tbl_gip_info */
+const GIP_PROFILES = [
+  {
+    clientId: 5,
+    validGovtId: 'PhilSys (National ID)', idNumber: '3499-1005-2005-0001',
+    insuranceBeneficiary: 'Maricris Cruz', emergencyContact: 'Maricris Cruz',
+    ecpContactNumber: '0917-112-2334', ecpAddress: 'Oaig-Daya, Candon City',
+    college: 'Ilocos Sur Polytechnic State College', course: 'BS in Public Administration',
+    yearGraduated: '2025', highSchool: 'Candon National High School',
+    elementarySchool: 'Oaig-Daya Elementary School', latestWorkExperience: 'Barangay Secretariat',
+    position: 'Administrative Aide', periodOfEngagement: '3 months', specialSkills: 'Microsoft Office, Encoding',
+    achievements: 'Dean\'s Lister (2024)',
+  },
+  {
+    clientId: 23,
+    validGovtId: 'PhilSys (National ID)', idNumber: '3499-1023-2023-0001',
+    insuranceBeneficiary: 'Ramon Torres', emergencyContact: 'Ramon Torres',
+    ecpContactNumber: '0918-334-4556', ecpAddress: 'Lubong, Salcedo',
+    college: 'University of Northern Philippines', course: 'BS in Social Work',
+    yearGraduated: '2024', highSchool: 'Salcedo Vocational High School',
+    elementarySchool: 'Lubong Elementary School', latestWorkExperience: 'Volunteer youth worker',
+    position: 'Program Aide', periodOfEngagement: '6 months', specialSkills: 'Case management, reporting',
+    achievements: 'Top 10 (2024)',
+  },
+  {
+    clientId: 20,
+    validGovtId: 'PhilSys (National ID)', idNumber: '3499-1020-2020-0001',
+    insuranceBeneficiary: 'Lucia Ocampo', emergencyContact: 'Lucia Ocampo',
+    ecpContactNumber: '0919-556-6778', ecpAddress: 'Abaccan, Sigay',
+    college: 'Ilocos Sur Polytechnic State College', course: 'BS in Information Technology',
+    yearGraduated: '2025', highSchool: 'Sigay National High School',
+    elementarySchool: 'Abaccan Elementary School', latestWorkExperience: 'Computer shop assistant',
+    position: 'IT Support Aide', periodOfEngagement: '3 months', specialSkills: 'Hardware, networking',
+    achievements: 'CISCO certified (2025)',
+  },
+  {
+    clientId: 17,
+    validGovtId: 'PhilSys (National ID)', idNumber: '3499-1017-2017-0001',
+    insuranceBeneficiary: 'Amelia Villanueva', emergencyContact: 'Amelia Villanueva',
+    ecpContactNumber: '0917-778-8990', ecpAddress: 'Puor, Tagudin',
+    college: 'University of Northern Philippines', course: 'BS in Development Communication',
+    yearGraduated: '2023', highSchool: 'Tagudin National High School',
+    elementarySchool: 'Puor Elementary School', latestWorkExperience: 'Municipal info office intern',
+    position: 'Documentation Aide', periodOfEngagement: '6 months', specialSkills: 'Writing, photography',
+    achievements: 'Campus journalist awardee',
+  },
+];
+
+const SCHOLAR_SEEDS = [
+  {
+    id: 'SC-2026-001', clientId: 2, program: 'CEDSSG',
+    school: 'University of Northern Philippines', schoolType: 'University', campus: 'Vigan',
+    collegeDept: 'College of Arts and Sciences', course: 'BS in Social Work', yearLevel: '3rd Year',
+    isRegular: true, yearStarted: 2024, landbankNo: '1234-5678-9001', status: 'Active',
+    exam: { date: '2026-03-15', venue: 'MSWDO Candon', result: 'Passed', score: 88 },
+  },
+  {
+    id: 'SC-2026-002', clientId: 3, program: 'CEAP',
+    school: 'St. Joseph Provincial College', schoolType: 'College', campus: 'Main',
+    collegeDept: 'College of Education', course: 'BSEd in English', yearLevel: '2nd Year',
+    isRegular: true, yearStarted: 2025, landbankNo: '2345-6789-0123', status: 'Active',
+    exam: { date: '2026-04-02', venue: 'MPSO Santa Cruz', result: 'Passed', score: 82 },
+  },
+  {
+    id: 'SC-2026-003', clientId: 10, program: 'CEDSSG_NEW',
+    school: 'University of Northern Philippines', schoolType: 'University', campus: 'Vigan',
+    collegeDept: 'College of Engineering', course: 'BS in Civil Engineering', yearLevel: '1st Year',
+    isRegular: true, yearStarted: 2026, landbankNo: '3456-7890-1234', status: 'Active',
+    exam: { date: '2026-05-20', venue: 'MSWDO Candon', result: 'Pending', score: null },
+  },
+  {
+    id: 'SC-2026-004', clientId: 9, program: 'OTEA',
+    school: 'Ilocos Sur Polytechnic State College', schoolType: 'College', campus: 'Tagudin',
+    collegeDept: 'College of Nursing', course: 'BS in Nursing', yearLevel: '4th Year',
+    isRegular: true, yearStarted: 2023, landbankNo: '4567-8901-2345', status: 'Active',
+    exam: { date: '2026-03-28', venue: 'MSWDO Santa Lucia', result: 'Passed', score: 91 },
+  },
+  {
+    id: 'SC-2026-005', clientId: 11, program: 'OTCES',
+    school: 'Saint Mary College', schoolType: 'College', campus: 'Main',
+    collegeDept: 'College of Business', course: 'BS in Accountancy', yearLevel: '2nd Year',
+    isRegular: true, yearStarted: 2025, landbankNo: '5678-9012-3456', status: 'Active',
+    exam: { date: '2026-04-18', venue: 'MSWDO Santa Lucia', result: 'Failed', score: 58 },
+  },
+  {
+    id: 'SC-2026-006', clientId: 13, program: 'CEAP_NEW',
+    school: 'University of Northern Philippines', schoolType: 'University', campus: 'Vigan',
+    collegeDept: 'College of Agriculture', course: 'BS in Agribusiness', yearLevel: '1st Year',
+    isRegular: false, yearStarted: 2026, landbankNo: '6789-0123-4567', status: 'Active',
+    exam: { date: '2026-06-05', venue: 'MSWDO Santa Maria', result: 'Passed', score: 79 },
+  },
+  {
+    id: 'SC-2026-007', clientId: 16, program: 'CEDSSG',
+    school: 'Ilocos Sur Polytechnic State College', schoolType: 'College', campus: 'Santiago',
+    collegeDept: 'College of Teacher Education', course: 'BEEd in Elementary Education', yearLevel: '4th Year',
+    isRegular: true, yearStarted: 2023, landbankNo: '7890-1234-5678', status: 'Active',
+    exam: { date: '2026-02-22', venue: 'MSWDO Santiago', result: 'Passed', score: 85 },
+  },
+  {
+    id: 'SC-2026-008', clientId: 19, program: 'OTEA',
+    school: 'University of Northern Philippines', schoolType: 'University', campus: 'Vigan',
+    collegeDept: 'College of Education', course: 'BSED in Filipino', yearLevel: 'Graduated',
+    isRegular: true, yearStarted: 2022, landbankNo: '8901-2345-6789', status: 'Graduated',
+    exam: { date: '2026-01-12', venue: 'MSWDO Suyo', result: 'Passed', score: 90 },
+  },
+  /* GIP grantees (tbl_gip_info) appear in the Scholars list as program GIP so the
+     multi-select OR filter can be demonstrated alongside scholarship programs. */
+  {
+    id: 'SC-2026-009', clientId: 5, program: 'GIP',
+    school: 'Ilocos Sur Polytechnic State College', schoolType: 'College', campus: 'Main',
+    collegeDept: '—', course: 'BS in Public Administration', yearLevel: 'Engaged',
+    isRegular: true, yearStarted: 2025, landbankNo: '—', status: 'Active',
+    exam: null,
+  },
+  {
+    id: 'SC-2026-010', clientId: 23, program: 'GIP',
+    school: 'University of Northern Philippines', schoolType: 'University', campus: 'Vigan',
+    collegeDept: '—', course: 'BS in Social Work', yearLevel: 'Engaged',
+    isRegular: true, yearStarted: 2024, landbankNo: '—', status: 'Active',
+    exam: null,
+  },
+  {
+    id: 'SC-2026-011', clientId: 20, program: 'GIP',
+    school: 'Ilocos Sur Polytechnic State College', schoolType: 'College', campus: 'Main',
+    collegeDept: '—', course: 'BS in Information Technology', yearLevel: 'Engaged',
+    isRegular: true, yearStarted: 2025, landbankNo: '—', status: 'Active',
+    exam: null,
+  },
+  {
+    id: 'SC-2026-012', clientId: 17, program: 'GIP',
+    school: 'University of Northern Philippines', schoolType: 'University', campus: 'Vigan',
+    collegeDept: '—', course: 'BS in Development Communication', yearLevel: 'Engaged',
+    isRegular: true, yearStarted: 2023, landbankNo: '—', status: 'Active',
+    exam: null,
+  },
+];
+
+function buildScholar(seed) {
+  const r = RESIDENT_BY_ID.get(seed.clientId);
+  const s = Object.assign({}, seed, {
+    fullName: r ? r.fullName : '—',
+    formalName: r ? r.formalName : '—',
+    initials: r ? r.initials : '—',
+    avatar: r ? r.avatar : AVATAR_COLORS[0],
+    avatarText: r ? r.avatarText : AVATAR_TEXT[0],
+    barangay: r ? r.barangay : '—',
+    municipality: r ? r.municipality : '—',
+    mobile: r ? r.mobile : '—',
+  });
+  s.gip = GIP_PROFILES.find(g => g.clientId === s.clientId) || null;
+  return s;
+}
+
+const SCHOLARS = SCHOLAR_SEEDS.map(buildScholar);
+const SCHOLAR_BY_ID = new Map(SCHOLARS.map(s => [s.id, s]));
+
+/* Scholarship reports — monthly aggregated preview (mirrors v1 report export) */
+const SCHOLAR_REPORTS = [
+  { month: 'June 2026', program: 'CEDSSG',   new: 3, active: 12, graduated: 1, disbursed: 36000 },
+  { month: 'June 2026', program: 'CEAP',     new: 2, active: 9,  graduated: 0, disbursed: 30000 },
+  { month: 'June 2026', program: 'OTEA',     new: 1, active: 7,  graduated: 1, disbursed: 18000 },
+  { month: 'June 2026', program: 'OTCES',    new: 1, active: 5,  graduated: 0, disbursed: 15000 },
+  { month: 'July 2026', program: 'CEDSSG',   new: 4, active: 14, graduated: 1, disbursed: 44000 },
+  { month: 'July 2026', program: 'CEAP',     new: 3, active: 11, graduated: 0, disbursed: 39000 },
+  { month: 'July 2026', program: 'CEAP_NEW', new: 2, active: 6,  graduated: 0, disbursed: 24000 },
+  { month: 'July 2026', program: 'CEDSSG_NEW', new: 2, active: 5, graduated: 0, disbursed: 21000 },
+  { month: 'July 2026', program: 'OTEA',     new: 2, active: 8,  graduated: 1, disbursed: 22000 },
+  { month: 'July 2026', program: 'OTCES',    new: 1, active: 6,  graduated: 0, disbursed: 17000 },
+];
+
+/* Client-initiated profile updates — tbl_update_logs */
+const UPDATE_LOGS = [
+  { id: 1, clientId: 2,  fullName: 'Juan Del Rosario',  action: 'Updated mobile number and Landbank account', ipAddress: '192.168.1.24', createdAt: '2026-08-04 09:12' },
+  { id: 2, clientId: 10, fullName: 'Grace Reyes',       action: 'Changed year level to 1st Year',              ipAddress: '192.168.1.57', createdAt: '2026-08-03 14:02' },
+  { id: 3, clientId: 9,  fullName: 'Jose Mendoza',      action: 'Updated emergency contact',                   ipAddress: '192.168.1.88', createdAt: '2026-08-01 11:45' },
+  { id: 4, clientId: 16, fullName: 'Liza Marie Pascual', action: 'Requested status verification',              ipAddress: '192.168.1.12', createdAt: '2026-07-29 08:30' },
+  { id: 5, clientId: 3,  fullName: 'Ana Santos',        action: 'Corrected school spelling',                   ipAddress: '192.168.1.41', createdAt: '2026-07-27 16:18' },
+  { id: 6, clientId: 11, fullName: 'Benigno Aquino',    action: 'Added Landbank account',                      ipAddress: '192.168.1.93', createdAt: '2026-07-25 10:05' },
+];
+
 const NOTIFICATIONS = [
   { icon: 'gold', title: 'Pending approval', text: '5 transactions awaiting approval', time: '12 min ago', unread: true },
   { icon: 'red',  title: 'Duplicate detected', text: 'Possible duplicate for Ana Santos', time: '1 hr ago', unread: true },
@@ -242,28 +459,38 @@ const state = {
   page: 'dashboard',
   clients: {
     search: '',
-    filter: 'all',      // all | muni:<name> | cat:<label>
+    filters: { program: [], category: [], sex: [], civilStatus: [], status: [] },
     sortKey: null,      // name | municipality | barangay
     sortDir: 'asc',
     page: 1,
     perPage: 8,
   },
   transactions: {
-    filter: 'all',
+    search: '',
+    filters: { program: [], type: [], status: [] },
     sortKey: null,      // date | amount | name
     sortDir: 'asc',
     page: 1,
     perPage: 8,
   },
-  households: { search: '', page: 1, perPage: 6 },
+  households: { search: '', filters: { muni: [] }, page: 1, perPage: 6 },
+  scholars: {
+    search: '',
+    filters: { program: [], status: [] },
+    page: 1,
+    perPage: 8,
+  },
+  scholarTab: 'scholars',
   openResidentId: null,
+  openScholarId: null,
+  panelMode: 'resident',  // 'resident' | 'scholar'
   lastFocusedRow: null,
   calendar: { month: 7, year: 2026 }, // 0-indexed month (July = August 2026 view default handled below)
 };
 
 const PAGE_NAMES = {
   dashboard: 'Dashboard', clients: 'Client Registry', households: 'Households',
-  transactions: 'All Transactions', scanner: 'Scanner Engine', payouts: 'Payouts',
+  scholars: 'Scholars', transactions: 'All Transactions', scanner: 'Scanner Engine', payouts: 'Payouts',
   users: 'Access Control', audit: 'Audit Logs',
 };
 
@@ -302,11 +529,256 @@ function renderPagination(containerSel, meta, key, onPage) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   REUSABLE MULTI-SELECT FILTER SYSTEM
+   Categorical filters across modules share one engine:
+   - OR logic within a category (any selected value matches)
+   - AND logic across categories
+   - text search composes with filters (search AND filters)
+   - searchable checkbox popovers + active filter chips + Clear all
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Per-module filter categories. `options` returns the choice list for the
+   menu, `get` extracts the value(s) present on a record. */
+const FILTER_SPECS = {
+  clients: [
+    { key: 'program',     label: 'Program',      searchable: true, options: () => PROGRAMS, get: r => r.programs },
+    { key: 'category',    label: 'Category',     options: () => CATEGORIES.map(c => c.label), get: r => [r.category.label] },
+    { key: 'sex',         label: 'Sex',          options: () => ['M', 'F'], get: r => [r.sex] },
+    { key: 'civilStatus', label: 'Civil Status', options: () => CIVIL, get: r => [r.civilStatus] },
+    { key: 'status',      label: 'Status',       options: () => ['Active', 'Archived'], get: r => [r.status] },
+  ],
+  transactions: [
+    { key: 'program', label: 'Program', searchable: true, options: () => [...new Set(TRANSACTIONS.map(t => t.program))], get: t => [t.program] },
+    { key: 'type',    label: 'Type',    searchable: true, options: () => [...new Set(TRANSACTIONS.map(t => t.type))],    get: t => [t.type] },
+    { key: 'status',  label: 'Status',  options: () => Object.keys(TX_STATUS_META).map(k => TX_STATUS_META[k].label), get: t => [t.statusLabel] },
+  ],
+  households: [
+    { key: 'muni', label: 'Municipality', options: () => [...new Set(HOUSEHOLDS.map(h => h.muni))], get: h => [h.muni] },
+  ],
+  scholars: [
+    { key: 'program', label: 'Program', searchable: true, options: () => SCHOLAR_FILTER_PROGRAMS, get: s => [s.program] },
+    { key: 'status',  label: 'Status',  options: () => ['Active', 'Graduated', 'Inactive'], get: s => [s.status] },
+  ],
+};
+
+/* Per-menu search query registry: `${module}|${catKey}` → string */
+const filterQuery = {};
+
+function filterMatches(record, module) {
+  const spec = FILTER_SPECS[module];
+  const f = state[module].filters;
+  return spec.every(cat => {
+    const sel = f[cat.key] || [];
+    if (!sel.length) return true;
+    const vals = cat.get(record);
+    const arr = Array.isArray(vals) ? vals : [vals];
+    return sel.some(v => arr.includes(v));
+  });
+}
+
+function activeFilterCount(module) {
+  return Object.keys(state[module].filters).reduce((n, k) => n + (state[module].filters[k] || []).length, 0);
+}
+
+function renderModule(module) {
+  if (module === 'clients') renderClients();
+  else if (module === 'transactions') renderTransactions();
+  else if (module === 'households') renderHouseholds();
+  else if (module === 'scholars') renderScholars();
+}
+
+function renderFilterOptions(module, cat) {
+  const wrap = $(`[data-filter-host="${module}"] .filter-multi[data-filter-cat="${cat}"]`);
+  if (!wrap) return;
+  const el = wrap.querySelector('.filter-multi-options');
+  if (!el) return;
+  const spec = FILTER_SPECS[module].find(c => c.key === cat);
+  const q = (filterQuery[`${module}|${cat}`] || '').trim().toLowerCase();
+  const sel = state[module].filters[cat] || [];
+  const opts = spec.options().filter(o => !q || String(o).toLowerCase().includes(q));
+  el.innerHTML = opts.length
+    ? opts.map(o => `
+      <label class="filter-check">
+        <input type="checkbox" value="${esc(o)}" ${sel.includes(o) ? 'checked' : ''}>
+        <span>${esc(o)}</span>
+      </label>`).join('')
+    : `<span class="filter-no-results">No options match "${esc(filterQuery[`${module}|${cat}`] || '')}".</span>`;
+}
+
+function renderFilterBadges(module) {
+  $$(`[data-filter-host="${module}"] .filter-multi`).forEach(wrap => {
+    const cat = wrap.dataset.filterCat;
+    const count = (state[module].filters[cat] || []).length;
+    const badge = wrap.querySelector('.filter-count');
+    const btn = wrap.querySelector('[data-filter-toggle]');
+    if (badge) { badge.textContent = count; badge.hidden = count === 0; }
+    if (btn) btn.classList.toggle('has-filters', count > 0);
+  });
+}
+
+function renderFilterChips(module) {
+  const host = $(`[data-filter-host="${module}"]`);
+  if (!host) return;
+  const chips = host.querySelector('.filter-active-chips');
+  const clearAll = host.querySelector('[data-filter-clear-all]');
+  if (!chips || !clearAll) return;
+  const parts = [];
+  FILTER_SPECS[module].forEach(cat => {
+    (state[module].filters[cat.key] || []).forEach(v => parts.push({ cat: cat.key, label: `${cat.label}: ${v}`, value: v }));
+  });
+  chips.innerHTML = parts.map(p =>
+    `<span class="filter-chip-select">${esc(p.label)}<button type="button" class="filter-chip-x" data-filter-remove="${esc(p.cat)}|${esc(p.value)}" aria-label="Remove ${esc(p.label)} filter">&times;</button></span>`).join('');
+  chips.hidden = parts.length === 0;
+  clearAll.hidden = parts.length === 0;
+}
+
+function renderFilterUI(module) {
+  renderFilterBadges(module);
+  renderFilterChips(module);
+}
+
+function closeAllFilterMenus() {
+  $$('.filter-multi-menu.open').forEach(menu => {
+    menu.classList.remove('open');
+    const btn = menu.closest('.filter-multi').querySelector('[data-filter-toggle]');
+    if (btn) { btn.classList.remove('active'); btn.setAttribute('aria-expanded', 'false'); }
+  });
+}
+
+function toggleFilterMenu(wrap) {
+  const menu = wrap.querySelector('.filter-multi-menu');
+  const btn = wrap.querySelector('[data-filter-toggle]');
+  const isOpen = menu.classList.contains('open');
+  closeAllFilterMenus();
+  if (!isOpen) {
+    menu.classList.add('open');
+    btn.classList.add('active');
+    btn.setAttribute('aria-expanded', 'true');
+    const search = wrap.querySelector('.filter-multi-search');
+    if (search) { search.value = filterQuery[`${wrap.dataset.filterModule}|${wrap.dataset.filterCat}`] || ''; search.focus(); }
+    renderFilterOptions(wrap.dataset.filterModule, wrap.dataset.filterCat);
+  }
+}
+
+/* Build the filter button row + chips + clear-all for one module host */
+function initFilterGroup(module) {
+  const host = $(`[data-filter-host="${module}"]`);
+  if (!host || host.dataset.filterReady) return;
+  host.dataset.filterReady = '1';
+
+  const btnRow = document.createElement('div');
+  btnRow.className = 'filter-btns';
+  FILTER_SPECS[module].forEach(cat => {
+    const wrap = document.createElement('div');
+    wrap.className = 'filter-multi';
+    wrap.dataset.filterModule = module;
+    wrap.dataset.filterCat = cat.key;
+    wrap.innerHTML = `
+      <button type="button" class="filter-multi-btn" data-filter-toggle aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="22 3 2 3 10 12.5 10 19 14 21 14 12.5 22 3"/></svg>
+        <span>${esc(cat.label)}</span>
+        <span class="filter-count" hidden>0</span>
+      </button>
+      <div class="filter-multi-menu" role="listbox" aria-label="Filter by ${esc(cat.label)}">
+        ${cat.searchable ? `<input type="search" class="filter-multi-search" placeholder="Search ${esc(cat.label.toLowerCase())}…" aria-label="Search ${esc(cat.label)} options">` : ''}
+        <div class="filter-multi-options"></div>
+        <div class="filter-multi-footer">
+          <button type="button" class="btn btn-outline btn-xs" data-filter-clear-cat>Clear</button>
+          <span class="filter-multi-hint">Select multiple to show any of them</span>
+        </div>
+      </div>`;
+    btnRow.appendChild(wrap);
+  });
+  const chips = document.createElement('div');
+  chips.className = 'filter-active-chips';
+  chips.setAttribute('aria-live', 'polite');
+  chips.hidden = true;
+  const clearAll = document.createElement('button');
+  clearAll.type = 'button';
+  clearAll.className = 'filter-clear';
+  clearAll.dataset.filterClearAll = '';
+  clearAll.hidden = true;
+  clearAll.textContent = 'Clear filters';
+  host.appendChild(btnRow);
+  host.appendChild(chips);
+  host.appendChild(clearAll);
+  renderFilterUI(module);
+}
+
+/* Delegated filter events (single set for every module) */
+document.addEventListener('click', (e) => {
+  const toggle = e.target.closest('[data-filter-toggle]');
+  if (toggle) { toggleFilterMenu(toggle.closest('.filter-multi')); return; }
+
+  const removeBtn = e.target.closest('[data-filter-remove]');
+  if (removeBtn) {
+    const [cat, value] = removeBtn.dataset.filterRemove.split('|');
+    const module = removeBtn.closest('[data-filter-host]').dataset.filterHost;
+    state[module].filters[cat] = (state[module].filters[cat] || []).filter(v => v !== value);
+    state[module].page = 1;
+    renderModule(module);
+    renderFilterUI(module);
+    return;
+  }
+
+  const clearCat = e.target.closest('[data-filter-clear-cat]');
+  if (clearCat) {
+    const wrap = clearCat.closest('.filter-multi');
+    state[wrap.dataset.filterModule].filters[wrap.dataset.filterCat] = [];
+    state[wrap.dataset.filterModule].page = 1;
+    renderModule(wrap.dataset.filterModule);
+    renderFilterUI(wrap.dataset.filterModule);
+    renderFilterOptions(wrap.dataset.filterModule, wrap.dataset.filterCat);
+    return;
+  }
+
+  const clearAll = e.target.closest('[data-filter-clear-all]');
+  if (clearAll) {
+    const module = clearAll.closest('[data-filter-host]').dataset.filterHost;
+    Object.keys(state[module].filters).forEach(k => state[module].filters[k] = []);
+    state[module].page = 1;
+    renderModule(module);
+    renderFilterUI(module);
+    return;
+  }
+
+  if (!e.target.closest('.filter-multi')) closeAllFilterMenus();
+});
+
+document.addEventListener('change', (e) => {
+  const cb = e.target.closest('.filter-multi-options input[type="checkbox"][value]');
+  if (!cb) return;
+  const wrap = cb.closest('.filter-multi');
+  const module = wrap.dataset.filterModule;
+  const cat = wrap.dataset.filterCat;
+  const sel = state[module].filters[cat];
+  if (cb.checked) { if (!sel.includes(cb.value)) sel.push(cb.value); }
+  else { state[module].filters[cat] = sel.filter(v => v !== cb.value); }
+  state[module].page = 1;
+  renderModule(module);
+  renderFilterUI(module);
+  renderFilterOptions(module, cat);
+});
+
+document.addEventListener('input', (e) => {
+  const search = e.target.closest('.filter-multi-search');
+  if (!search) return;
+  const wrap = search.closest('.filter-multi');
+  filterQuery[`${wrap.dataset.filterModule}|${wrap.dataset.filterCat}`] = search.value;
+  renderFilterOptions(wrap.dataset.filterModule, wrap.dataset.filterCat);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeAllFilterMenus();
+});
+
+/* ═══════════════════════════════════════════════════════════════
    NAVIGATION
    ═══════════════════════════════════════════════════════════════ */
 
 function showPage(page) {
   state.page = page;
+  if (state.panelMode === 'scholar' && $('#detailsPanel').classList.contains('open')) closeResidentPanel(false);
   $$('.page').forEach(p => p.classList.remove('active'));
   $$('.sidebar-link').forEach(l => l.classList.remove('active'));
   const target = $('#page-' + page);
@@ -336,10 +808,7 @@ function filteredResidents() {
       String(r.id).includes(q) ||
       r.household.toLowerCase().includes(q));
   }
-  if (st.filter !== 'all') {
-    if (st.filter.startsWith('muni:')) list = list.filter(r => r.municipality === st.filter.slice(5));
-    if (st.filter.startsWith('cat:'))  list = list.filter(r => r.category.label === st.filter.slice(4));
-  }
+  list = list.filter(r => filterMatches(r, 'clients'));
   if (st.sortKey) {
     list.sort((a, b) => compare(
       st.sortKey === 'name' ? a.formalName : a[st.sortKey], 
@@ -375,11 +844,12 @@ function renderClients() {
       <td style="font-family:'Outfit',monospace;font-size:0.82rem;">${esc(r.mobile)}</td>
       <td><span class="status-badge ${r.status === 'Active' ? 'active' : 'archived'}"><span class="dot"></span>${esc(r.status)}</span></td>
       <td class="chevron-cell"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></td>
-    </tr>`).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No clients match your search.</td></tr>`;
+    </tr>`).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No clients match your filters.</td></tr>`;
 
   $('#clientsCount').textContent = `Showing ${items.length ? (page - 1) * st.perPage + 1 : 0}–${(page - 1) * st.perPage + items.length} of ${total} clients`;
   renderPagination('#clientsPager', { page, totalPages }, 'clients', (p) => { state.clients.page = p; renderClients(); });
   updateSortIndicators('clients', st.sortKey, st.sortDir);
+  renderFilterUI('clients');
 }
 
 function toggleClientSort(key) {
@@ -396,7 +866,16 @@ function toggleClientSort(key) {
 function filteredTransactions() {
   const st = state.transactions;
   let list = TRANSACTIONS.slice();
-  if (st.filter !== 'all') list = list.filter(t => t.program === st.filter);
+  if (st.search) {
+    const q = st.search.toLowerCase();
+    list = list.filter(t =>
+      t.clientName.toLowerCase().includes(q) ||
+      t.program.toLowerCase().includes(q) ||
+      t.type.toLowerCase().includes(q) ||
+      t.statusLabel.toLowerCase().includes(q) ||
+      t.no.toLowerCase().includes(q));
+  }
+  list = list.filter(t => filterMatches(t, 'transactions'));
   if (st.sortKey) {
     list.sort((a, b) => compare(
       st.sortKey === 'date' ? a.date : st.sortKey === 'amount' ? a.amount : a.clientName,
@@ -410,6 +889,9 @@ function renderTransactions() {
   const st = state.transactions;
   const { items, page, totalPages, total } = pageSlice(filteredTransactions(), st.page, st.perPage);
   st.page = page;
+
+  const searchEl = $('#transactionsSearch');
+  if (searchEl && document.activeElement !== searchEl) searchEl.value = st.search;
 
   const tbody = $('#transactionsBody');
   tbody.innerHTML = items.map(t => `
@@ -436,6 +918,7 @@ function renderTransactions() {
   $('#transactionsCount').textContent = `Showing ${items.length ? (page - 1) * st.perPage + 1 : 0}–${(page - 1) * st.perPage + items.length} of ${total} transactions`;
   renderPagination('#transactionsPager', { page, totalPages }, 'transactions', (p) => { state.transactions.page = p; renderTransactions(); });
   updateSortIndicators('transactions', st.sortKey, st.sortDir);
+  renderFilterUI('transactions');
 }
 
 function toggleTransactionSort(key) {
@@ -460,6 +943,7 @@ function renderHouseholds() {
       h.barangay.toLowerCase().includes(q) ||
       h.muni.toLowerCase().includes(q));
   }
+  list = list.filter(h => filterMatches(h, 'households'));
   const { items, page, totalPages, total } = pageSlice(list, st.page, st.perPage);
   st.page = page;
 
@@ -485,6 +969,158 @@ function renderHouseholds() {
 
   $('#householdsCount').textContent = `Showing ${items.length ? (page - 1) * st.perPage + 1 : 0}–${(page - 1) * st.perPage + items.length} of ${total} households`;
   renderPagination('#householdsPager', { page, totalPages }, 'households', (p) => { state.households.page = p; renderHouseholds(); });
+  renderFilterUI('households');
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   P6 — SCHOLARS (scholars list / GIP / reports / update log)
+   ═══════════════════════════════════════════════════════════════ */
+
+function scholarStatusCls(status) {
+  if (status === 'Active') return 'active';
+  if (status === 'Graduated') return 'approved';
+  return 'archived';
+}
+
+function examCls(result) {
+  return result === 'Passed' ? 'active' : result === 'Failed' ? 'rejected' : 'pending';
+}
+
+function filteredScholars() {
+  const st = state.scholars;
+  let list = SCHOLARS.slice();
+  if (st.search) {
+    const q = st.search.toLowerCase();
+    list = list.filter(s =>
+      s.formalName.toLowerCase().includes(q) ||
+      s.fullName.toLowerCase().includes(q) ||
+      s.id.toLowerCase().includes(q) ||
+      s.school.toLowerCase().includes(q) ||
+      s.course.toLowerCase().includes(q) ||
+      s.program.toLowerCase().includes(q));
+  }
+  list = list.filter(s => filterMatches(s, 'scholars'));
+  return list;
+}
+
+function renderScholars() {
+  const st = state.scholars;
+  const { items, page, totalPages, total } = pageSlice(filteredScholars(), st.page, st.perPage);
+  st.page = page;
+
+  const searchEl = $('#scholarsSearch');
+  if (searchEl && document.activeElement !== searchEl) searchEl.value = st.search;
+
+  const tbody = $('#scholarsBody');
+  tbody.innerHTML = items.map(s => `
+    <tr class="row-clickable" data-scholar-id="${esc(s.id)}" tabindex="0"
+        aria-label="Open scholar profile of ${esc(s.formalName)}">
+      <td style="font-family:'Outfit',monospace;font-size:0.82rem;color:var(--text-muted)">${esc(s.id)}</td>
+      <td>
+        <div class="td-name">
+          <div class="td-avatar" style="background:${s.avatar};color:${s.avatarText}">${esc(s.initials)}</div>
+          <div>
+            <div style="font-weight:600">${esc(s.formalName)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">${esc(s.barangay)}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="program-tag">${esc(s.program)}</span></td>
+      <td>${esc(s.school)}</td>
+      <td>${esc(s.course)}</td>
+      <td>${esc(s.yearLevel)}</td>
+      <td><span class="status-badge ${scholarStatusCls(s.status)}"><span class="dot"></span>${esc(s.status)}</span></td>
+      <td class="row-actions">
+        <button type="button" class="row-action" data-edit-scholar="${esc(s.id)}" aria-label="Edit scholar ${esc(s.id)}" title="Edit">
+          <svg viewBox="0 0 24 24"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+        </button>
+        <button type="button" class="row-action" data-qr-scholar="${esc(s.id)}" aria-label="View QR for ${esc(s.formalName)}" title="View QR">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><line x1="17" y1="17" x2="21" y2="17"/><line x1="17" y1="21" x2="21" y2="21"/><line x1="21" y1="17" x2="21" y2="21"/></svg>
+        </button>
+      </td>
+      <td class="chevron-cell"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></td>
+    </tr>`).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px;">No scholars match the selected filters.</td></tr>`;
+
+  $('#scholarsCount').textContent = `Showing ${items.length ? (page - 1) * st.perPage + 1 : 0}–${(page - 1) * st.perPage + items.length} of ${total} scholars`;
+  renderPagination('#scholarsPager', { page, totalPages }, 'scholars', (p) => { state.scholars.page = p; renderScholars(); });
+  renderFilterUI('scholars');
+}
+
+function renderGipProfiles() {
+  const tbody = $('#gipBody');
+  tbody.innerHTML = GIP_PROFILES.map(g => {
+    const r = RESIDENT_BY_ID.get(g.clientId);
+    const name = r ? r.fullName : '—';
+    const initials = r ? r.initials : '—';
+    const avatar = r ? r.avatar : AVATAR_COLORS[0];
+    const avatarText = r ? r.avatarText : AVATAR_TEXT[0];
+    return `
+    <tr class="row-clickable" data-resident-id="${g.clientId}" tabindex="0"
+        aria-label="Open profile of ${esc(name)}">
+      <td style="font-family:'Outfit',monospace;color:var(--text-muted)">GIP-${String(g.clientId).padStart(3, '0')}</td>
+      <td>
+        <div class="td-name">
+          <div class="td-avatar" style="background:${avatar};color:${avatarText}">${esc(initials)}</div>
+          <div>
+            <div style="font-weight:600">${esc(name)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">${esc(g.position)}</div>
+          </div>
+        </div>
+      </td>
+      <td>${esc(g.college)}<br><span style="font-size:0.72rem;color:var(--text-muted)">${esc(g.course)}</span></td>
+      <td>${esc(g.yearGraduated)}</td>
+      <td>${esc(g.latestWorkExperience)}</td>
+      <td>${esc(g.achievements)}</td>
+      <td class="row-actions">
+        <button type="button" class="row-action" data-sim="Opening GIP profile (mock)" title="View GIP profile" aria-label="View GIP profile">
+          <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No GIP profiles yet.</td></tr>`;
+}
+
+function renderScholarReports() {
+  $('#reportBody').innerHTML = SCHOLAR_REPORTS.map(rpt => `
+    <tr>
+      <td>${esc(rpt.month)}</td>
+      <td><span class="program-tag">${esc(rpt.program)}</span></td>
+      <td>${rpt.new}</td>
+      <td>${rpt.active}</td>
+      <td>${rpt.graduated}</td>
+      <td class="text-money">${money(rpt.disbursed)}</td>
+    </tr>`).join('');
+
+  const activeScholars = SCHOLARS.filter(s => s.status === 'Active').length;
+  const passedExams = SCHOLARS.filter(s => s.exam && s.exam.result === 'Passed').length;
+  const totalDisbursed = SCHOLAR_REPORTS.reduce((sum, r) => sum + r.disbursed, 0);
+  $('#metricActiveScholars').textContent = activeScholars;
+  $('#metricActiveGip').textContent = GIP_PROFILES.length;
+  $('#metricExamsPassed').textContent = passedExams;
+  $('#metricFunds').textContent = money(totalDisbursed);
+}
+
+function renderUpdateLogs() {
+  $('#updateLogBody').innerHTML = UPDATE_LOGS.map(l => `
+    <tr>
+      <td style="font-family:'Outfit',monospace;color:var(--text-muted)">#${l.id}</td>
+      <td style="font-weight:600">${esc(l.fullName)}</td>
+      <td>${esc(l.action)}</td>
+      <td><span class="ip-chip">${esc(l.ipAddress)}</span></td>
+      <td style="white-space:nowrap">${esc(l.createdAt)}</td>
+    </tr>`).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:32px;">No updates logged yet.</td></tr>`;
+}
+
+function switchScholarTab(tab) {
+  state.scholarTab = tab;
+  $$('[data-scholar-tab]').forEach(t => {
+    const on = t.dataset.scholarTab === tab;
+    t.classList.toggle('active', on);
+    t.setAttribute('aria-selected', String(on));
+  });
+  $$('.scholar-tab').forEach(p => {
+    p.classList.toggle('active', p.id === 'scholarTab-' + tab);
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -665,6 +1301,15 @@ function renderResidentPanel(r) {
       </div>
     </section>
 
+    <section class="details-section" aria-labelledby="sec-programs">
+      <h3 class="details-section-title" id="sec-programs">Programs &amp; Services</h3>
+      <div class="details-programs">
+        ${(r.programs && r.programs.length)
+          ? r.programs.map(p => `<span class="program-tag">${esc(p)}</span>`).join('')
+          : '<span class="prog-empty">No programs selected yet.</span>'}
+      </div>
+    </section>
+
     <section class="details-section" aria-labelledby="sec-gov">
       <h3 class="details-section-title" id="sec-gov">Government IDs</h3>
       ${govIds}
@@ -719,9 +1364,371 @@ function closeResidentPanel(returnFocus = true) {
   unlockScroll();
   $('#detailsPanel').setAttribute('aria-hidden', 'true');
   state.openResidentId = null;
+  state.openScholarId = null;
+  state.panelMode = 'resident';
   if (returnFocus && state.lastFocusedRow && state.lastFocusedRow.isConnected) {
     state.lastFocusedRow.focus();
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   P6 — SCHOLAR PROFILE PANEL (reuses the details slide-over)
+   ═══════════════════════════════════════════════════════════════ */
+
+function renderScholarPanel(s) {
+  $('#detailsHeader').innerHTML = `
+    <button type="button" class="details-close" id="detailsClose" aria-label="Close details panel">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="details-identity">
+      <div class="details-avatar" style="background:${s.avatar};color:${s.avatarText}">${esc(s.initials)}</div>
+      <div style="flex:1;min-width:0">
+        <h2 id="detailsPanelTitle">${esc(s.formalName)}</h2>
+        <div class="sub">Scholar ID: ${esc(s.id)} &middot; ${esc(s.program)}</div>
+        <div class="details-meta">
+          <span class="status-badge ${scholarStatusCls(s.status)}"><span class="dot"></span>${esc(s.status)}</span>
+          <span class="program-tag">${esc(s.program)}</span>
+        </div>
+      </div>
+    </div>`;
+
+  $('#detailsActions').innerHTML = `
+    <button type="button" class="btn btn-gold" data-edit-scholar="${esc(s.id)}">Edit</button>
+    <button type="button" class="btn btn-outline" data-qr-scholar="${esc(s.id)}">View QR</button>
+    <button type="button" class="btn btn-outline" data-sim="Scholarship certificate generated (mock)">Certificate</button>`;
+
+  const exam = s.exam || {};
+  const examBadge = exam.result
+    ? `<span class="status-badge ${examCls(exam.result)}"><span class="dot"></span>${esc(exam.result)}</span>`
+    : '<span class="status-badge pending"><span class="dot"></span>Not yet taken</span>';
+
+  const gip = s.gip;
+  const gipHTML = gip ? `
+    <section class="details-section" aria-labelledby="sec-gip">
+      <h3 class="details-section-title" id="sec-gip">GIP Profile</h3>
+      <div class="details-grid">
+        ${fieldRow('Valid Government ID', esc(gip.validGovtId))}
+        ${fieldRow('ID Number', esc(gip.idNumber))}
+        ${fieldRow('Insurance Beneficiary', esc(gip.insuranceBeneficiary))}
+        ${fieldRow('Emergency Contact', esc(gip.emergencyContact))}
+        ${fieldRow('ECP Contact Number', esc(gip.ecpContactNumber))}
+        ${fieldRow('ECP Address', esc(gip.ecpAddress), 'wide')}
+        ${fieldRow('College', esc(gip.college))}
+        ${fieldRow('Course', esc(gip.course))}
+        ${fieldRow('Year Graduated', esc(gip.yearGraduated))}
+        ${fieldRow('High School', esc(gip.highSchool))}
+        ${fieldRow('Elementary School', esc(gip.elementarySchool))}
+        ${fieldRow('Latest Work Experience', esc(gip.latestWorkExperience))}
+        ${fieldRow('Position', esc(gip.position))}
+        ${fieldRow('Period of Engagement', esc(gip.periodOfEngagement))}
+        ${fieldRow('Special Skills', esc(gip.specialSkills))}
+        ${fieldRow('Achievements', esc(gip.achievements), 'wide')}
+      </div>
+    </section>` : '';
+
+  const recentUpdates = UPDATE_LOGS
+    .filter(l => l.clientId === s.clientId)
+    .slice(0, 3)
+    .map(l => `<div class="tl-item"><h5>${esc(l.action)}</h5><p>${esc(l.ipAddress)}</p><time>${esc(l.createdAt)}</time></div>`)
+    .join('') || '<div class="details-note">No self-updates recorded for this scholar yet.</div>';
+
+  $('#detailsBody').innerHTML = `
+    <section class="details-section" aria-labelledby="sec-scholar">
+      <h3 class="details-section-title" id="sec-scholar">Scholarship Information</h3>
+      <div class="details-grid">
+        ${fieldRow('Program', `<span class="program-tag">${esc(s.program)}</span>`)}
+        ${fieldRow('School', esc(s.school), 'wide')}
+        ${fieldRow('School Type', esc(s.schoolType))}
+        ${fieldRow('Campus', esc(s.campus))}
+        ${fieldRow('College / Department', esc(s.collegeDept), 'wide')}
+        ${fieldRow('Course', esc(s.course), 'wide')}
+        ${fieldRow('Year Level', esc(s.yearLevel))}
+        ${fieldRow('Regular', s.isRegular ? 'Yes' : 'No')}
+        ${fieldRow('Year Started', esc(s.yearStarted))}
+        ${fieldRow('Landbank Account No.', esc(s.landbankNo))}
+        ${fieldRow('Status', `<span class="status-badge ${scholarStatusCls(s.status)}"><span class="dot"></span>${esc(s.status)}</span>`)}
+      </div>
+    </section>
+
+    <section class="details-section" aria-labelledby="sec-exam">
+      <h3 class="details-section-title" id="sec-exam">Exam Result</h3>
+      <div class="details-grid">
+        ${fieldRow('Exam Date', exam.date ? esc(exam.date) : '—')}
+        ${fieldRow('Venue', exam.venue ? esc(exam.venue) : '—')}
+        ${fieldRow('Result', examBadge)}
+        ${fieldRow('Score', exam.score != null ? String(exam.score) : '—')}
+      </div>
+    </section>
+    ${gipHTML}
+
+    <section class="details-section" aria-labelledby="sec-scholar-log">
+      <h3 class="details-section-title" id="sec-scholar-log">Update Log</h3>
+      <div class="details-timeline">${recentUpdates}</div>
+    </section>
+
+    <section class="details-section" aria-labelledby="sec-scholar-contact">
+      <h3 class="details-section-title" id="sec-scholar-contact">Contact</h3>
+      <div class="details-grid">
+        ${fieldRow('Mobile Number', esc(s.mobile))}
+        ${fieldRow('Municipality', esc(s.municipality))}
+        ${fieldRow('Barangay', esc(s.barangay))}
+      </div>
+    </section>`;
+
+  state.openScholarId = s.id;
+  state.panelMode = 'scholar';
+}
+
+function openScholarPanel(id) {
+  const s = SCHOLAR_BY_ID.get(String(id));
+  if (!s) return;
+  state.lastFocusedRow = document.activeElement && document.activeElement.closest('tr')
+    ? document.activeElement : null;
+  renderScholarPanel(s);
+  $('#detailsPanel').classList.add('open');
+  $('#detailsBackdrop').classList.add('show');
+  lockScroll();
+  $('#detailsPanel').setAttribute('aria-hidden', 'false');
+  const close = $('#detailsClose');
+  if (close) close.focus();
+}
+
+function openQrModal(id) {
+  const s = SCHOLAR_BY_ID.get(String(id));
+  if (!s) return;
+  openModal({
+    title: `Scholar QR — ${s.id}`,
+    sub: 'QR codes will be issued with the scholarship payout card (planned P6 feature)',
+    bodyHTML: `
+      <div class="qr-modal-body">
+        <div class="qr-large">${qrPlaceholder()}</div>
+        <div class="qr-meta">
+          <p class="qr-name">${esc(s.formalName)}</p>
+          <p><span class="program-tag">${esc(s.program)}</span></p>
+          <p class="qr-sub">${esc(s.school)} &middot; ${esc(s.course)}</p>
+          <p class="qr-sub">Scan this code at the payout counter to verify the scholar record.</p>
+        </div>
+      </div>`,
+    footerHTML: `
+      <button type="button" class="btn btn-outline" data-modal-cancel>Close</button>
+      <button type="button" class="btn btn-gold" data-sim="QR card print started (mock)">Print QR Card</button>`,
+    onOpen: (ov) => {
+      ov.querySelector('[data-modal-cancel]').addEventListener('click', closeModal);
+    },
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   P6 — MULTI-PROGRAM SELECTOR (tag / chip picker)
+   Selected programs render as removable chips; available programs
+   are grouped and searchable. A program can never be in both.
+   ═══════════════════════════════════════════════════════════════ */
+
+function buildProgramSelect(container, selected = []) {
+  container._selected = selected.slice();
+  container._query = container._query || '';
+  const q = container._query;
+  const withSearch = container.dataset.progSearch !== 'off';
+  container.innerHTML = `
+    <div class="prog-selected" data-prog-selected></div>
+    ${withSearch ? `<input type="search" class="prog-search" placeholder="Search programs…" aria-label="Search available programs">` : ''}
+    <div class="prog-groups" data-prog-groups></div>`;
+  renderProgSelected(container);
+  const search = container.querySelector('.prog-search');
+  if (search) search.value = q;
+  renderProgGroups(container, q);
+}
+
+function renderProgSelected(container) {
+  const el = container.querySelector('[data-prog-selected]');
+  if (!container._selected.length) {
+    el.innerHTML = `<span class="prog-empty">No programs selected yet.</span>`;
+    return;
+  }
+  el.innerHTML = container._selected.map(p =>
+    `<span class="prog-chip">${esc(p)}<button type="button" class="prog-chip-x" data-prog-remove="${esc(p)}" aria-label="Remove ${esc(p)}">&times;</button></span>`).join('');
+}
+
+function renderProgGroups(container, query) {
+  const groupsEl = container.querySelector('[data-prog-groups]');
+  if (!groupsEl) return;
+  const ql = String(query || '').toLowerCase().trim();
+  let html = '';
+  let count = 0;
+  PROGRAM_GROUPS.forEach(g => {
+    const avail = g.programs.filter(p =>
+      !container._selected.includes(p) &&
+      (!ql || p.toLowerCase().includes(ql)));
+    if (!avail.length) return;
+    count += avail.length;
+    html += `<div class="prog-group"><span class="prog-group-title">${esc(g.label)}</span>` +
+      avail.map(p => `<button type="button" class="prog-btn" data-prog-add="${esc(p)}">${esc(p)}</button>`).join('') +
+      `</div>`;
+  });
+  groupsEl.innerHTML = html || `<span class="prog-no-results">No available programs${ql ? ' match "' + esc(ql) + '"' : ''}.</span>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   P6 — SCHOLAR CRUD + GRANTEE SELF-UPDATE + CSV EXPORT
+   ═══════════════════════════════════════════════════════════════ */
+
+function openScholarForm(id) {
+  const s = id ? SCHOLAR_BY_ID.get(String(id)) : null;
+  const clientCur = s ? s.clientId : (RESIDENTS[0] ? RESIDENTS[0].id : '');
+
+  openModal({
+    title: s ? `Edit Scholar ${s.id}` : 'Add Scholar',
+    sub: s ? esc(s.formalName) : 'Enroll a scholar under a scholarship program',
+    size: 'modal-lg',
+    bodyHTML: `
+      <form id="scholarForm">
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label class="form-label" for="sfClient">Client *</label>
+            <select class="form-input" id="sfClient" name="clientId">
+              ${RESIDENTS.map(r => `<option value="${r.id}" ${r.id === clientCur ? 'selected' : ''}>${esc(r.formalName)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sfProgram">Program *</label>
+            <select class="form-input" id="sfProgram" name="program">${optList(SCHOLAR_PROGRAMS, s ? s.program : SCHOLAR_PROGRAMS[0])}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sfStatus">Status</label>
+            <select class="form-input" id="sfStatus" name="status">${optList(['Active', 'Graduated', 'Inactive'], s ? s.status : 'Active')}</select>
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="sfSchool">School *</label>
+            <input type="text" class="form-input" id="sfSchool" name="school" value="${s ? esc(s.school) : ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sfSchoolType">School Type</label>
+            <select class="form-input" id="sfSchoolType" name="schoolType">${optList(['University', 'College', 'High School'], s ? s.schoolType : 'College')}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sfCampus">Campus</label>
+            <input type="text" class="form-input" id="sfCampus" name="campus" value="${s ? esc(s.campus) : ''}">
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="sfDept">College / Department</label>
+            <input type="text" class="form-input" id="sfDept" name="collegeDept" value="${s ? esc(s.collegeDept) : ''}">
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="sfCourse">Course *</label>
+            <input type="text" class="form-input" id="sfCourse" name="course" value="${s ? esc(s.course) : ''}" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sfYearLevel">Year Level</label>
+            <input type="text" class="form-input" id="sfYearLevel" name="yearLevel" value="${s ? esc(s.yearLevel) : '1st Year'}">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sfYearStarted">Year Started</label>
+            <input type="number" class="form-input" id="sfYearStarted" name="yearStarted" min="2000" max="2030" value="${s ? s.yearStarted : '2026'}">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sfLandbank">Landbank Account No.</label>
+            <input type="text" class="form-input" id="sfLandbank" name="landbankNo" value="${s ? esc(s.landbankNo) : ''}">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="sfRegular">Regular Scholar</label>
+            <select class="form-input" id="sfRegular" name="isRegular">${optList(['Yes', 'No'], s ? (s.isRegular ? 'Yes' : 'No') : 'Yes')}</select>
+          </div>
+        </div>
+      </form>`,
+    footerHTML: `
+      <button type="button" class="btn btn-outline" data-modal-cancel>Cancel</button>
+      <button type="submit" class="btn btn-gold" form="scholarForm">${s ? 'Save Changes' : 'Add Scholar'}</button>`,
+    onOpen: (ov) => {
+      ov.querySelector('[data-modal-cancel]').addEventListener('click', closeModal);
+      ov.querySelector('#scholarForm').addEventListener('submit', (e) => saveScholarForm(e, s));
+    },
+  });
+}
+
+function saveScholarForm(e, existing) {
+  e.preventDefault();
+  const d = readForm(e.target);
+  const client = RESIDENT_BY_ID.get(Number(d.clientId));
+  if (!client) { showToast('Select a valid client'); return; }
+  if (!d.school || !d.course) { showToast('School and course are required'); return; }
+
+  const base = {
+    clientId: client.id,
+    program: d.program,
+    school: d.school, schoolType: d.schoolType, campus: d.campus,
+    collegeDept: d.collegeDept, course: d.course, yearLevel: d.yearLevel,
+    yearStarted: Number(d.yearStarted) || 2026, landbankNo: d.landbankNo || '—',
+    isRegular: d.isRegular === 'Yes', status: d.status,
+  };
+
+  if (existing) {
+    Object.assign(existing, base, {
+      fullName: client.fullName, formalName: client.formalName,
+      initials: client.initials, avatar: client.avatar, avatarText: client.avatarText,
+      barangay: client.barangay, municipality: client.municipality, mobile: client.mobile,
+    });
+    closeModal();
+    renderScholars();
+    showToast(`Scholar ${existing.id} updated`);
+    if (state.openScholarId === existing.id) renderScholarPanel(existing);
+    return;
+  }
+
+  const id = 'SC-2026-' + String(SCHOLARS.length + 1).padStart(3, '0');
+  const s = buildScholar(Object.assign({}, base, {
+    id,
+    exam: { date: '—', venue: '—', result: null, score: null },
+  }));
+  SCHOLARS.unshift(s);
+  SCHOLAR_BY_ID.set(s.id, s);
+  closeModal();
+  state.scholars.page = 1;
+  renderScholars();
+  prependActivity(`<strong>${esc(client.fullName)}</strong> was enrolled as a ${esc(d.program)} scholar`);
+  showToast(`Scholar ${id} added`);
+}
+
+function submitGranteeUpdate(e) {
+  e.preventDefault();
+  const form = e.target;
+  const name = $('#selfFullName').value.trim();
+  if (!name) { showToast('Full name is required'); return; }
+  const progHost = $('[data-prog-select="self"]');
+  const selected = (progHost && progHost._selected) || [];
+  const program = selected.length ? selected.join(', ') : '—';
+  const action = `Self-update submitted: program ${program}, Landbank ${$('#selfLandbank').value.trim() || '—'}`;
+  UPDATE_LOGS.unshift({
+    id: UPDATE_LOGS.length + 1,
+    clientId: null,
+    fullName: name,
+    action,
+    ipAddress: '192.168.1.' + (10 + (UPDATE_LOGS.length % 240)),
+    createdAt: nowStamp(),
+  });
+  renderUpdateLogs();
+  form.reset();
+  if (progHost) { buildProgramSelect(progHost, []); }
+  prependActivity(`<strong>${esc(name)}</strong> submitted a grantee self-update (${esc(program)})`);
+  showToast('Update submitted — queued for office review (mock)');
+}
+
+function exportScholarCsv() {
+  const header = ['Scholar ID', 'Client ID', 'Client', 'Program', 'School', 'Course', 'Year Level', 'Status'];
+  const rows = SCHOLARS.map(s => [
+    s.id, s.clientId, s.fullName, s.program, s.school, s.course, s.yearLevel, s.status,
+  ]);
+  const csv = [header].concat(rows).map(r =>
+    r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'scholars-report-2026.csv';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('scholars-report-2026.csv downloaded (UTF-8 BOM)');
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -897,6 +1904,10 @@ function refreshAllViews() {
   renderClients();
   renderTransactions();
   renderHouseholds();
+  renderScholars();
+  renderGipProfiles();
+  renderScholarReports();
+  renderUpdateLogs();
   renderDashboardRecent();
   renderActivity();
   updateMetrics();
@@ -917,6 +1928,8 @@ function updateMetrics() {
   $('#metricPending').textContent = TRANSACTIONS.filter(t => t.status === 'pending').length;
   $('#sidebarClientsBadge').textContent = RESIDENTS.length;
   $('#sidebarTxBadge').textContent = TRANSACTIONS.length;
+  const scholarsBadge = $('#sidebarScholarsBadge');
+  if (scholarsBadge) scholarsBadge.textContent = SCHOLARS.length;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -986,6 +1999,10 @@ function openClientForm(id) {
             <label class="form-label" for="cfHousehold">Household</label>
             <select class="form-input" id="cfHousehold" name="household">${optList(hhCodes, r ? r.household : 'auto')}</select>
           </div>
+          <div class="form-group span-2">
+            <span class="form-label">Programs &amp; Services (select all that apply)</span>
+            <div class="prog-select" data-prog-select="cf" data-prog-search="off" aria-label="Programs and services"></div>
+          </div>
         </div>
       </form>`,
     footerHTML: `
@@ -993,6 +2010,7 @@ function openClientForm(id) {
       <button type="submit" class="btn btn-gold" form="clientForm">${r ? 'Save Changes' : 'Add Client'}</button>`,
     onOpen: (ov) => {
       ov.querySelector('[data-modal-cancel]').addEventListener('click', closeModal);
+      buildProgramSelect(ov.querySelector('[data-prog-select="cf"]'), r ? (r.programs || []) : []);
       ov.querySelector('#clientForm').addEventListener('submit', (e) => saveClientForm(e, r));
     },
   });
@@ -1015,6 +2033,7 @@ function createResident(d, category) {
     mobile: d.mobile || '—', email: d.email || '—',
     address: d.address || `${d.barangay}, ${d.municipality}`,
     household: d.household === 'auto' ? nextHouseholdCode() : d.household,
+    programs: d.programs || [],
     notes: 'Registered through the prototype demo.',
     govIds: govIdsFor({ id, category }),
     docs: docsFor({ id, category }),
@@ -1032,6 +2051,8 @@ function syncClientDerived(r) {
 function saveClientForm(e, existing) {
   e.preventDefault();
   const d = readForm(e.target);
+  const progSel = modalEl ? modalEl.querySelector('[data-prog-select="cf"]') : null;
+  d.programs = progSel && progSel._selected ? progSel._selected.slice() : (existing ? (existing.programs || []) : []);
   if (!d.first || !d.last || !d.municipality || !d.barangay) {
     showToast('First name, last name, municipality and barangay are required');
     return;
@@ -1050,6 +2071,7 @@ function saveClientForm(e, existing) {
       address: d.address || `${d.barangay}, ${d.municipality}`,
       status: d.status,
       household: d.household === 'auto' ? existing.household : d.household,
+      programs: d.programs || existing.programs || [],
     });
     existing.audit.updatedBy = 'Jordi Admin';
     existing.audit.updatedAt = nowStamp();
@@ -1323,6 +2345,7 @@ function updateSortIndicators(table, sortKey, sortDir) {
    ═══════════════════════════════════════════════════════════════ */
 
 function onInit() {
+  ['clients', 'transactions', 'households', 'scholars'].forEach(m => initFilterGroup(m));
   renderDashboardRecent();
   renderActivity();
   renderCalendar();
@@ -1330,6 +2353,10 @@ function onInit() {
   renderClients();
   renderTransactions();
   renderHouseholds();
+  renderScholars();
+  renderGipProfiles();
+  renderScholarReports();
+  renderUpdateLogs();
   updateMetrics();
 
   /* Login / logout */
@@ -1345,7 +2372,7 @@ function onInit() {
     if (link) { e.preventDefault(); showPage(link.dataset.page); }
   });
 
-  /* Filter chips (delegated) */
+  /* Filter chips (delegated) — scanner profile mode selector only */
   document.addEventListener('click', (e) => {
     const chip = e.target.closest('.filter-chip[data-value]');
     if (!chip) return;
@@ -1353,12 +2380,8 @@ function onInit() {
     if (group) group.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
     chip.classList.add('active');
 
-    const key = chip.dataset.filter;
-    const value = chip.dataset.value;
-    if (key === 'clients') { state.clients.filter = value; state.clients.page = 1; renderClients(); }
-    if (key === 'transactions') { state.transactions.filter = value; state.transactions.page = 1; renderTransactions(); }
-    if (key === 'scanner') {
-      showToast(`Scanner profile set to ${value}`);
+    if (chip.dataset.filter === 'scanner') {
+      showToast(`Scanner profile set to ${chip.dataset.value}`);
     }
   });
 
@@ -1374,6 +2397,7 @@ function onInit() {
     if (key === 'clients') { state.clients.page = Number(page); renderClients(); }
     if (key === 'transactions') { state.transactions.page = Number(page); renderTransactions(); }
     if (key === 'households') { state.households.page = Number(page); renderHouseholds(); }
+    if (key === 'scholars') { state.scholars.page = Number(page); renderScholars(); }
   });
 
   /* Row click / keyboard → details panel (CRUD row buttons are excluded) */
@@ -1458,6 +2482,65 @@ function onInit() {
     if (del) { deleteHousehold(del.dataset.deleteHh); return; }
   });
 
+  /* P6 — scholar rows, tabs, QR, edit / add / export (delegated) */
+  document.addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-scholar-id]');
+    if (row) {
+      if (e.target.closest('.row-action')) return;
+      row.focus(); openScholarPanel(row.dataset.scholarId);
+      return;
+    }
+    const tab = e.target.closest('[data-scholar-tab]');
+    if (tab) { switchScholarTab(tab.dataset.scholarTab); return; }
+    const qr = e.target.closest('[data-qr-scholar]');
+    if (qr) { openQrModal(qr.dataset.qrScholar); return; }
+    const edit = e.target.closest('[data-edit-scholar]');
+    if (edit) { openScholarForm(edit.dataset.editScholar); return; }
+    if (e.target.closest('[data-add-scholar]')) { openScholarForm(); return; }
+    if (e.target.closest('[data-scholar-export]')) { exportScholarCsv(); return; }
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!e.target.matches || !e.target.matches('tr[data-scholar-id]')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openScholarPanel(e.target.dataset.scholarId);
+    }
+  });
+
+  /* P6 — program chip picker (delegated add / remove) */
+  document.addEventListener('click', (e) => {
+    const addBtn = e.target.closest('[data-prog-add]');
+    if (addBtn) {
+      const host = addBtn.closest('[data-prog-select]');
+      if (!host || host._selected.includes(addBtn.dataset.progAdd)) return;
+      host._selected.push(addBtn.dataset.progAdd);
+      buildProgramSelect(host, host._selected);
+      return;
+    }
+    const xBtn = e.target.closest('[data-prog-remove]');
+    if (xBtn) {
+      const host = xBtn.closest('[data-prog-select]');
+      if (!host) return;
+      host._selected = host._selected.filter(p => p !== xBtn.dataset.progRemove);
+      buildProgramSelect(host, host._selected);
+    }
+  });
+
+  /* P6 — program picker search (delegated input, keeps focus) */
+  document.addEventListener('input', (e) => {
+    if (!e.target.classList || !e.target.classList.contains('prog-search')) return;
+    const host = e.target.closest('[data-prog-select]');
+    if (!host) return;
+    host._query = e.target.value;
+    renderProgGroups(host, e.target.value);
+  });
+
+  /* P6 — grantee self-update form */
+  const selfProgHost = $('[data-prog-select="self"]');
+  if (selfProgHost) buildProgramSelect(selfProgHost, []);
+  const granteeForm = $('#granteeForm');
+  if (granteeForm) granteeForm.addEventListener('submit', submitGranteeUpdate);
+
   /* Simulation buttons (delegated) */
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-sim]');
@@ -1495,6 +2578,22 @@ function onInit() {
     state.households.search = e.target.value.trim();
     state.households.page = 1;
     renderHouseholds();
+  });
+
+  /* Transactions search */
+  const transactionsSearch = $('#transactionsSearch');
+  if (transactionsSearch) transactionsSearch.addEventListener('input', (e) => {
+    state.transactions.search = e.target.value.trim();
+    state.transactions.page = 1;
+    renderTransactions();
+  });
+
+  /* Scholars search */
+  const scholarsSearch = $('#scholarsSearch');
+  if (scholarsSearch) scholarsSearch.addEventListener('input', (e) => {
+    state.scholars.search = e.target.value.trim();
+    state.scholars.page = 1;
+    renderScholars();
   });
 
   /* Sortable headers */

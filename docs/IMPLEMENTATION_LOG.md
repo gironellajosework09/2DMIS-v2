@@ -26,7 +26,7 @@
 | P3 — Transactions + reports | Transaction CRUD, filters, inline edit, CSV exports | **Done** 2026-08-05 (all 9 v1 transaction files ported; per-program gating) |
 | P4 — Scanner engine | One `ScanService` (8 modes) + program config + shared view + routes | **Done** 2026-08-07 (all 14 v1 scanners as config; 14 tests green — see entry below) |
 | P5 — Payout + unpaid | | **Done** 2026-08-07 (3 payout lists + unpaid verification admin/self-service + CSV export; 15 tests green — see entry below) |
-| P6 — Scholars / GIP | | Not started |
+| P6 — Scholars / GIP | | Scaffold + scholar CRUD v1-parity done (Phase 2 cleanup 2026-08-07); GIP, reports, QR, grantee updates pending |
 | P7 — Administration | | Not started |
 | P8 — Hardening + cutover | | Not started |
 
@@ -590,9 +590,12 @@ partial), `tests/Feature/ClientTest.php` (+1 panel test).
 click + `openClientPanel`/`executeScripts` JS),
 `resources/views/clients/show.blade.php` (thin wrapper over the partial).
 
----
+### 2026-08-07 — P6 Scholars / GIP (initialization)
 
-### 2026-08-07 — P4 Scanner engine (one engine, all 14 v1 scanners as config)
+- **Models Created:** `ScholarInfo`, `GipInfo`, `UpdateLog`, `Exam`, `ExamResult` mapped to legacy tables.
+- **Next steps:** Implement `ScholarService` and `ScholarController`.
+
+---
 
 Completes the P4 milestone. All 14 v1 scanner pages + their action handlers
 (`scanner_*.php` + `scanner_*_action.php`) collapse into **one config-driven
@@ -759,6 +762,130 @@ payout lists, not three copies.
 v1 does zero audit calls in these files). Admin list pages are gated by the
 `page:` middleware per v1 page key; the self-service form and its
 search/verify/save endpoints are intentionally public, exactly as v1 ships them.
+
+---
+
+### 2026-08-07 — P6 Phase 2 cleanup: scholar registry reworked for v1 parity
+
+P6 was initialized earlier today (models + scholar route shell + defective CRUD
+scaffolding). After the approved `docs/SCHOLAR_ANALYSIS.md` (REFACTOR + BUILD), this
+entry fixes every P6 audit deviation in the scholar registry and the doc
+conflicts, then applies the three approved decisions. No Phase 3 features
+(reports, QR viewer, GIP, grantee self-service, update logs) were started.
+
+#### Approved decisions applied (SCHOLAR_ANALYSIS §8)
+
+1. **Scholar `full_name`/`match_name`**: v1 `save_scholarship.php` writes
+   neither — `ScholarService::save` no longer derives or writes them. New rows
+   store `full_name = ''` (INSERT omits it in v1; explicit empty string keeps
+   the NOT NULL column happy under strict mode), `match_name` stays `NULL`.
+2. **GIP `normalized_name`**: documented as not written by v1 (`save_gip.php`)
+   — no PHP syncing. Future `GipController` must leave it unset.
+3. **QR payload**: verified against P4 `ScanService` + v1
+   `scanner_payout_action.php` — both match the scanned text against
+   `tbl_clients.full_name` (exact `TRIM`, collation-insensitive; seat names ≡
+   `full_name`). The Phase 3 QR must encode the persisted comma-form
+   `client.full_name`. Recorded in `docs/implementation/P6_SCHOLARS.md` §5.7.
+
+#### What was changed
+
+- **`database/factories/ClientFactory.php`** — added `aff_org` (NOT NULL, no
+  default); the missing value made `main_system_test` inserts fail
+  (`SQLSTATE 1364`).
+- **`app/Http/Requests/ScholarRequest.php`** — rewritten: only `client_id` +
+  `program` required (v1 modal marks exactly those); `school`, `school_type`,
+  `campus`, `college_department`, `course`, `year_level`, `landbank_no`
+  nullable (v1 stores `''` for empty); `is_regular` `nullable|boolean`;
+  `year_start`/`year_end` nullable strings replacing the bogus integer
+  `year_started min:2000/max:2100` rule.
+- **`app/Services/ScholarService.php`** — rewritten as a faithful port of
+  `save_scholarship.php`: upsert on the latest `(client_id, program)` row
+  (`ORDER BY id DESC LIMIT 1`); trims all text fields; `is_regular` defaults to
+  `0` when absent (`isset ? intval : 0`); `year_started` built as the
+  `"YYYY - YYYY"` varchar with v1's exact one-sided/empty logic; no
+  `UpdateLog` write; no `ClientService` dependency.
+- **`app/Http/Controllers/ScholarController.php`** — `data()` rewritten to
+  `fetch_scholars.php` parity: 15-column order map, default order
+  `client_id` asc, search over `full_name`/`program`/`school`,
+  subquery-paginate then `LEFT JOIN tbl_exam` on the generated
+  `normalized_name` columns (≡ `TRIM(LOWER())`), rows expose
+  `ex.barangay`/`ex.town`; `recordsTotal == recordsFiltered` v1 quirk
+  preserved. `update()` no longer takes a scholar id (upsert key is
+  `(client_id, program)` like v1).
+- **`routes/web.php`** — added the missing
+  `use App\Http\Controllers\ScholarController;` import (the P6 route shell
+  referenced `ScholarController::class` unqualified → "Target class does not
+  exist").
+- **Views** — `resources/views/scholars/index.blade.php`: v1 columns (ID,
+  Client ID, Full Name, Program, Barangay, Town), `client_id` default order,
+  pageLength 25 (Add Scholar button kept as the v2 entry to the create page).
+  `_form.blade.php`: `year_start`/`year_end` 4-digit inputs (split from
+  `year_started` on edit, v1 modal layout), `required` dropped from every
+  non-v1-required field, REGULAR/IRREGULAR select order matches the v1 modal.
+- **`resources/views/partials/sidebar.blade.php`** — added the Scholars entry
+  gated on `page:scholars.php` (sidebar previously had no link to the screen).
+- **`tests/Feature/ScholarTest.php`** — rewritten (8 tests, 25 assertions):
+  create (parity asserts: `full_name=''`, `is_regular=1`, `year_started`
+  `'2025 - 2026'`, no `tbl_update_logs` row); `is_regular` defaults to 0 when
+  absent; one-sided year → `'2025'`; both-empty → `''`; empty optional fields
+  accepted; update upserts latest row and keeps `full_name`; data feed joins
+  `tbl_exam` (case-insensitive) + `client_id` ordering; feed search reports the
+  filtered total (v1 quirk). Uses the `logInAs`/`Permission(scholars.php)`
+  pattern from `ClientTest`.
+- **Docs** — `docs/implementation/P6_SCHOLARS.md`: status header refreshed,
+  §2.3 `disabled_update_grantee.php` relabeled as the public self-update form,
+  §4 ScholarService/GIP/grantee-update contracts corrected to v1 ground truth,
+  §5 rules and §7 mistakes updated, §6 validation guidance made nullable.
+  The early `SCHOLAR_ANALYSIS.md` draft was folded into the P6 audit (the
+  audit was later re-canonicalized as `docs/SCHOLAR_ANALYSIS.md` — 2026-08-09,
+  see the entry below). `ENGINEERING_BLUEPRINT.md` rows 81–83 + §2/§3
+  `tbl_scholar_info`/`tbl_gip_info` notes updated.
+
+#### Verification
+
+- `php artisan test --filter=ScholarTest` → **8 passed (25 assertions)**.
+- `vendor\bin\pint` → passed on all new/changed files.
+- Local `main_system` untouched — no schema or data changes; tests exercise
+  `main_system_test`.
+- One defect found during verification: the P6 scholar routes referenced
+  `ScholarController::class` without the class import (the earlier `aff_org`
+  failure happened in test setup, masking the routing bug) — fixed by adding
+  the import.
+
+**Deviations:** scholar saves redirect to `scholars.index` with a flash message
+instead of v1's `view_client.php#collapseScholarship` (v2 has a standalone
+registry page, not the client-page modal); the DataTables feed collapses
+multiple `tbl_exam` matches per name into one row instead of duplicating rows.
+
+---
+
+### 2026-08-09 — P6 analysis docs consolidated into `docs/SCHOLAR_ANALYSIS.md`
+
+The P6 Phase 1 audit and the earlier scholars gap notes were merged and
+restructured into a single canonical analysis document,
+`docs/SCHOLAR_ANALYSIS.md` ("P6 Scholars Module Analysis — v1 vs v2"),
+following the naming convention of the other module analyses
+(`SCANNER_ANALYSIS.md`, `SCANNER_CONFIGURATION_MATRIX.md`).
+
+- **Content preserved** — §1 v1 inventory and behavior (registry,
+  `save_scholarship.php`, relink, GIP, grantee self-service, reports, QR),
+  §2 v2 current implementation + test health, §3 v1-to-v2 gap analysis (~85%
+  missing pre-cleanup), §4 confirmed parity requirements (10), §5 the 8
+  implementation deviations (+ dead-route defect), §6 missing functionality
+  (Phase 3 build list), §7 risks and parity concerns, §8 the three decisions
+  A/B/C (approved + applied), §9 recommended implementation sequence, §10
+  implementation readiness (REFACTOR + BUILD); Appendices A–C (code to reuse,
+  doc conflicts resolved, implementation notes).
+- **Files changed** — `docs/SCHOLAR_ANALYSIS.md` rewritten as the canonical
+  P6 analysis; the standalone audit document removed (not retained as a
+  separate file); the archived early-draft scholars analysis removed so the
+  canonical document is the only P6 analysis document; references updated to
+  point at `docs/SCHOLAR_ANALYSIS.md` (decisions section `§9` → `§8`) in
+  `docs/ENGINEERING_BLUEPRINT.md`, this log, and
+  `docs/implementation/P6_SCHOLARS.md`.
+- **Verification** — repo-wide search confirms no remaining stale audit-file
+  references; documentation-only change. No Laravel source, schema, or data
+  touched (`main_system` untouched; no tests run because no code changed).
 
 ---
 

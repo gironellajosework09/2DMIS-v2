@@ -22,6 +22,12 @@
         </a>
     @endif
 
+    @if ($acl->canAccessPage($user, 'scholars.php'))
+        <a href="{{ route('scholars.index') }}" @class(['active' => request()->routeIs('scholars.*')])>
+            Scholars
+        </a>
+    @endif
+
     @if ($acl->canAccessPage($user, 'all_transactions.php'))
         <a href="{{ route('transactions.index') }}" @class(['active' => request()->routeIs('transactions.*')])>
             All Transactions

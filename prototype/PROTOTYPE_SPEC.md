@@ -482,6 +482,11 @@ The prototype should satisfy the following:
 
 ✓ No files outside the prototype folder are modified.
 
+✓ Desktop and mobile layouts use different responsive behaviors rather than simply scaling.
+
+✓ The resident details view changes appropriately between desktop, tablet, and mobile.
+
+✓ No desktop UI component is simply shrunk to fit smaller screens.
 ---
 
 # 17. Expected Deliverable

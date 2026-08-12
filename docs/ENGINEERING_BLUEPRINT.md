@@ -164,7 +164,7 @@ grouped by module. Complexity: **L** low / **M** medium / **H** high.
 | `all_transactions.php` + `fetch_transactions.php` | `TransactionController@index` + DataTables route + CSV export | P3 | Program-gated |
 | `add/edit/view/delete/update_transaction.php`, `all_transaction_edit/delete.php` | `TransactionController` CRUD + `TransactionService` + Policies | P3 | |
 | `transaction_table.php` | Blade partial component | P3 | |
-| `scholars.php`, `save_scholarship.php`, `fetch_scholars.php`, `update_client_id.php` | `ScholarController` + `ScholarService` + DataTables route | P6 | |
+| `scholars.php`, `save_scholarship.php`, `fetch_scholars.php`, `update_client_id.php` | `ScholarController` + `ScholarService` + DataTables route | P6 | v1-parity CRUD + feed done (2026-08-07); relink pending |
 | `scholarship_reports.php` + feeds + export | `ReportController` + `ReportService` | P6 | CSV BOM kept |
 | `save_gip.php` | `GipController` | P6 | |
 | `save_grantee_update.php`, `disabled_update_grantee.php`, `update_logs.php` + feed | `GranteeUpdateController` | P6 | `tbl_update_logs` |
@@ -203,8 +203,8 @@ Every major table of `main_system` → proposed Eloquent model. All models set
 | `tbl_barangays` | `Barangay` | id | belongsTo Municipality | FK CASCADE |
 | `tbl_transactions` | `Transaction` | id | belongsTo Client; hasOne payout_scan(s) | `program` enum → keep strings; `remarks` carries scanner keys; no `updated_at`; existing indexes on program/date — reuse, do not add in schema |
 | `tbl_payout_scans` / `_2` / `_unpaid` | `PayoutScan` / `PayoutScan2` / `PayoutScanUnpaid` | id | belongsTo Transaction, User | `transaction_id` **UNIQUE** — the anti-duplicate belt (preserve, never relax) |
-| `tbl_scholar_info` | `ScholarInfo` | id | belongsTo Client | has `updated_at`; `normalized_name`/`match_name` generated |
-| `tbl_gip_info` | `GipInfo` | id | belongsTo Client | has `updated_at`; normalized fields |
+| `tbl_scholar_info` | `ScholarInfo` | id | belongsTo Client | has `updated_at`; `normalized_name` generated (STORED `lcase(trim(full_name))`); `match_name` writable but **not written by v1** (SCHOLAR_ANALYSIS §8) |
+| `tbl_gip_info` | `GipInfo` | id | belongsTo Client | has `updated_at`; `normalized_name` is a **plain varchar** and **not populated by v1** |
 | `tbl_unpaid_verifications` | `UnpaidVerification` | id | belongsTo Client, Municipality | `is_proxy` + proxy identity block |
 | `tbl_exam` | `Exam` | id | hasMany results (exam_no) | `exam_no` link key |
 | `tbl_results` | `ExamResult` | id | belongsTo Exam | `approved` drives auto program |
@@ -461,9 +461,9 @@ Dead files (`default.php`, `client_photo.php`) are deliberately excluded.
 | 78 | `export_unpaid_verifications.php` | ExportService route | P5 | **Done** (streamed BOM CSV, `UnpaidVerificationController@export`) |
 | 79 | `search_grantee.php` | `SearchController@grantee` | P5 | **Done** (`GranteeSearchController@search`, kind=`grantee`, public) |
 | 80 | `search_unpaid_grantee.php` | `SearchController@unpaidGrantee` | P5 | **Done** (`GranteeSearchController@search`, kind=`unpaid`, public) |
-| 81 | `scholars.php` | `ScholarController@index` + view | P6 | Planned |
-| 82 | `save_scholarship.php` | `ScholarController@store/update` | P6 | Planned |
-| 83 | `fetch_scholars.php` | DataTables route (scholars) | P6 | Planned |
+| 81 | `scholars.php` | `ScholarController@index` + view | P6 | **Done** (v1 columns, `client_id` order, pageLength 25; 2026-08-07) |
+| 82 | `save_scholarship.php` | `ScholarController@store/update` | P6 | **Done** (`ScholarService` v1-parity upsert by `(client_id, program)`; 2026-08-07) |
+| 83 | `fetch_scholars.php` | DataTables route (scholars) | P6 | **Done** (`ScholarController@data`, exam LEFT JOIN, `recordsTotal == recordsFiltered` quirk kept; 2026-08-07) |
 | 84 | `update_client_id.php` | `ScholarController@relink` | P6 | Planned |
 | 85 | `scholarship_reports.php` | `ReportController@scholarship` + view | P6 | Planned |
 | 86 | `fetch_scholarship_reports.php` | DataTables route (scholarship report) | P6 | Planned |

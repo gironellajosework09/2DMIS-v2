@@ -1,11 +1,16 @@
-# P6 — Scholars Module (Planned)
+# P6 — Scholars Module
 
-> **Status:** **Not yet implemented.** P6 is the scholars module — scholar
-> enrollment, GIP profiles, grantee updates, scholarship reports, and QR
-> viewer (Blueprint §1.7). Much of the **scan-time** scholar behavior already
-> exists via the P4 scanner engine (CEAP/CEAP_NEW/CEDSSG/CEDSSG_NEW/OTEA/OTCES,
-> `new_scholars`, `ongoing_scholars`, `cedssg_update`); P6 is the
+> **Status:** **Phase 2 cleanup done; core scaffold in place, features to build.**
+> P6 is the scholars module — scholar enrollment, GIP profiles, grantee
+> updates, scholarship reports, and QR viewer (Blueprint §1.7). Much of the
+> **scan-time** scholar behavior already exists via the P4 scanner engine
+> (CEAP/CEAP_NEW/CEDSSG/CEDSSG_NEW/OTEA/OTCES, `new_scholars`,
+> `ongoing_scholars`, `cedssg_update`); P6 is the
 > **enrollment/maintenance/reporting** side that the scanner keys presuppose.
+> The P6 registry scaffold (models + scholar route shell + defective CRUD) was
+> audited (`docs/SCHOLAR_ANALYSIS.md`) and the scholar CRUD reworked for v1 parity
+> (2026-08-07). GIP, grantee self-update, reports, and QR viewer remain to be
+> built.
 >
 > This is a **hybrid** document: §2 is v1 ground truth, §3 lists what v2
 > already touches, §4 onward is the build contract and extension points.
@@ -34,7 +39,7 @@ Blueprint §1.7 lists the major files:
 | `scholarship_reports.php` + `fetch_scholarship_reports.php` + `export_scholarship_reports.php` | reports + feed + CSV (BOM) |
 | `save_gip.php` | GIP profile (`tbl_gip_info`) |
 | `save_grantee_update.php` | record a grantee detail update |
-| `disabled_update_grantee.php` | disable/remove an update entry |
+| `disabled_update_grantee.php` | **public** self-update form for grantees (no session check, like P5 `disabled_unpaid.php`); posts to `save_grantee_update.php` |
 | `update_logs.php` + `fetch_update_logs.php` | update-history viewer |
 | `view_qrcode.php` | render the scholar's QR code |
 
@@ -117,23 +122,33 @@ Port the v1 files into (Blueprint §2 rows):
 
 - `ScholarController` + `ScholarService` — `scholars.php`, `save_scholarship.php`,
   `fetch_scholars.php`, `update_client_id.php`.
-  - `ScholarService::save(...)` — upsert `tbl_scholar_info`; derive `full_name`
-    from the client (or accept override per v1), populate `match_name` with the
-    same no-space-uppercase convention as `ClientService::deriveMatchName`,
-    **never** write the generated `normalized_name`.
-  - Feed with word-split AND search over `full_name`, `match_name`, school,
-    course, program; join to client/geo for the list.
+  - **Implemented (2026-08-07, v1-parity cleanup).** `ScholarService::save(...)`
+    upserts the latest `(client_id, program)` row; it does **not** write
+    `full_name` / `match_name` / `normalized_name` (v1 `save_scholarship.php`
+    writes none of them), `is_regular` defaults to `0` when absent
+    (`isset ? intval : 0`), and `year_started` is built as the `"YYYY - YYYY"`
+    varchar from `year_start`/`year_end` (one-sided allowed, `''` if both
+    empty). No `UpdateLog` is written on save.
+  - Feed (`fetch_scholars.php` parity): default order `client_id` asc,
+    pageLength 25, search over `full_name`/`program`/`school`, subquery-paginate
+    then `LEFT JOIN tbl_exam` on `TRIM(LOWER(si.full_name)) =
+    TRIM(LOWER(ex.fullname))` (via the generated `normalized_name` columns),
+    exposing `ex.barangay`/`ex.town`; `recordsTotal == recordsFiltered` (v1
+    quirk, preserved).
+  - List columns = v1: ID, Client ID, Full Name, Program, Barangay, Town.
   - `update_client_id.php` → a relink action: verify the target client exists
     and is not already the scholar's client.
-- `GipController` — `save_gip.php` upsert of `tbl_gip_info`, keeping
-  `normalized_name` in sync in PHP (it is a plain column here).
+- `GipController` — `save_gip.php` upsert of `tbl_gip_info`. v1
+  `save_gip.php` does **not** write `normalized_name`/`full_name` — leave them
+  unset; do not sync them in PHP.
 - `GranteeUpdateController` — `save_grantee_update.php`,
   `disabled_update_grantee.php`, `update_logs.php`, `fetch_update_logs.php`.
-  - Writes `tbl_update_logs` (append-only; client_id, full_name, **ip_address**,
-    action). Capture the request IP via `$request->ip()`.
-  - Respect the exact `disabled_update_grantee.php` semantics (verify whether it
-    deletes the log row — the table has no `disabled` column, so deletion is the
-    likely v1 behavior).
+  - `disabled_update_grantee.php` is the **public self-update form** grantees
+    use at the payout venue (no session check, P5 `disabled_unpaid.php`
+    precedent) — it does **not** disable or remove an update entry.
+  - `save_grantee_update.php` **writes a log row** to `tbl_update_logs`
+    (append-only; client_id, full_name, **ip_address**, action) — there is no
+    deletion anywhere in this flow. Capture the request IP via `$request->ip()`.
 - `ReportController` + `ReportService` — `scholarship_reports.php`,
   `fetch_scholarship_reports.php`, `export_scholarship_reports.php`:
   streamed CSV with UTF-8 BOM, reusing the P3 export pattern.
@@ -154,14 +169,22 @@ Route gating: use the v1 page keys from `tbl_permissions` (`scholars.php`,
 1. Scholar `program` values are exactly the six-enum strings; they must agree
    with the transaction program strings (scanner + transaction module).
 2. `normalized_name` on `tbl_scholar_info` is generated — read-only.
-3. `match_name` on both scholar tables is a writable search key; derive it with
-   the established convention.
-4. GIP is one profile per client; saving re-upserts the same row.
-5. Scholar updates are logged to `tbl_update_logs` with the client's IP — a
-   module log, not `tbl_audit_logs` (keep the distinction).
+3. v1's scholar write path stores neither `full_name` (INSERT omits it) nor
+   `match_name` — do not derive or write them from the client in
+   `ScholarService`; leave them unset (v1-parity decision, SCHOLAR_ANALYSIS §8).
+4. GIP is one profile per client; saving re-upserts the same row. v1 does not
+   populate GIP `normalized_name`/`full_name` in PHP.
+5. Scholar **enrollment saves are not logged** (v1 `save_scholarship.php` writes
+   nothing to `tbl_update_logs`). The grantee self-update flow
+   (`save_grantee_update.php`) is what appends to `tbl_update_logs` with the
+   client's IP — a module log, not `tbl_audit_logs` (keep the distinction).
 6. Exam/results are read-only references for the scanner; P6 does not edit them.
 7. QR codes encode the name form used by the scanners — never a bare id unless
-   the scanner lookup is changed (an ADR would be required).
+   the scanner lookup is changed (an ADR would be required). Verified: both the
+   P4 `ScanService` and v1 `scanner_payout_action.php` match the scanned text
+   against `tbl_clients.full_name` (exact `TRIM`, case-insensitive; seat names
+   equal `full_name`), so the QR payload must be the persisted comma-form
+   `client.full_name`.
 
 ---
 
@@ -170,9 +193,13 @@ Route gating: use the v1 page keys from `tbl_permissions` (`scholars.php`,
 - All P6 screens behind their v1 `page:` gates; no new permission rows needed
   (carried-over data already holds them).
 - `save_scholarship`/`save_gip` validate: `client_id` exists; `program` in the
-  enum; `year_started`/`landbank_no` required for scholarship; GIP fields
-  nullable strings, `year_graduated` 4-digit year. Use `FormRequest` classes in
-  the P2/P3 style.
+  enum. v1 marks only `client_id` + `program` as required in the form; every
+  other field is optional and stored as `''` when empty — validation must be
+  **nullable**, not `required`, for `school`, `school_type`, `campus`,
+  `college_department`, `course`, `year_level`, `landbank_no`, `is_regular`,
+  and the `year_start`/`year_end` pair (v1 builds `year_started` from them).
+  GIP fields nullable strings, `year_graduated` 4-digit year. Use
+  `FormRequest` classes in the P2/P3 style.
 - Report feeds/CSV gated the same as their screens; all strings escaped;
   exports streamed with BOM.
 
@@ -182,13 +209,16 @@ Route gating: use the v1 page keys from `tbl_permissions` (`scholars.php`,
 
 1. Writing `normalized_name` on `tbl_scholar_info` (generated column → error).
 2. Introducing scholar program strings that drift from the scanner/transaction
-  enum (they must be identical).
-3. Routing scholar updates to `tbl_audit_logs` instead of `tbl_update_logs`
-  (the screens expect the module log with IP).
-4. Encoding the wrong payload in the QR (see §5.7) — test a real scan through
-  the `payout` lookup before releasing.
-5. Duplicating the CSV export machinery — reuse the P3 streamed-download +
-  BOM pattern.
+   enum (they must be identical).
+3. Deriving/writing `full_name` or `match_name` from the client in
+   `ScholarService::save` — v1 writes neither (INSERT omits `full_name`).
+4. Routing grantee-update writes to `tbl_audit_logs` instead of
+   `tbl_update_logs` (the screens expect the module log with IP).
+5. Encoding the wrong payload in the QR (see §5.7) — must be the persisted
+   comma-form `client.full_name`; test a real scan through the `payout` lookup
+   before releasing.
+6. Duplicating the CSV export machinery — reuse the P3 streamed-download +
+   BOM pattern.
 
 ---
 

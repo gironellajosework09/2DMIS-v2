@@ -11,6 +11,7 @@ use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\PayoutAttendanceController;
 use App\Http\Controllers\PhotoController;
 use App\Http\Controllers\ScannerController;
+use App\Http\Controllers\ScholarController;
 use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TransactionController;
@@ -108,6 +109,16 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::put('transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update');
         Route::get('transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
         Route::post('transactions/{transaction}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
+    });
+
+    Route::middleware('page:scholars.php')->group(function () {
+        Route::get('scholars', [ScholarController::class, 'index'])->name('scholars.index');
+        Route::post('scholars/data', [ScholarController::class, 'data'])->name('scholars.data');
+        Route::get('scholars/create', [ScholarController::class, 'create'])->name('scholars.create');
+        Route::post('scholars', [ScholarController::class, 'store'])->name('scholars.store');
+        Route::get('scholars/{scholar}/edit', [ScholarController::class, 'edit'])->name('scholars.edit');
+        Route::put('scholars/{scholar}', [ScholarController::class, 'update'])->name('scholars.update');
+        Route::post('scholars/update-client-id', [ScholarController::class, 'updateClientId'])->name('scholars.update-client-id');
     });
 
     // P4 scanner engine — one GET page + lookup + save route per scanner key,

@@ -90,6 +90,11 @@
 
       <div class="sidebar-section">
         <div class="sidebar-section-label">Assistance</div>
+        <button type="button" class="sidebar-link" data-page="scholars">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+          Scholars
+          <span class="badge" id="sidebarScholarsBadge">8</span>
+        </button>
         <button type="button" class="sidebar-link" data-page="transactions">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           Transactions
@@ -398,13 +403,7 @@
 
         <div class="data-card">
           <div class="table-toolbar" data-filter-group="clients">
-            <div class="filter-group">
-              <button type="button" class="filter-chip active" data-filter="clients" data-value="all">All Clients</button>
-              <button type="button" class="filter-chip" data-filter="clients" data-value="muni:Candon City">Candon City</button>
-              <button type="button" class="filter-chip" data-filter="clients" data-value="cat:Senior (60+)">Senior Citizens</button>
-              <button type="button" class="filter-chip" data-filter="clients" data-value="cat:PWD">PWD</button>
-              <button type="button" class="filter-chip" data-filter="clients" data-value="cat:Adult (30-59)">Adults</button>
-            </div>
+            <div class="filter-group" data-filter-host="clients"></div>
             <div class="table-search">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input type="search" id="clientsSearch" placeholder="Search name, ID, barangay..." aria-label="Search clients">
@@ -449,7 +448,7 @@
         </div>
         <div class="data-card">
           <div class="table-toolbar">
-            <div class="filter-group"></div>
+            <div class="filter-group" data-filter-host="households"></div>
             <div class="table-search">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               <input type="search" id="householdsSearch" placeholder="Search household code, head, barangay..." aria-label="Search households">
@@ -489,15 +488,11 @@
         <div class="data-card">
           <div class="data-card-header" data-filter-group="transactions">
             <div class="data-card-toolbar">
-              <button type="button" class="filter-chip active" data-filter="transactions" data-value="all">All Programs</button>
-              <button type="button" class="filter-chip" data-filter="transactions" data-value="AICS">AICS</button>
-              <button type="button" class="filter-chip" data-filter="transactions" data-value="TUPAD">TUPAD</button>
-              <button type="button" class="filter-chip" data-filter="transactions" data-value="CEAP">CEAP</button>
-              <button type="button" class="filter-chip" data-filter="transactions" data-value="MAIP">MAIP</button>
-              <button type="button" class="filter-chip" data-filter="transactions" data-value="GIP">GIP</button>
-              <button type="button" class="filter-chip" data-filter="transactions" data-value="TODA">TODA</button>
-              <button type="button" class="filter-chip" data-filter="transactions" data-value="OTEA">OTEA</button>
-              <button type="button" class="filter-chip" data-filter="transactions" data-value="AKAP">AKAP</button>
+              <div class="filter-group" data-filter-host="transactions"></div>
+            </div>
+            <div class="table-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="transactionsSearch" placeholder="Search client, program, type..." aria-label="Search transactions">
             </div>
           </div>
           <div class="table-scroll">
@@ -521,6 +516,229 @@
           <div class="data-card-footer">
             <span id="transactionsCount">Showing 0 of 0 transactions</span>
             <div class="pagination" id="transactionsPager"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════ SCHOLARS (P6 — IN PROGRESS) ════════ -->
+      <div class="page" id="page-scholars">
+        <div class="page-header">
+          <div>
+            <h1>Scholars</h1>
+            <p>Educational assistance, scholarship profiles and GIP records</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" class="btn btn-outline btn-sm" data-sim="Scholars export queued (mock)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export
+            </button>
+            <button type="button" class="btn btn-gold btn-sm" data-add-scholar>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Add Scholar
+            </button>
+          </div>
+        </div>
+
+        <div class="p6-notice" role="status">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span><strong>In progress (P6):</strong> scholar profiles, GIP records, exam results, grantee self-update and scholarship reports are being built for the live system. Screens shown here are simulations only.</span>
+        </div>
+
+        <div class="page-tabs" role="tablist" aria-label="Scholars sections">
+          <button type="button" class="page-tab active" data-scholar-tab="scholars" role="tab" aria-selected="true">Scholars</button>
+          <button type="button" class="page-tab" data-scholar-tab="gip" role="tab" aria-selected="false">GIP Profiles</button>
+          <button type="button" class="page-tab" data-scholar-tab="reports" role="tab" aria-selected="false">Scholarship Reports</button>
+          <button type="button" class="page-tab" data-scholar-tab="log" role="tab" aria-selected="false">Update Log</button>
+          <button type="button" class="page-tab" data-scholar-tab="self" role="tab" aria-selected="false">Grantee Self-Update</button>
+        </div>
+
+        <div class="scholar-tab active" id="scholarTab-scholars" role="tabpanel">
+          <div class="data-card">
+            <div class="data-card-header" data-filter-group="scholars">
+              <div class="data-card-toolbar">
+                <div class="filter-group" data-filter-host="scholars"></div>
+              </div>
+              <div class="table-search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="search" id="scholarsSearch" placeholder="Search scholars…" aria-label="Search scholars">
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table" data-table="scholars">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Scholar</th>
+                    <th>Program</th>
+                    <th>School</th>
+                    <th>Course</th>
+                    <th>Year</th>
+                    <th>Status</th>
+                    <th class="actions-col">Actions</th>
+                    <th class="chevron-cell" aria-hidden="true"></th>
+                  </tr>
+                </thead>
+                <tbody id="scholarsBody"></tbody>
+              </table>
+            </div>
+            <div class="data-card-footer">
+              <span id="scholarsCount">Showing 0 of 0 scholars</span>
+              <div class="pagination" id="scholarsPager"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="scholar-tab" id="scholarTab-gip" role="tabpanel">
+          <div class="data-card">
+            <div class="data-card-header">
+              <div class="data-card-toolbar">
+                <span class="card-subtitle">Government Internship Program profiles with employment details</span>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Intern</th>
+                    <th>College / Course</th>
+                    <th>Year Graduated</th>
+                    <th>Work Experience</th>
+                    <th>Achievements</th>
+                    <th class="actions-col">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="gipBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="scholar-tab" id="scholarTab-reports" role="tabpanel">
+          <div class="metrics-grid" id="scholarMetrics">
+            <div class="metric-card">
+              <span class="metric-label">Active Scholars</span>
+              <strong class="metric-value" id="metricActiveScholars">0</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Active GIP Interns</span>
+              <strong class="metric-value" id="metricActiveGip">0</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Passed Exams</span>
+              <strong class="metric-value" id="metricExamsPassed">0</strong>
+            </div>
+            <div class="metric-card">
+              <span class="metric-label">Funds Disbursed</span>
+              <strong class="metric-value" id="metricFunds">₱0</strong>
+            </div>
+          </div>
+          <div class="data-card">
+            <div class="data-card-header">
+              <div class="data-card-toolbar">
+                <span class="card-subtitle">Monthly scholarship report preview — exported as CSV (UTF-8 BOM)</span>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm" data-scholar-export>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                Export CSV
+              </button>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Month</th>
+                    <th>Program</th>
+                    <th>New Scholars</th>
+                    <th>Active</th>
+                    <th>Graduated</th>
+                    <th>Disbursed</th>
+                  </tr>
+                </thead>
+                <tbody id="reportBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="scholar-tab" id="scholarTab-log" role="tabpanel">
+          <div class="data-card">
+            <div class="data-card-header">
+              <div class="data-card-toolbar">
+                <span class="card-subtitle">Client-initiated profile updates, tracked with IP address</span>
+              </div>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Scholar</th>
+                    <th>Action</th>
+                    <th>IP Address</th>
+                    <th>When</th>
+                  </tr>
+                </thead>
+                <tbody id="updateLogBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="scholar-tab" id="scholarTab-self" role="tabpanel">
+          <div class="self-update-grid">
+            <form id="granteeForm" class="card card-body" novalidate>
+              <h2>Update my scholarship details</h2>
+              <p class="form-hint">Screens simulate the grantee self-update flow. Live access will be secured and verified against the scholar record.</p>
+              <div class="form-group">
+                <label class="form-label" for="selfFullName">Full name *</label>
+                <input type="text" class="form-input" id="selfFullName" placeholder="e.g. Maria Clara Santos" required>
+              </div>
+              <div class="form-group">
+                <span class="form-label">Program</span>
+                <div class="prog-select" data-prog-select="self" aria-label="Program"></div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="selfLandbank">Landbank account no.</label>
+                <input type="text" class="form-input" id="selfLandbank" placeholder="e.g. 1234-5678-9012" inputmode="numeric">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="selfMobile">Mobile number</label>
+                <input type="tel" class="form-input" id="selfMobile" placeholder="e.g. 0917 123 4567" inputmode="tel">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="selfEmergency">Emergency contact</label>
+                <input type="text" class="form-input" id="selfEmergency" placeholder="Name and contact number">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="selfSchool">School / College</label>
+                <input type="text" class="form-input" id="selfSchool" placeholder="e.g. University of Northern Philippines">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="selfCourse">Course / Program of study</label>
+                <input type="text" class="form-input" id="selfCourse" placeholder="e.g. BS in Social Work">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="selfYearLevel">Year level</label>
+                <input type="text" class="form-input" id="selfYearLevel" placeholder="e.g. 3rd Year">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="selfRemarks">Remarks</label>
+                <textarea class="form-input" id="selfRemarks" rows="3" placeholder="Any change in status (transferee, delayed, honors, etc.)"></textarea>
+              </div>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-gold" id="granteeSubmit">Submit Update</button>
+                <button type="reset" class="btn btn-outline" id="granteeReset">Reset</button>
+              </div>
+            </form>
+            <div class="card card-body">
+              <h2>What happens next</h2>
+              <ol class="step-list">
+                <li class="step-item"><span class="step-num">1</span><span>Our office reviews your update against the scholar record.</span></li>
+                <li class="step-item"><span class="step-num">2</span><span>Approved changes are logged in the update log with your IP address.</span></li>
+                <li class="step-item"><span class="step-num">3</span><span>Scholarship reports and disbursement lists reflect the change.</span></li>
+              </ol>
+            </div>
           </div>
         </div>
       </div>
