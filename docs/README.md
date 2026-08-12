@@ -1,4 +1,4 @@
-# 2D MIS — v2 Planning & Analysis
+# 2D MIS
 
 > Version 2.0 upgrade of the municipal assistance MIS.
 > Planning & Analysis documentation for the rewrite, which is implemented in the

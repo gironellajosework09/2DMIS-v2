@@ -889,4 +889,14 @@ following the naming convention of the other module analyses
 
 ---
 
+### 2026-08-12 — `docs/README.md` title drops the "Planning & Analysis" phase
+
+- **Change** — title changed from `# 2D MIS — v2 Planning & Analysis` to
+  `# 2D MIS`. Planning & Analysis is long complete (phase table), so the phase
+  is no longer carried in the document title.
+- **Verification** — documentation-only change; no Laravel source, schema, or
+  data touched (`main_system` untouched; no tests run because no code changed).
+
+---
+
 *End of current implementation log. Append new dated entries above this line.*
