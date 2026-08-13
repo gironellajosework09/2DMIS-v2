@@ -866,6 +866,13 @@ h1, h2, h3, h4, h5, h6 {
 .status-badge.archived   { background: rgba(112, 121, 139, 0.1); color: var(--text-muted); }
 .status-badge.archived .dot { background: var(--text-muted); }
 
+/* Status badges rendered on the navy profile header need light-on-dark
+   contrast; the default translucent pills vanish against the blue. */
+.details-meta .status-badge.active   { background: var(--teal); color: #fff; }
+.details-meta .status-badge.active .dot { background: #fff; }
+.details-meta .status-badge.archived { background: rgba(255, 255, 255, 0.16); color: rgba(255, 255, 255, 0.9); border: 1px solid rgba(255, 255, 255, 0.3); }
+.details-meta .status-badge.archived .dot { background: currentColor; }
+
 .program-tag {
   display: inline-block;
   padding: 3px 9px;
@@ -1210,7 +1217,12 @@ h1, h2, h3, h4, h5, h6 {
 .details-panel.open { transform: translateX(0); visibility: visible; transition: transform 0.34s var(--ease); }
 
 .details-header {
-  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--navy) 90%, transparent) 0%,
+    color-mix(in srgb, var(--navy-light) 90%, transparent) 100%
+  );
+  /* opacity: 0.5; */
   padding: 22px 24px 18px;
   position: relative;
 }

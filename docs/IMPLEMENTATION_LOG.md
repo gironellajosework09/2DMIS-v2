@@ -26,7 +26,7 @@
 | P3 — Transactions + reports | Transaction CRUD, filters, inline edit, CSV exports | **Done** 2026-08-05 (all 9 v1 transaction files ported; per-program gating) |
 | P4 — Scanner engine | One `ScanService` (8 modes) + program config + shared view + routes | **Done** 2026-08-07 (all 14 v1 scanners as config; 14 tests green — see entry below) |
 | P5 — Payout + unpaid | | **Done** 2026-08-07 (3 payout lists + unpaid verification admin/self-service + CSV export; 15 tests green — see entry below) |
-| P6 — Scholars / GIP | | Scaffold + scholar CRUD v1-parity done (Phase 2 cleanup 2026-08-07); GIP, reports, QR, grantee updates pending |
+| P6 — Scholars / GIP | | Scholar registry v1-parity (Phase 2 cleanup 2026-08-07) + relink (2026-08-12) + scholarship reports (2026-08-12) + GIP details (2026-08-13) + QR viewer (2026-08-13) + grantee updates (2026-08-13) + client picker for standalone create form (2026-08-13) done — P6 complete; SCHOLAR_ANALYSIS §6 step 9 implemented |
 | P7 — Administration | | Not started |
 | P8 — Hardening + cutover | | Not started |
 
@@ -896,6 +896,271 @@ following the naming convention of the other module analyses
   is no longer carried in the document title.
 - **Verification** — documentation-only change; no Laravel source, schema, or
   data touched (`main_system` untouched; no tests run because no code changed).
+
+---
+
+### 2026-08-12 — P6 Phase 3 step 1: scholar relink (`update_client_id.php` port)
+
+Ports v1 `update_client_id.php` — the scholar registry's inline Client-ID
+relink — completing step 1 of `docs/SCHOLAR_ANALYSIS.md` §9 (list/feed/sidebar
+were done in Phase 2; relink was the last remaining piece).
+
+- **Route** — `POST scholars/update-client-id` inside the `page:scholars.php`
+  group (`routes/web.php`).
+- **Controller** — `ScholarController::updateClientId`: updates
+  `tbl_scholar_info.client_id` by row id, returns `{"message":"success"}` or
+  HTTP 400 `"Invalid input"`. Stricter than v1 by one guard: the scholar row
+  and the target client must both exist (prevents orphan links; matches the
+  `exists:tbl_clients,id` rule `ScholarRequest` already applies).
+- **View** — `resources/views/scholars/index.blade.php`: Client ID column
+  renders the v1 inline "Edit" button; click → `prompt()` for the new client
+  id → AJAX POST → table reload (exact v1 UX).
+- **Tests** — `tests/Feature/ScholarTest.php` +3 (relink success, missing
+  input → 400, nonexistent client → 400): **11 passed (32 assertions)**; full
+  suite **100 passed (523 assertions)**; Pint clean; `view:cache` compiles.
+- **Docs** — P6_SCHOLARS.md status + §4, SCHOLAR_ANALYSIS.md §2.1/§6/§9/§10,
+  blueprint §2 row + §8 row 84, README P6 row, SESSION_HANDOFF milestone.
+
+**Deviations:** none behavioral — v1 `update_client_id.php` has no
+restriction gate and no existence checks; v2 keeps the route behind
+`page:scholars.php` (it is only reachable from the gated registry) and adds
+the two existence checks described above.
+
+---
+
+### 2026-08-12 — P6 Phase 3 step 3: scholarship reports
+
+Ports v1 `scholarship_reports.php` + `fetch_scholarship_reports.php` +
+`export_scholarship_reports.php` — the reports screen, DataTables feed, and
+BOM CSV export — completing step 3 of `docs/SCHOLAR_ANALYSIS.md` §9.
+
+- **Routes** — `GET scholarship-reports`, `POST scholarship-reports/data`,
+  `GET scholarship-reports/export`, all inside a new `page:scholarship_reports.php`
+  group (`routes/web.php`).
+- **Controller** — new `ReportController` with `scholarship` (index),
+  `scholarshipData` (feed), `scholarshipExport` (CSV). The v1 asymmetric query
+  shapes are preserved exactly:
+  - Feed = transactions-led (six scholar programs) INNER JOIN clients, LEFT
+    JOIN the `MAX(id)` scholar_info row per client, LEFT JOIN geo. `recordsTotal`
+    is the raw six-program transaction count; `recordsFiltered` is the filtered
+    count. Filters: municipality, barangay, program, date_from/date_to, plus the
+    DataTables search (name CONCAT / school / course / mobile). The `submitted`
+    filter is **accepted but ignored** — v1's feed never reads it (parity kept).
+  - Export = scholar_info-led INNER JOIN clients, with `gwa`/`units`/`remarks`/
+    `status`/`date_applied` pulled via correlated subqueries on the latest
+    matching transaction (`ORDER BY date_applied DESC, id DESC`); program/date/
+    submitted filters via `EXISTS`/`NOT EXISTS`; header row from the first data
+    row's keys (includes `lastname`/`firstname`/`middlename`/`extensionname` +
+    `full_name`, matching v1); streamed with UTF-8 BOM as
+    `scholarship_reports<Ymd>.csv`.
+- **View** — `resources/views/scholarship_reports/index.blade.php`: v1 filter
+  set (municipality with `geography.barangays` cascade, program, submitted,
+  date from/to) + 18-column table, pageLength 10, order by Full Name, Export CSV.
+- **Sidebar** — Scholarship Reports link gated by `scholarship_reports.php`.
+- **Tests** — new `tests/Feature/ScholarshipReportTest.php` (7 tests, 60
+  assertions): screen render, feed joins/values, MAX-scholar-row + program
+  filter, date-range + search filters, BOM CSV header/values (incl. extension
+  name), program/submitted export filters, permission gating. Suite green.
+- **Docs** — P6_SCHOLARS.md status + §4, SCHOLAR_ANALYSIS.md §9, blueprint
+  §2 row + §8 rows 85–87, SESSION_HANDOFF milestone.
+
+**Deviations:** none behavioral. v1's `fetch_scholarship_reports.php` ships no
+`submitted` handling in the feed (only the export honors it) — preserved as-is;
+v2 additionally gates all three routes behind `page:scholarship_reports.php`
+(exactly the v1 permission key, so no new permission rows are needed).
+
+---
+
+### 2026-08-13 — Prototype: status badge legibility on the navy profile header
+
+Fixes the resident profile slide-in panel in `prototype/index.html`, where the
+client status pill (`Active`/`Archived`) was rendered inside the navy-blue
+`details-header` but reused the light-background badge styles (translucent teal
+on `--navy #0038A8`) and was effectively invisible.
+
+- **File** — `prototype/css/style.css`: added on-dark `.details-meta
+  .status-badge` overrides — `Active` gets a solid teal pill with white text
+  and a white dot; `Archived` gets a translucent white pill with a subtle white
+  border.
+- **Verification** — opened the prototype, clicked a resident row, confirmed
+  the `Active`/`Archived` pill is clearly legible against the blue header.
+
+**Deviations:** none — presentation-only change, no markup or behavior touched.
+
+---
+
+### 2026-08-13 — P6 GIP details (v1 `save_gip.php` port)
+
+Ground truth correction: v1 **GIP is not a standalone page** — the fields are an
+accordion + modal embedded in `view_client.php#collapseGIP`, shown only for
+clients that have a `tbl_transactions.program = 'GIP'` row, and saved via
+`save_gip.php` (upsert of the latest `tbl_gip_info` row per client). The v2 port
+keeps that shape inside the client profile page.
+
+- **Service** — new `app/Services/GipService.php`: `save($input, $userId)`
+  ports `save_gip.php` exactly — trims every field, `mb_strtoupper`-uppercases
+  all profile fields **except** `ecp_contact_number` and `year_graduated`
+  (v1's sanitization block), then upserts the latest `tbl_gip_info` row for the
+  client (`ORDER BY id DESC LIMIT 1`). Audit parity: writes `ADD_GIP` /
+  `UPDATE_GIP` rows to `tbl_audit_logs` (`target_table='tbl_clients'`,
+  `target_id=client_id`, old/new JSON payloads) via the existing
+  `AuditService`; an update is logged only when something actually changed
+  (v1 diff-guards the `UPDATE_GIP` log too).
+- **Controller** — new `app/Http/Controllers/GipController.php::store`:
+  validates `client_id` exists, saves, redirects to `clients.show` with the
+  `#collapseGIP` anchor (v1 redirects to `view_client.php?id=…#collapseGIP`).
+- **Route** — `POST clients/{client}/gip` → `gip.store`, registered inside the
+  existing `page:clients.php` group (the same key that guards the profile page;
+  v1 has no separate GIP permission key).
+- **Model** — `app/Models/Client.php`: added `gipInfo()` hasMany relation
+  (blueprint §3 already declared it).
+- **View** — new `resources/views/clients/_gip.blade.php` partial (accordion +
+  `#gipModal` with all 17 v1 fields; datalist-free plain inputs for
+  college/course, matching the accepted v2 scholars form convention), included
+  from `clients/_details.blade.php`. Rendered only when `$hasGipTransaction`
+  is true; `ClientController@show` now loads `gipInfo` and computes
+  `$gip` (latest row) + `$hasGipTransaction`.
+- **Tests** — new `tests/Feature/GipTest.php` (6 tests, 20 assertions):
+  section hidden without a GIP transaction; section + values shown with one;
+  ADD_GIP with uppercase + audit; UPDATE_GIP logs only on change (identical
+  resubmission appends nothing); invalid client rejected with no side effects;
+  permission-gated store. Full suite green (113 tests, 603 assertions) and
+  `pint --test` passes.
+- **Docs** — this entry; blueprint §2 row 169 + §8 row 88 status; P6 phase
+  status in §6; `SESSION_HANDOFF.md` milestone.
+
+**Deviations:** none behavioral. `college`/`course` are free-text inputs in v2
+(the v1 modal's ~90/100 hard-coded `<option>` lists are not reproduced), which
+stores the same uppercased strings and matches the established v2 scholars form.
+
+---
+
+### 2026-08-13 — P6 QR viewer (v1 `view_qrcode.php` port)
+
+Ports the public scholar QR self-service page. Like the P5 self-service screens,
+v1 `view_qrcode.php` has **no session check**, so it is a public top-level route
+(no CSRF), reached by URL — v1 does not link it from the admin nav, and neither
+does v2 (no sidebar entry).
+
+- **Controller** — new `app/Http/Controllers/QrController.php::show` renders
+  `qr.viewer`. The page itself is static; search / municipality / verify reuse
+  the shared P5 `grantee-search` endpoints (`GranteeSearchController` =
+  v1 `search_grantee.php`), which v1's QR page also consumed.
+- **Route** — `GET qr-viewer` → `qr-viewer`, top-level public beside the P5
+  `grantee-search` routes (SCHOLAR_ANALYSIS §9 step 4 + Appendix A placement).
+- **View** — new `resources/views/qr/viewer.blade.php`, port of v1's
+  autocomplete + municipality verify + QR display + download/reset UI, using
+  `kind=grantee` (full six-program search). Per decision C the QR payload is the
+  **persisted comma-form `client.full_name`** returned by the verify endpoint —
+  not a re-composed name — so scans resolve through the P4 `ScanService` lookups
+  (they match `tbl_clients.full_name`). QR still generated by v1's external
+  `api.qrserver.com` (parity, no new package).
+- **Search endpoint** — `GranteeSearchController::CLIENT_COLUMNS`: added
+  `full_name` to the verify response (additive; v1's `clientOut` did not carry it
+  because the v1 page re-composed the name — decision C changed that).
+- **Tests** — new `tests/Feature/QrViewerTest.php` (3 tests, 11 assertions):
+  page renders publicly with the v1 title/labels; `kind=grantee` autocomplete
+  finds a `CEDSSG` client that the `unpaid` search excludes; verify returns the
+  persisted `full_name`. Full suite green (116 tests, 614 assertions) and
+  `pint --test` passes.
+- **Docs** — this entry; blueprint §2 row 171 + §8 row 477 status; `P6_SCHOLARS.md`
+  §4 QrController bullet; `SESSION_HANDOFF.md` milestone.
+
+**Deviations:** none behavioral. The QR payload now encodes the persisted
+`full_name` (decision C) instead of v1's JS-composed string; the two forms are
+identical in the common case.
+
+---
+
+### 2026-08-13 — Prototype: clients table replaces Mobile with Precinct No.
+
+In `prototype/index.html` the Client Registry table showed `Mobile`; the column
+was swapped for the client's precinct number per request, and the column order
+is now exactly: **Client, Precinct No., Municipality, Barangay, Category,
+Status**.
+
+- **Files** — `prototype/index.html` (thead reorder), `prototype/js/app.js`:
+  `makeResident()` now sets a deterministic `precinct` value
+  (`0002A`-style, derived from the seeded id), and `renderClients()` emits the
+  cells in the new order. Mobile remains on the details panel, where it still
+  belongs.
+- **Verification** — opened the prototype, Client Registry shows the precinct
+  number in the correct column position; empty-state row `colspan=7` still
+  matches the 7 cells.
+
+**Deviations:** none — presentation-only prototype change.
+
+---
+
+### 2026-08-13 — P6 grantee updates (v1 `save_grantee_update.php` + `disabled_update_grantee.php` + `update_logs.php` port)
+
+Ports the public grantee self-update flow and the admin update-logs screen.
+v1 `disabled_update_grantee.php` / `save_grantee_update.php` have **no session
+check** (grantees use them at the payout venue), so the routes are public
+(top-level, no CSRF) like the P5/QR self-service pages.
+
+- **Controller** — new `app/Http/Controllers/GranteeUpdateController.php`:
+  `selfService()` renders the form, `store()` saves, `logs()` renders the
+  admin screen.
+- **Service** — new `app/Services/GranteeUpdateService.php` (v1-exact): in one
+  transaction it updates `tbl_clients` (name parts + municipality/barangay
+  PRESERVED from the DB row — the v1 readonly fields; the rest uppercased /
+  trimmed like v1), upserts the latest `tbl_scholar_info` row per
+  `(client_id, program)` (UPDATE sets `updated_at = NOW()`; INSERT writes the
+  comma-form `full_name` + `created_at = NOW()`), and appends to
+  `tbl_update_logs` with the space-joined `FIRST MIDDLE LAST` name, the request
+  IP, and the exact action `'Grantee self-updated their information.'` — a
+  module log, never `tbl_audit_logs`. Required fields
+  (`mobile_no/email/birthdate/sex/civil_status`) and all v1 error messages are
+  preserved.
+- **Routes** — public top-level `GET grantee-update` / `POST grantee-update/save`;
+  public aliases `GET grantee/verify-mobile` + `GET grantee/barangays` (the v1
+  helpers `verify_mobile.php` / `get_barangays.php` are public too — the aliases
+  reuse the existing `ClientController@verifyMobile` /
+  `GeographyController@barangays`); gated `GET update-logs` behind
+  `page:update_logs.php`.
+- **Views** — new `resources/views/grantee_update/self-service.blade.php`
+  (autocomplete → mobile verify → municipality verify → prefilled form → save →
+  QR display) and `resources/views/update_logs/index.blade.php` (server-rendered
+  rows + client-side DataTables, date filter, name formatting, UTC → Asia/Manila
+  `m/d/Y - h:i A`). Sidebar: Update Logs link gated by `update_logs.php`.
+- **Not ported** — `fetch_update_logs.php` is dead in v1 (never referenced;
+  `update_logs.php` renders its own rows), mirror of the P5 dead-export.
+- **Tests** — new `tests/Feature/GranteeUpdateTest.php` (10 tests, 37
+  assertions). Full suite green (126 tests, 651 assertions), `pint` clean.
+
+**Deviations:** no behavioral. `fetch_update_logs.php` not ported (dead in v1)
+as the established dead-code exception; `school`/`course`/`college_department`
+are free-text inputs (the accepted v2 deviation) instead of v1's ~100/300
+hard-coded `<option>` lists. Two strict-mode parities worth noting (same stored
+data as v1, which runs a non-strict MySQL): the scholar INSERT supplies
+`year_started`/`landbank_no = ''` explicitly (NOT NULL columns that v1 lets
+MySQL coerce), and the `pwd`/`ip` values are coerced to `'NO'` when the posted
+value isn't a valid `enum('YES','NO')` member — v1's form sends arbitrary/blank
+text into the enum and only survives on its non-strict server.
+
+### 2026-08-13 — P6 step 9: client picker for the standalone scholar create form
+
+Completes the last P6 item (SCHOLAR_ANALYSIS §6 step 9). The standalone
+`scholars/create` (and the shared `scholars/_form`) now pick the beneficiary
+with a live client search instead of an empty `<select>`.
+
+- **Route** — new `GET scholars/clients-search` inside the `page:scholars.php`
+  group, reusing `TransactionController@searchClients` (DRY: same method the
+  transactions picker uses; gated by the scholars page so a scholar-only clerk
+  does not need `all_transactions.php`).
+- **Form** — `resources/views/scholars/_form.blade.php` replaces the empty
+  `client_id` select with a search input + hidden `client_id` + live results
+  list (same JS pattern as the transactions picker). The hidden field is
+  prefilled from the scholar's client on edit (fixing a latent bug — the edit
+  form's select was empty) and from `?client_id=` on create. Program + scholar
+  fields unchanged.
+- **Tests** — `tests/Feature/ScholarTest.php` +6 (clients-search match / short
+  query / gate 403 with JSON Accept / create prefill from `?client_id=` / edit
+  prefill / store rejects nonexistent client). Full suite green: **132 tests,
+  664 assertions**; `pint` clean.
+
+**Deviations:** none.
 
 ---
 

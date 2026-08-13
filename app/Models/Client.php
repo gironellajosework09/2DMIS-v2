@@ -91,4 +91,9 @@ class Client extends Model
     {
         return $this->hasMany(Transaction::class, 'client_id');
     }
+
+    public function gipInfo(): HasMany
+    {
+        return $this->hasMany(GipInfo::class, 'client_id');
+    }
 }

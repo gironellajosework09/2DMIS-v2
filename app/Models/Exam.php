@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class Exam extends Model
 {
     protected $table = 'tbl_exam';
+
     public $timestamps = false;
+
     protected $guarded = [];
 }

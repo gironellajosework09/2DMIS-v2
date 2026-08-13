@@ -28,6 +28,18 @@
         </a>
     @endif
 
+    @if ($acl->canAccessPage($user, 'scholarship_reports.php'))
+        <a href="{{ route('scholarship-reports.index') }}" @class(['active' => request()->routeIs('scholarship-reports.*')])>
+            Scholarship Reports
+        </a>
+    @endif
+
+    @if ($acl->canAccessPage($user, 'update_logs.php'))
+        <a href="{{ route('update-logs.index') }}" @class(['active' => request()->routeIs('update-logs.*')])>
+            Update Logs
+        </a>
+    @endif
+
     @if ($acl->canAccessPage($user, 'all_transactions.php'))
         <a href="{{ route('transactions.index') }}" @class(['active' => request()->routeIs('transactions.*')])>
             All Transactions

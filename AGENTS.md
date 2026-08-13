@@ -64,6 +64,11 @@ must remain byte-identical to v1 — this project only adds application code aro
 - `vendor\bin\pint` — code style (run before finishing changes)
 - `php artisan schema:dump` — regenerate baseline (needs `C:\xampp\mysql\bin` on PATH for mysqldump)
 
+## Development Workflow
+
+- For normal implementation tasks, follow `skills/2dmis-efficient.md`.
+- For finalization tasks, follow `skills/2dmis-finalize.md`.
+
 ## Current Development Status
 
 The current implementation status is maintained in:

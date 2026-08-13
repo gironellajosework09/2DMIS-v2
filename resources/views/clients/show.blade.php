@@ -3,5 +3,5 @@
 @section('title', 'Client Profile — 2D MIS')
 
 @section('content')
-    @include('clients._details', ['panel' => false])
+    @include('clients._details', ['panel' => false, 'gip' => $gip, 'hasGipTransaction' => $hasGipTransaction])
 @endsection

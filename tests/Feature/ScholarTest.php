@@ -405,4 +405,99 @@ class ScholarTest extends TestCase
             'client_id' => $client->id,
         ]);
     }
+
+    public function test_scholar_clients_search_returns_matching_clients(): void
+    {
+        $this->scholarUser();
+        Client::factory()->create([
+            'lastname' => 'CRUZ',
+            'firstname' => 'JUAN',
+            'full_name' => 'CRUZ, JUAN',
+        ]);
+
+        $this->get(route('scholars.clients-search').'?q=CRUZ')
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.lastname', 'CRUZ');
+    }
+
+    public function test_scholar_clients_search_returns_empty_for_short_query(): void
+    {
+        $this->scholarUser();
+        Client::factory()->create([
+            'lastname' => 'CRUZ',
+            'firstname' => 'JUAN',
+            'full_name' => 'CRUZ, JUAN',
+        ]);
+
+        $this->get(route('scholars.clients-search').'?q=C')
+            ->assertOk()
+            ->assertJson([]);
+    }
+
+    public function test_scholar_clients_search_is_gated_by_scholars_page(): void
+    {
+        $user = User::factory()->create(['username' => 'other-clerk'.mt_rand(100000, 999999)]);
+        Permission::query()->create([
+            'user_id' => $user->id,
+            'page_name' => 'other_page.php',
+            'can_access' => true,
+        ]);
+        $this->logInAs($user);
+
+        $this->get(route('scholars.clients-search').'?q=CRUZ', ['Accept' => 'application/json'])
+            ->assertForbidden();
+    }
+
+    public function test_scholar_create_page_prefills_client_from_query_param(): void
+    {
+        $this->scholarUser();
+        $client = Client::factory()->create([
+            'lastname' => 'CRUZ',
+            'firstname' => 'JUAN',
+            'full_name' => 'CRUZ, JUAN',
+        ]);
+
+        $this->get(route('scholars.create', ['client_id' => $client->id]))
+            ->assertOk()
+            ->assertSee('CRUZ, JUAN');
+    }
+
+    public function test_scholar_edit_page_prefills_client(): void
+    {
+        $this->scholarUser();
+        $client = Client::factory()->create([
+            'lastname' => 'CRUZ',
+            'firstname' => 'JUAN',
+            'full_name' => 'CRUZ, JUAN',
+        ]);
+        $scholar = ScholarInfo::create([
+            'client_id' => $client->id,
+            'full_name' => 'CRUZ, JUAN',
+            'program' => 'CEDSSG',
+            'school' => 'ISPSC-MAIN',
+            'school_type' => 'PUBLIC',
+            'campus' => 'MAIN',
+            'college_department' => '',
+            'course' => '',
+            'year_level' => '1ST YEAR',
+            'is_regular' => 1,
+            'year_started' => '2025 - 2026',
+            'landbank_no' => '',
+        ]);
+
+        $this->get(route('scholars.edit', $scholar->id))
+            ->assertOk()
+            ->assertSee('CRUZ, JUAN');
+    }
+
+    public function test_scholar_store_rejects_nonexistent_client(): void
+    {
+        $this->scholarUser();
+
+        $this->post(route('scholars.store'), $this->payload(Client::factory()->create(), ['client_id' => 999999]))
+            ->assertSessionHasErrors('client_id');
+
+        $this->assertDatabaseCount('tbl_scholar_info', 0);
+    }
 }

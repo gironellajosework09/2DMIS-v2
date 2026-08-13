@@ -1,6 +1,6 @@
 # 2DMIS v2 — Session Handoff
 
-**Last Updated:** 2026-08-07
+**Last Updated:** 2026-08-13
 
 ---
 
@@ -16,7 +16,7 @@
 
 ### Current Milestone
 
-**P6 — Scholars / GIP** (not yet started; P5 complete)
+**P6 — Scholars / GIP** (Phase 3 in progress — scholar registry + relink + scholarship reports done 2026-08-12; GIP details + QR viewer + grantee updates done 2026-08-13; client picker for the standalone create form done 2026-08-13 — **P6 scope complete**) → next: P7 — Administration
 
 ---
 
@@ -81,16 +81,17 @@ Status: Complete — Tests: Passing
 
 **Completed:**
 
-- P5 Payout Attendance & Unpaid Verification
-- Config-driven `payout.php` (3 variants) + shared attendance view/feeds
-- Unpaid verification admin + public self-service + search/verify + delete + export
-- 89 tests passing (15 new in `PayoutTest.php`)
-- Corrected `docs/implementation/P5_PAYOUT.md` §2.2 ground-truth error
-- Documentation completed
+- P6 Phase 3 step 1: scholar relink (`update_client_id.php` port)
+- P6 Phase 3 step 3: scholarship reports — `ReportController` (screen + feed + BOM CSV export), `scholarship_reports` view, routes behind `page:scholarship_reports.php`, sidebar link, 7 tests (60 assertions)
+- P6 Phase 3 step 5: GIP details (`save_gip.php` port) — `GipService` (v1-parity upsert + `ADD_GIP`/`UPDATE_GIP` audit via `AuditService`), `GipController@store`, `POST clients/{client}/gip` gated by `clients.php`, GIP accordion + modal on the client profile (`clients/_gip.blade.php`), `Client::gipInfo()` relation, 6 tests (20 assertions)
+- P6 Phase 3 step 4: QR viewer (`view_qrcode.php` port) — public top-level `GET qr-viewer` (`QrController@show`, `qr/viewer.blade.php`) reusing the shared `grantee-search` endpoints; verify now returns `client.full_name`; QR encodes the persisted comma-form name (decision C) via external `api.qrserver.com` (parity, no package); 3 tests (11 assertions)
+- P6 grantee updates (`save_grantee_update.php` / `disabled_update_grantee.php` / `update_logs.php` port, SCHOLAR_ANALYSIS §6 steps 3+4) — public `GET grantee-update` + `POST grantee-update/save` (`GranteeUpdateController` + `GranteeUpdateService`: v1-exact transaction — client update preserving name/location, latest scholar_info upsert, `tbl_update_logs` append with IP + exact action string); public `grantee/verify-mobile` + `grantee/barangays` aliases; gated `GET update-logs` (`page:update_logs.php`) with v1 name formatting + PHT conversion; `fetch_update_logs.php` NOT ported (dead in v1); sidebar Update Logs link; 10 tests (37 assertions)
+- P6 step 9 (SCHOLAR_ANALYSIS §6): client picker for the standalone scholar create form — `GET scholars/clients-search` in the `page:scholars.php` group reusing `TransactionController@searchClients`; `scholars/_form.blade.php` now uses a search picker (hidden `client_id` + live results) shared by create (prefill via `?client_id=`) and edit (prefill from the scholar's client, fixing the empty select); 6 tests (13 assertions)
+- Full suite green on `main_system_test` (126 → **132 tests, 651 → 664 assertions**)
 
 **Next:**
 
-- Begin P6 Scholars / GIP
+- **P7 — Administration**: permissions (`manage_permissions.php` / `manage_program_permissions.php`), audit viewer, hardening.
 
 ---
 
@@ -158,17 +159,18 @@ Payout parity (now delivered — remaining watch items).
 
 ## Before Next Session
 
-Continue **P6 — Scholars / GIP** using `docs/implementation/P6_SCHOLARS.md` as
-the build contract.
+**P6 — Scholars / GIP is complete** (SCHOLAR_ANALYSIS §6 fully delivered).
+
+Next: **P7 — Administration** using `docs/ENGINEERING_BLUEPRINT.md` and the v1
+files under `C:\xampp\htdocs\system` (read-only) as the build contract.
 
 Priority:
 
-1. Read `docs/implementation/P6_SCHOLARS.md` (§2 v1 ground truth, §4 extension
-   points).
-2. Read the matching v1 files under `C:\xampp\htdocs\system` (read-only).
-3. Confirm the exact v1 audit `action` strings.
-4. Build the screens + feeds + tests; run `vendor\bin\pint` before finishing.
-5. Append the P6 entry to `docs/IMPLEMENTATION_LOG.md` when delivered.
+1. Read the P7 contract/analysis (permissions, audit viewer, hardening) and the
+   matching v1 files (`manage_permissions.php` / `manage_program_permissions.php`).
+2. Confirm the exact v1 audit `action` strings before inventing new ones.
+3. Build the screens + feeds + tests; run `vendor\bin\pint` before finishing.
+4. Append the P7 entry to `docs/IMPLEMENTATION_LOG.md` when delivered.
 
 Do not redesign behavior. Parity comes before optimization.
 

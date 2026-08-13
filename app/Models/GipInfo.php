@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class GipInfo extends Model
 {
     protected $table = 'tbl_gip_info';
+
     public $timestamps = false;
+
     protected $guarded = [];
 
     public function client(): BelongsTo

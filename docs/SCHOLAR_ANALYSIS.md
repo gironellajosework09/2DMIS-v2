@@ -155,7 +155,7 @@ download link and "search another" reset.
 | Model — update log | `app/Models/UpdateLog.php` | `tbl_update_logs`, same shape. **Correct.** |
 | Model — exam | `app/Models/Exam.php` | `tbl_exam`, same shape. **Correct.** |
 | Model — results | `app/Models/ExamResult.php` | `tbl_results`, same shape. **Correct.** |
-| Controller | `app/Http/Controllers/ScholarController.php` | index/data/create/store/edit/update. Shell existed; data() + save flow reworked for parity in Phase 2. |
+| Controller | `app/Http/Controllers/ScholarController.php` | index/data/create/store/edit/update + updateClientId (relink, 2026-08-12). Shell existed; data() + save flow reworked for parity in Phase 2. |
 | Service | `app/Services/ScholarService.php` | `save()` upsert. **Had 4 behavioral deviations; reworked for v1 parity.** |
 | FormRequest | `app/Http/Requests/ScholarRequest.php` | 12 rules. **Rules deviated from v1; reworked to nullable.** |
 | Views | `resources/views/scholars/{index,_form,create,edit}.blade.php` | Registry CRUD UI. **Deviated from v1 screen; reworked.** |
@@ -275,29 +275,45 @@ route group referenced `ScholarController::class` without the `use` import
 ## 6. Missing functionality (Phase 3 build list)
 
 1. **Relink** — `update_client_id.php` port (registry inline edit + route).
+   **DONE 2026-08-12** (`ScholarController::updateClientId`, inline Edit button).
 2. **GIP** — `save_gip.php` port: `GipController` + `GipService` upsert,
    `mb_strtoupper`, `tbl_audit_logs` via `AuditService` (`ADD_GIP`/
    `UPDATE_GIP`, table `'tbl_clients'`, record = client_id), `#collapseGIP`
-   redirect semantics (or equivalent).
+   redirect semantics (or equivalent). *(Completed 2026-08-13.)*
 3. **Grantee self-service** — public `disabled_update_grantee.php` flow:
    `search_grantee.php` (munis/q/verify), `verify_mobile.php`,
    `save_grantee_update.php` (server-preserved names, required fields,
    scholar_info upsert with comma-form `full_name`, `tbl_update_logs` write with
-   IP + exact action string, transaction).
+   IP + exact action string, transaction). *(Completed 2026-08-13 —
+   `GranteeUpdateController` + `GranteeUpdateService`; public `grantee-update`
+   + `grantee-update/save` routes; `verify_mobile.php` consumed via the public
+   `grantee/verify-mobile` alias.)*
 4. **Update logs viewer** — `update_logs.php`/`fetch_update_logs.php` port:
    date filter, name-formatting logic, Asia/Manila time conversion.
+   *(Completed 2026-08-13 — gated `update-logs` screen; `fetch_update_logs.php`
+   NOT ported, dead in v1.)*
 5. **Scholarship reports** — screen + server-side feed + CSV (BOM), matching the
-   v1 columns/filters/subquery semantics.
+   v1 columns/filters/subquery semantics. *(Completed 2026-08-12 —
+   `ReportController`.)*
 6. **QR viewer** — public `view_qrcode.php` port (search → verify → QR), payload
-   per decision C in §8.
+   per decision C in §8. *(Completed 2026-08-13 — `QrController@show`, public,
+   reuses the `grantee-search` endpoints.)*
 7. **Sidebar navigation** — Scholars module links (registry, reports, update
-   logs, QR viewer). (Registry link already added in Phase 2.)
+   logs, QR viewer). (Registry link already added in Phase 2.) *(Completed
+   2026-08-13 — Scholars, Scholarship Reports, Update Logs links gated by their
+   page keys; the QR viewer is intentionally NOT linked — it is a public
+   self-service page, and v1 does not link it either.)*
 8. **Feature tests** — add tests for every P6 feature (relink, GIP,
    self-service, update logs, reports, QR), run the full suite on
-   `main_system_test`.
+   `main_system_test`. *(Completed 2026-08-13 — full suite green; 132 tests /
+   664 assertions at P6 close.)*
 9. **Client-search for the standalone create form** — v1 creates from the client
    modal; v2's standalone `create` page needs a client picker (reuse the
-   `transactions.clients-search` pattern).
+   `transactions.clients-search` pattern). *(Completed 2026-08-13 — the shared
+   `_form` now uses a search picker (hidden `client_id` + live results) gated by
+   `page:scholars.php` via `scholars.clients-search`, which reuses
+   `TransactionController@searchClients`; the edit form is prefilled with the
+   scholar's client. Full suite 132 tests / 664 assertions green.)*
 
 ---
 
@@ -368,15 +384,21 @@ fixed in Phase 2.)
 1. **Scholar Registry** — index view + `data()` feed parity (v1 columns,
    `tbl_exam` join for Barangay/Town, default client_id order), relink
    (`update_client_id` port + inline button), sidebar entry.
-   *(Steps 1's list/feed + sidebar were completed in Phase 2; relink pending.)*
+   *(List/feed + sidebar completed in Phase 2; relink completed 2026-08-12.)*
 2. **Scholar CRUD** — `ScholarService::save`/`ScholarRequest`/`_form` parity:
    `is_regular` default 0, `year_start`/`year_end` → `"YYYY - YYYY"`, nullable
    rules, `full_name`/`match_name` decision (§8 A), client picker.
    *(Completed in Phase 2, except the client picker.)*
 3. **Reports** — `scholarship_reports` screen + feed + CSV export (BOM),
    reusing the P3/P5 export pattern.
+   *(Completed 2026-08-12 — `ReportController` + `scholarship_reports` view +
+   routes behind `page:scholarship_reports.php`; v1 asymmetric feed/export
+   query shapes preserved.)*
 4. **QR viewer** — public `view_qrcode.php` + `search_grantee.php`
    (munis/q/verify) — built here because the search/verify endpoint is shared.
+   *(Completed 2026-08-13 — `QrController@show` + `qr/viewer.blade.php`, public
+   top-level route; reuses the shared `grantee-search` endpoints; verify returns
+   `full_name`; QR payload = persisted comma-form name per decision C.)*
 5. **GIP** — `GipController`/`GipService` + `save_gip.php` parity + audit.
 6. **Grantee updates** — `verify_mobile.php`, `disabled_update_grantee.php`
    (public form), `save_grantee_update.php`, `update_logs.php` +
@@ -398,8 +420,9 @@ fixed in Phase 2.)
 - **REFACTOR:** the existing registry CRUD — all 8 deviations (§5) plus the
   dead-route import are **fixed and verified** (Phase 2 cleanup): Scholar
   service/request/controller/views, ClientFactory, tests, sidebar.
-- **BUILD (Phase 3):** relink, GIP, grantee self-service + update-log viewer,
-  scholarship reports, QR viewer — still ~85% of the module (§6).
+- **BUILD (Phase 3):** relink (**done 2026-08-12**), GIP, grantee self-service
+  + update-log viewer, scholarship reports, QR viewer — the remaining §6 items
+  are still to build.
 - **Correct docs:** done in Phase 2 (P6_SCHOLARS.md, blueprint, README,
   IMPLEMENTATION_LOG, SESSION_HANDOFF).
 

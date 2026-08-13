@@ -6,10 +6,14 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DuplicateController;
 use App\Http\Controllers\FamilyMemberController;
 use App\Http\Controllers\GeographyController;
+use App\Http\Controllers\GipController;
 use App\Http\Controllers\GranteeSearchController;
+use App\Http\Controllers\GranteeUpdateController;
 use App\Http\Controllers\HouseholdController;
 use App\Http\Controllers\PayoutAttendanceController;
 use App\Http\Controllers\PhotoController;
+use App\Http\Controllers\QrController;
+use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ScannerController;
 use App\Http\Controllers\ScholarController;
 use App\Http\Controllers\SessionController;
@@ -44,6 +48,24 @@ Route::post('unpaid-verification/submit', [UnpaidVerificationController::class, 
 Route::get('grantee-search/{kind}', [GranteeSearchController::class, 'search'])->name('grantee-search');
 Route::post('grantee-search/{kind}', [GranteeSearchController::class, 'verify'])->name('grantee-search.verify');
 
+// P6 grantee self-update — v1 disabled_update_grantee.php + save_grantee_update.php
+// have no session check (grantees use them at the payout venue), so both stay
+// public top-level like the P5/QR self-service pages. The helper endpoints the
+// form consumes are public aliases of existing controllers because the v1
+// originals (verify_mobile.php + get_barangays.php) are public too.
+Route::get('grantee-update', [GranteeUpdateController::class, 'selfService'])
+    ->name('grantee-update.self-service');
+Route::post('grantee-update/save', [GranteeUpdateController::class, 'store'])
+    ->name('grantee-update.store');
+Route::get('grantee/verify-mobile', [ClientController::class, 'verifyMobile'])
+    ->name('grantee.verify-mobile');
+Route::get('grantee/barangays', [GeographyController::class, 'barangays'])
+    ->name('grantee.barangays');
+
+// P6 QR viewer — v1 view_qrcode.php is a public self-service page (no session
+// check), so this stays top-level like the P5 unpaid-verification page.
+Route::get('qr-viewer', [QrController::class, 'show'])->name('qr-viewer');
+
 Route::middleware(['auth', 'single-device'])->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
@@ -67,6 +89,7 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::post('clients/duplicates/data', [DuplicateController::class, 'data'])->name('duplicates.data');
         Route::post('clients/duplicates/delete', [DuplicateController::class, 'destroy'])->name('duplicates.destroy');
         Route::post('clients/photo', [PhotoController::class, 'store'])->name('clients.photo.store');
+        Route::post('clients/{client}/gip', [GipController::class, 'store'])->name('gip.store');
         Route::post('clients/data', [ClientController::class, 'data'])->name('clients.data');
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
         Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
@@ -115,10 +138,21 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('scholars', [ScholarController::class, 'index'])->name('scholars.index');
         Route::post('scholars/data', [ScholarController::class, 'data'])->name('scholars.data');
         Route::get('scholars/create', [ScholarController::class, 'create'])->name('scholars.create');
+        Route::get('scholars/clients-search', [TransactionController::class, 'searchClients'])->name('scholars.clients-search');
         Route::post('scholars', [ScholarController::class, 'store'])->name('scholars.store');
         Route::get('scholars/{scholar}/edit', [ScholarController::class, 'edit'])->name('scholars.edit');
         Route::put('scholars/{scholar}', [ScholarController::class, 'update'])->name('scholars.update');
         Route::post('scholars/update-client-id', [ScholarController::class, 'updateClientId'])->name('scholars.update-client-id');
+    });
+
+    Route::middleware('page:scholarship_reports.php')->group(function () {
+        Route::get('scholarship-reports', [ReportController::class, 'scholarship'])->name('scholarship-reports.index');
+        Route::post('scholarship-reports/data', [ReportController::class, 'scholarshipData'])->name('scholarship-reports.data');
+        Route::get('scholarship-reports/export', [ReportController::class, 'scholarshipExport'])->name('scholarship-reports.export');
+    });
+
+    Route::middleware('page:update_logs.php')->group(function () {
+        Route::get('update-logs', [GranteeUpdateController::class, 'logs'])->name('update-logs.index');
     });
 
     // P4 scanner engine — one GET page + lookup + save route per scanner key,

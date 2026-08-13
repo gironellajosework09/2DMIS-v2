@@ -90,16 +90,26 @@ class ClientController extends Controller
             'photos',
             'familyMembers.relative',
             'transactions',
+            'gipInfo',
         ]);
+
+        $gip = $client->gipInfo->sortByDesc('id')->first();
+        $hasGipTransaction = $client->transactions->contains('program', 'GIP');
 
         if ($request->boolean('panel')) {
             return response()->view('clients._details', [
                 'client' => $client,
                 'panel' => true,
+                'gip' => $gip,
+                'hasGipTransaction' => $hasGipTransaction,
             ]);
         }
 
-        return view('clients.show', ['client' => $client]);
+        return view('clients.show', [
+            'client' => $client,
+            'gip' => $gip,
+            'hasGipTransaction' => $hasGipTransaction,
+        ]);
     }
 
     public function verifyMobile(Request $request): JsonResponse

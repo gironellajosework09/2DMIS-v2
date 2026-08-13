@@ -55,7 +55,7 @@ the v2.0 rebuild. It is a plan; nothing here has been executed.
 | P3 Transactions | Transactions, filtering, exports | Parity with v1 `all_transactions.php` | ✅ Complete 2026-08-05 (all 9 v1 transaction files ported; program-gated; inline edit; CSV-with-BOM exports — see `IMPLEMENTATION_LOG.md`) |
 | P4 Scanner engine | One scanner engine + all 17 programs as config | Each program passes v1-equivalent scan tests | ✅ Complete 2026-08-07 (14 v1 scanners as one config-driven `ScanService`, 8 modes, 14 scanner tests green — see `IMPLEMENTATION_LOG.md`) |
 | P5 Payouts & unpaid | Payout attendance, seats, unpaid verification | Parity with v1 screens | ✅ Complete 2026-08-07 (3 payout lists via config-driven shared view + feeds, unpaid verification admin/self-service/search/verify/delete, BOM CSV export — see `IMPLEMENTATION_LOG.md`) |
-| P6 Scholars & reports | Scholar flows, all reports/exports | Parity with v1 | Not started |
+| P6 Scholars & reports | Scholar flows, all reports/exports | Parity with v1 | ✅ Complete 2026-08-13 (scholar registry + relink + scholarship reports + GIP details + grantee updates + QR viewer + client picker for the standalone create form — see `IMPLEMENTATION_LOG.md`) |
 | P7 Hardening | CSRF, rate limiting, audit observers, tests | Security gaps C1–C5 closed | Not started |
 | P8 Cutover | Final backup, deploy, validate, switch | Reconciliation passes; v1 archived | Not started |
 

@@ -171,6 +171,7 @@ function makeResident(seed, i) {
     municipality, barangay,
     sex,
     status,
+    precinct: String(id * 7).padStart(4, '0') + 'A',
     birthdate: birthdateFor(id, catIdx),
     civilStatus: CIVIL[id % CIVIL.length],
     occupation: OCCUPATIONS[id % OCCUPATIONS.length],
@@ -838,10 +839,10 @@ function renderClients() {
           </div>
         </div>
       </td>
+      <td>${esc(r.precinct)}</td>
       <td>${esc(r.municipality)}</td>
       <td>${esc(r.barangay)}</td>
       <td><span class="status-badge ${r.category.cls}"><span class="dot"></span>${esc(r.category.label)}</span></td>
-      <td style="font-family:'Outfit',monospace;font-size:0.82rem;">${esc(r.mobile)}</td>
       <td><span class="status-badge ${r.status === 'Active' ? 'active' : 'archived'}"><span class="dot"></span>${esc(r.status)}</span></td>
       <td class="chevron-cell"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></td>
     </tr>`).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No clients match your filters.</td></tr>`;

@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ScholarInfo extends Model
 {
     protected $table = 'tbl_scholar_info';
+
     public $timestamps = false;
+
     protected $guarded = [];
 
     public function client(): BelongsTo

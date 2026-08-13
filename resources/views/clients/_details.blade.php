@@ -138,6 +138,8 @@
             </tbody>
         </table>
     </div>
+
+    @include('clients._gip')
 </div>
 
 <div class="modal fade" id="photoModal" tabindex="-1" aria-hidden="true">

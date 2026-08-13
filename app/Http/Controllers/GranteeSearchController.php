@@ -36,7 +36,7 @@ class GranteeSearchController extends Controller
     ];
 
     private const CLIENT_COLUMNS = [
-        'id', 'lastname', 'firstname', 'middlename', 'extensionname',
+        'id', 'full_name', 'lastname', 'firstname', 'middlename', 'extensionname',
         'city_municipality', 'barangay', 'house_no', 'mobile_no', 'email',
         'birthdate', 'age', 'sex', 'civil_status', 'pwd', 'occupation',
     ];

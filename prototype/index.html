@@ -90,7 +90,7 @@
 
       <div class="sidebar-section">
         <div class="sidebar-section-label">Assistance</div>
-        <button type="button" class="sidebar-link" data-page="scholars">
+        <button type="button" class="sidebar-link" data-page="scholars" style="display:none;">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
           Scholars
           <span class="badge" id="sidebarScholarsBadge">8</span>
@@ -100,11 +100,11 @@
           Transactions
           <span class="badge" id="sidebarTxBadge">20</span>
         </button>
-        <button type="button" class="sidebar-link" data-page="scanner">
+        <button type="button" class="sidebar-link" data-page="scanner" style="display:none;">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><polyline points="17 6 23 6 23 12"/></svg>
           Scanner Engine
         </button>
-        <button type="button" class="sidebar-link" data-page="payouts">
+        <button type="button" class="sidebar-link" data-page="payouts" style="display:none;">
           <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           Payouts
         </button>
@@ -243,7 +243,7 @@
             <span class="qa-icon teal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
             Register Household
           </button>
-          <button type="button" class="quick-action" data-sim="Launching scanner" onclick="showPage('scanner')">
+          <button type="button" class="quick-action" data-sim="Launching scanner" onclick="showPage('scanner')" style="display: none;">
             <span class="qa-icon red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
             Scan QR
           </button>
@@ -414,10 +414,10 @@
               <thead>
                 <tr>
                   <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th>Precinct No.</th>
                   <th class="sortable" data-sort="municipality">Municipality <span class="sort-ind" aria-hidden="true">↕</span></th>
                   <th class="sortable" data-sort="barangay">Barangay <span class="sort-ind" aria-hidden="true">↕</span></th>
                   <th>Category</th>
-                  <th>Mobile</th>
                   <th>Status</th>
                   <th class="chevron-cell" aria-hidden="true"></th>
                 </tr>

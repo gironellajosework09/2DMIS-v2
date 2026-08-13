@@ -1,6 +1,7 @@
 # P6 — Scholars Module
 
-> **Status:** **Phase 2 cleanup done; core scaffold in place, features to build.**
+> **Status:** **Scholar registry v1-parity (Phase 2) + relink (Phase 3 step 1)
+> + scholarship reports (Phase 3 step 3) done; features remain.**
 > P6 is the scholars module — scholar enrollment, GIP profiles, grantee
 > updates, scholarship reports, and QR viewer (Blueprint §1.7). Much of the
 > **scan-time** scholar behavior already exists via the P4 scanner engine
@@ -9,8 +10,9 @@
 > **enrollment/maintenance/reporting** side that the scanner keys presuppose.
 > The P6 registry scaffold (models + scholar route shell + defective CRUD) was
 > audited (`docs/SCHOLAR_ANALYSIS.md`) and the scholar CRUD reworked for v1 parity
-> (2026-08-07). GIP, grantee self-update, reports, and QR viewer remain to be
-> built.
+> (2026-08-07); the relink action (`update_client_id.php` port) followed
+> (2026-08-12), and the scholarship reports screen + feed + CSV export
+> (2026-08-12). GIP, grantee self-update, and QR viewer remain to be built.
 >
 > This is a **hybrid** document: §2 is v1 ground truth, §3 lists what v2
 > already touches, §4 onward is the build contract and extension points.
@@ -137,10 +139,38 @@ Port the v1 files into (Blueprint §2 rows):
     quirk, preserved).
   - List columns = v1: ID, Client ID, Full Name, Program, Barangay, Town.
   - `update_client_id.php` → a relink action: verify the target client exists
-    and is not already the scholar's client.
+    and is not already the scholar's client. **Implemented (2026-08-12)** —
+    `ScholarController::updateClientId` (`POST scholars/update-client-id`,
+    `page:scholars.php` gate) + inline Edit button in the registry Client ID
+    column; returns `"success"` or HTTP 400 `"Invalid input"`; the scholar row
+    and the target client must both exist.
+  - **Implemented (2026-08-13) — client picker for the standalone create form.**
+    `GET scholars/clients-search` in the `page:scholars.php` group reuses
+    `TransactionController@searchClients` (same DRY picker the transactions
+    module uses; scholars-gated so a scholar-only clerk does not need
+    `all_transactions.php`). `scholars/_form.blade.php` replaces the empty
+    `client_id` `<select>` with a search input + hidden `client_id` + live
+    results list (same JS pattern as the transactions picker). Prefill: edit
+    from the scholar's client (fixes the previously empty edit select), create
+    from `?client_id=`. `ScholarController@create`/`@store`/`@edit`/`@update`
+    unchanged — `ScholarRequest` still enforces `client_id` required + exists.
 - `GipController` — `save_gip.php` upsert of `tbl_gip_info`. v1
   `save_gip.php` does **not** write `normalized_name`/`full_name` — leave them
   unset; do not sync them in PHP.
+  - **Implemented (2026-08-13).** v1 GIP is **not a standalone page** — the
+    form is an accordion + modal inside `view_client.php#collapseGIP`, shown
+    only for clients with a `tbl_transactions.program = 'GIP'` row, saving via
+    `save_gip.php` (upsert of the latest `tbl_gip_info` row per client).
+    `GipService::save()` mirrors that: trim + `mb_strtoupper` (all fields
+    **except** `ecp_contact_number` and `year_graduated`), upsert by
+    `ORDER BY id DESC LIMIT 1`, and `ADD_GIP`/`UPDATE_GIP` audit rows to
+    `tbl_audit_logs` (`target_table='tbl_clients'`, `target_id=client_id`,
+    old/new JSON) — the update is logged only when something changed. Route:
+    `POST clients/{client}/gip` (`GipController@store`) gated by
+    `page:clients.php`, the same key that guards the client profile. View:
+    `clients/_gip.blade.php` (accordion + modal, all 17 v1 fields) included
+    from `clients/_details.blade.php`; `college`/`course` are free-text inputs
+    matching the accepted scholars form convention.
 - `GranteeUpdateController` — `save_grantee_update.php`,
   `disabled_update_grantee.php`, `update_logs.php`, `fetch_update_logs.php`.
   - `disabled_update_grantee.php` is the **public self-update form** grantees
@@ -149,14 +179,57 @@ Port the v1 files into (Blueprint §2 rows):
   - `save_grantee_update.php` **writes a log row** to `tbl_update_logs`
     (append-only; client_id, full_name, **ip_address**, action) — there is no
     deletion anywhere in this flow. Capture the request IP via `$request->ip()`.
+  - **Implemented (2026-08-13).** `GranteeUpdateController` + new
+    `GranteeUpdateService` (v1-exact transaction: `tbl_clients` update with the
+    name parts / municipality / barangay preserved from the DB row; latest
+    `tbl_scholar_info` upsert per `(client_id, program)` — UPDATE sets
+    `updated_at = NOW()`, INSERT writes comma-form `full_name` +
+    `created_at = NOW()`; append-only `tbl_update_logs` row with the
+    space-joined `FIRST MIDDLE LAST` name, `$request->ip()`, action exactly
+    `'Grantee self-updated their information.'`). Public top-level routes
+    `GET grantee-update` (`selfService`,
+    `grantee_update/self-service.blade.php`) and `POST grantee-update/save`
+    (`store`) — no session check / CSRF, matching v1. Public aliases
+    `grantee/verify-mobile` + `grantee/barangays` reuse `ClientController@verifyMobile`
+    / `GeographyController@barangays` (v1's `verify_mobile.php` /
+    `get_barangays.php` are public too). Required fields
+    (`mobile_no/email/birthdate/sex/civil_status`) and all v1 error messages
+    preserved. `update_logs.php` port: gated `GET update-logs`
+    (`page:update_logs.php`), server-rendered rows + client-side DataTables,
+    `DATE(created_at)` filter, v1 name formatting, UTC → Asia/Manila
+    `m/d/Y - h:i A`; sidebar Update Logs link. **`fetch_update_logs.php` NOT
+    ported** — dead in v1 (never referenced). Strict-mode parities: the scholar
+    INSERT supplies `year_started`/`landbank_no = ''` (NOT NULL columns v1 lets
+    its non-strict MySQL coerce), and `pwd`/`ip` are coerced to `'NO'` when the
+    posted value isn't a valid `enum('YES','NO')` member.
 - `ReportController` + `ReportService` — `scholarship_reports.php`,
   `fetch_scholarship_reports.php`, `export_scholarship_reports.php`:
   streamed CSV with UTF-8 BOM, reusing the P3 export pattern.
+  **Implemented (2026-08-12)** — `ReportController::scholarship` /
+  `scholarshipData` / `scholarshipExport` (`GET scholarship-reports`,
+  `POST scholarship-reports/data`, `GET scholarship-reports/export`, all
+  behind `page:scholarship_reports.php`). v1's asymmetric query shapes kept:
+  the feed is transactions-led with the `MAX(id)` scholar_info join
+  (`recordsTotal` = raw six-program count) and ignores the `submitted` filter
+  (v1 never reads it); the export is scholar_info-led with correlated
+  latest-transaction subqueries and `EXISTS`/`NOT EXISTS` program/date/submitted
+  filters, streamed with the UTF-8 BOM as `scholarship_reports<Ymd>.csv`.
 - `QrController` — `view_qrcode.php`: render a QR for the scholar (the P4
   payout scanners scan a QR whose payload is the **patient name** string, so the
   QR must encode the name in the exact `TRIM(full_name)`/patient-name form the
   lookups expect — verify against `ScanService` lookups before choosing the
   payload).
+  - **Implemented (2026-08-13).** Public top-level route `GET qr-viewer`
+    (`QrController@show`, `resources/views/qr/viewer.blade.php`) — v1
+    `view_qrcode.php` has no session check, so it is public like the P5
+    self-service pages (SCHOLAR_ANALYSIS §9 step 4 / Appendix A placement; no
+    sidebar link — v1 does not link it either). The page reuses the shared
+    `grantee-search` endpoints (`GranteeSearchController` = v1
+    `search_grantee.php`, `kind=grantee`) for municipalities, autocomplete and
+    verify — v1's QR page consumed `search_grantee.php` the same way. Verify now
+    returns `client.full_name` (added to `CLIENT_COLUMNS`, additive); the QR
+    encodes that persisted comma-form name (decision C), generated by v1's
+    external `api.qrserver.com` (no package).
 
 Route gating: use the v1 page keys from `tbl_permissions` (`scholars.php`,
 `scholarship_reports.php`, `update_logs.php`, `view_qrcode.php`, etc.) via the

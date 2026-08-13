@@ -8,7 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class UpdateLog extends Model
 {
     protected $table = 'tbl_update_logs';
+
     public $timestamps = false;
+
     protected $guarded = [];
 
     public function client(): BelongsTo

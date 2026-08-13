@@ -164,11 +164,11 @@ grouped by module. Complexity: **L** low / **M** medium / **H** high.
 | `all_transactions.php` + `fetch_transactions.php` | `TransactionController@index` + DataTables route + CSV export | P3 | Program-gated |
 | `add/edit/view/delete/update_transaction.php`, `all_transaction_edit/delete.php` | `TransactionController` CRUD + `TransactionService` + Policies | P3 | |
 | `transaction_table.php` | Blade partial component | P3 | |
-| `scholars.php`, `save_scholarship.php`, `fetch_scholars.php`, `update_client_id.php` | `ScholarController` + `ScholarService` + DataTables route | P6 | v1-parity CRUD + feed done (2026-08-07); relink pending |
-| `scholarship_reports.php` + feeds + export | `ReportController` + `ReportService` | P6 | CSV BOM kept |
-| `save_gip.php` | `GipController` | P6 | |
-| `save_grantee_update.php`, `disabled_update_grantee.php`, `update_logs.php` + feed | `GranteeUpdateController` | P6 | `tbl_update_logs` |
-| `view_qrcode.php` | `QrController` (QR API or package) | P6 | |
+| `scholars.php`, `save_scholarship.php`, `fetch_scholars.php`, `update_client_id.php` | `ScholarController` + `ScholarService` + DataTables route | P6 | v1-parity CRUD + feed done (2026-08-07); relink done (2026-08-12) |
+| `scholarship_reports.php` + feeds + export | `ReportController` + `ReportService` | P6 | CSV BOM kept (done 2026-08-12) |
+| `save_gip.php` | `GipController` | P6 | Done (2026-08-13) — `GipService` upsert + `ADD_GIP`/`UPDATE_GIP` audit; accordion+modal on client profile gated `clients.php` |
+| `save_grantee_update.php`, `disabled_update_grantee.php`, `update_logs.php` + feed | `GranteeUpdateController` | P6 | Done (2026-08-13) — public `grantee-update` self-service + `grantee-update/save` (`GranteeUpdateService`: client update + scholar upsert + `tbl_update_logs` append w/ IP); `update-logs` screen gated `update_logs.php`; `fetch_update_logs.php` dead in v1 — not ported |
+| `view_qrcode.php` | `QrController` (QR API or package) | P6 | Done (2026-08-13) — public top-level page reusing `grantee-search` verify; QR payload = persisted `full_name` (decision C); external `api.qrserver.com` kept |
 | `scanner_*.php` + `scanner_*_action.php` (16+16) | `ScannerController` + `ScannerService` + **program config** + one scanner Blade view; routes `lookup`/`save` | P4 | ADR-004 |
 | `scanned_payouts*.php` + feeds | `PayoutAttendanceController` + views + DataTables routes | P5 | 3 screens, DB-unique kept |
 | `unpaid_verifications.php`, `unpaid_save.php`, feeds, export, searches | `UnpaidVerificationController` + `UnpaidService` + DataTables/export routes | P5 | |
@@ -299,6 +299,7 @@ completion criteria. Gates build on `MIGRATION_PLANNING.md` §6.
 - **Dependencies:** P2, P3.
 - **Risks:** low.
 - **Completion criteria:** P6 parity + tests green.
+- **Status:** Scholar registry + relink + scholarship reports (2026-08-12) + GIP details (2026-08-13) done; QR viewer + grantee updates pending.
 
 ### P7 — Administration
 - **Deliverables:** permission management (pages + programs + exemptions) on the single ACL service; audit viewer + leaderboard (permission-based); **remove `manage_php.php`** concept (version control replaces runtime PHP editing).
@@ -462,18 +463,18 @@ Dead files (`default.php`, `client_photo.php`) are deliberately excluded.
 | 79 | `search_grantee.php` | `SearchController@grantee` | P5 | **Done** (`GranteeSearchController@search`, kind=`grantee`, public) |
 | 80 | `search_unpaid_grantee.php` | `SearchController@unpaidGrantee` | P5 | **Done** (`GranteeSearchController@search`, kind=`unpaid`, public) |
 | 81 | `scholars.php` | `ScholarController@index` + view | P6 | **Done** (v1 columns, `client_id` order, pageLength 25; 2026-08-07) |
-| 82 | `save_scholarship.php` | `ScholarController@store/update` | P6 | **Done** (`ScholarService` v1-parity upsert by `(client_id, program)`; 2026-08-07) |
+| 82 | `save_scholarship.php` | `ScholarController@store/update` | P6 | **Done** (`ScholarService` v1-parity upsert by `(client_id, program)`; 2026-08-07). Client picker for the standalone create/edit form done 2026-08-13 (`scholars/clients-search` in the scholars gate, shared `_form` picker) |
 | 83 | `fetch_scholars.php` | DataTables route (scholars) | P6 | **Done** (`ScholarController@data`, exam LEFT JOIN, `recordsTotal == recordsFiltered` quirk kept; 2026-08-07) |
-| 84 | `update_client_id.php` | `ScholarController@relink` | P6 | Planned |
-| 85 | `scholarship_reports.php` | `ReportController@scholarship` + view | P6 | Planned |
-| 86 | `fetch_scholarship_reports.php` | DataTables route (scholarship report) | P6 | Planned |
-| 87 | `export_scholarship_reports.php` | ExportService route | P6 | Planned |
-| 88 | `save_gip.php` | `GipController@store` | P6 | Planned |
-| 89 | `save_grantee_update.php` | `GranteeUpdateController@store` | P6 | Planned |
-| 90 | `disabled_update_grantee.php` | `GranteeUpdateController@edit` + view | P6 | Planned |
-| 91 | `update_logs.php` | `GranteeUpdateController@logs` + view | P6 | Planned |
-| 92 | `fetch_update_logs.php` | DataTables route (update logs) | P6 | Planned |
-| 93 | `view_qrcode.php` | `QrController@show` | P6 | Planned |
+| 84 | `update_client_id.php` | `ScholarController@updateClientId` | P6 | **Done** (relink POST + inline Edit; 2026-08-12) |
+| 85 | `scholarship_reports.php` | `ReportController@scholarship` + view | P6 | **Done** (v1 filter set, 18 columns, barangay cascade; 2026-08-12) |
+| 86 | `fetch_scholarship_reports.php` | DataTables route (scholarship report) | P6 | **Done** (`ReportController@scholarshipData`, six-program feed, MAX(id) scholar join; 2026-08-12) |
+| 87 | `export_scholarship_reports.php` | ExportService route | P6 | **Done** (`ReportController@scholarshipExport`, scholar-led + correlated subqueries, BOM; 2026-08-12) |
+| 88 | `save_gip.php` | `GipController@store` | P6 | **Done** (`GipService` v1-parity upsert + `ADD_GIP`/`UPDATE_GIP` audit; accordion+modal on client profile, gated `clients.php`; 2026-08-13) |
+| 89 | `save_grantee_update.php` | `GranteeUpdateController@store` | P6 | Done (2026-08-13) — public `grantee-update/save` via `GranteeUpdateService` |
+| 90 | `disabled_update_grantee.php` | `GranteeUpdateController@edit` + view | P6 | Done (2026-08-13) — public self-service form (`grantee_update/self-service.blade.php`) |
+| 91 | `update_logs.php` | `GranteeUpdateController@logs` + view | P6 | Done (2026-08-13) — gated `update_logs.php`; server-rendered rows + client DataTables |
+| 92 | `fetch_update_logs.php` | DataTables route (update logs) | P6 | Not ported — dead in v1 (never referenced) |
+| 93 | `view_qrcode.php` | `QrController@show` | P6 | Done (2026-08-13) — public, reuses `grantee-search` endpoints |
 | 94 | `manage_permissions.php` | `AdminPermissionController@pages` | P7 | Planned |
 | 95 | `manage_program_permissions.php` | `AdminPermissionController@programs` | P7 | Planned |
 | 96 | `manage_multi_device_exemptions.php` | `AdminPermissionController@exemptions` | P7 | Planned |
