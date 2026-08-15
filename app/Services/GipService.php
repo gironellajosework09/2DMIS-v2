@@ -12,8 +12,9 @@ use App\Models\GipInfo;
  * - Uppercases every profile field via mb_strtoupper except ecp_contact_number
  *   and year_graduated, exactly matching v1's sanitization block.
  * - Writes ADD_GIP / UPDATE_GIP rows to tbl_audit_logs (target_table
- *   'tbl_clients', target_id = client_id), with old/new JSON payloads exactly
- *   like v1's log_action(); an update is only logged when something changed.
+ *   'tbl_clients', target_id = client_id), with old/new full-row JSON payloads
+ *   exactly like v1's log_action() (SELECT * then json_encode); an update is
+ *   only logged when something changed.
  */
 class GipService
 {
@@ -77,11 +78,11 @@ class GipService
             ->first();
 
         if ($existing) {
-            $oldJson = json_encode($existing->only(self::COLUMNS));
+            $oldJson = json_encode($existing->getAttributes());
 
             $existing->update($values);
 
-            $newJson = json_encode($existing->fresh()->only(self::COLUMNS));
+            $newJson = json_encode($existing->fresh()->getAttributes());
 
             if ($oldJson !== $newJson) {
                 $this->auditService->log(
@@ -107,7 +108,7 @@ class GipService
             'tbl_clients',
             $clientId,
             null,
-            json_encode($gip->fresh()->only(self::COLUMNS)),
+            json_encode($gip->fresh()->getAttributes()),
         );
 
         return $gip->fresh();

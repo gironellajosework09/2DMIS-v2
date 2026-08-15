@@ -299,7 +299,7 @@ completion criteria. Gates build on `MIGRATION_PLANNING.md` §6.
 - **Dependencies:** P2, P3.
 - **Risks:** low.
 - **Completion criteria:** P6 parity + tests green.
-- **Status:** Scholar registry + relink + scholarship reports (2026-08-12) + GIP details (2026-08-13) done; QR viewer + grantee updates pending.
+- **Status:** **Done** 2026-08-13 — scholar registry v1-parity CRUD + feed + client picker (2026-08-07/13), relink (2026-08-12), scholarship reports + CSV export (2026-08-12), GIP details with `ADD_GIP`/`UPDATE_GIP` audit (2026-08-13), grantee self-update + update-log viewer (2026-08-13), QR viewer (decision C payload, 2026-08-13). Full suite green (`132 passed / 668 assertions`). See `docs/IMPLEMENTATION_LOG.md` P6 entries.
 
 ### P7 — Administration
 - **Deliverables:** permission management (pages + programs + exemptions) on the single ACL service; audit viewer + leaderboard (permission-based); **remove `manage_php.php`** concept (version control replaces runtime PHP editing).

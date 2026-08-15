@@ -1,7 +1,8 @@
 # P6 — Scholars Module
 
-> **Status:** **Scholar registry v1-parity (Phase 2) + relink (Phase 3 step 1)
-> + scholarship reports (Phase 3 step 3) done; features remain.**
+> **Status:** **COMPLETE.** Scholar registry v1-parity (Phase 2) + relink
+> (Phase 3 step 1) + scholarship reports (Phase 3 step 3) + GIP profiles +
+> grantee self-update + QR viewer all done (2026-08-07 → 2026-08-13).
 > P6 is the scholars module — scholar enrollment, GIP profiles, grantee
 > updates, scholarship reports, and QR viewer (Blueprint §1.7). Much of the
 > **scan-time** scholar behavior already exists via the P4 scanner engine
@@ -11,8 +12,10 @@
 > The P6 registry scaffold (models + scholar route shell + defective CRUD) was
 > audited (`docs/SCHOLAR_ANALYSIS.md`) and the scholar CRUD reworked for v1 parity
 > (2026-08-07); the relink action (`update_client_id.php` port) followed
-> (2026-08-12), and the scholarship reports screen + feed + CSV export
-> (2026-08-12). GIP, grantee self-update, and QR viewer remain to be built.
+> (2026-08-12), the scholarship reports screen + feed + CSV export
+> (2026-08-12), and GIP, grantee self-update, and QR viewer (2026-08-13).
+> Finalized 2026-08-13: full suite green (`132 passed / 668 assertions`),
+> `pint` clean, all Blade views compile.
 >
 > This is a **hybrid** document: §2 is v1 ground truth, §3 lists what v2
 > already touches, §4 onward is the build contract and extension points.

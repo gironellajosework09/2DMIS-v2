@@ -66,8 +66,10 @@ must remain byte-identical to v1 — this project only adds application code aro
 
 ## Development Workflow
 
-- For normal implementation tasks, follow `skills/2dmis-efficient.md`.
-- For finalization tasks, follow `skills/2dmis-finalize.md`.
+- For normal implementation tasks, follow `.opencode/skills/SKILL-EFFICIENT.md`.
+- For finalization tasks, follow `.opencode/skills/SKILL-FINALIZE.md` (workflow
+  prompt comes from the user; the skill file is currently empty).
+- Current project state is tracked in `docs/SESSION_HANDOFF.md` (see below).
 
 ## Current Development Status
 

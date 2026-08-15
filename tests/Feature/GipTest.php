@@ -135,6 +135,15 @@ class GipTest extends TestCase
             'target_table' => 'tbl_clients',
             'target_id' => $client->id,
         ]);
+
+        $payload = json_decode(
+            DB::table('tbl_audit_logs')->where('action', 'ADD_GIP')->value('new_value'),
+            true,
+        );
+        $this->assertArrayHasKey('id', $payload);
+        $this->assertArrayHasKey('client_id', $payload);
+        $this->assertSame($client->id, (int) $payload['client_id']);
+        $this->assertSame('SSS ID', $payload['valid_govt_id']);
     }
 
     public function test_gip_details_can_be_updated_and_logs_only_when_changed()

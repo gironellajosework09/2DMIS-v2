@@ -1162,6 +1162,36 @@ with a live client search instead of an empty `<select>`.
 
 **Deviations:** none.
 
+### 2026-08-13 — P6 finalization: GIP audit payload v1-parity fix + close-out
+
+Finalization audit of the whole P6 module against v1 and the P6 contract docs.
+One real parity deviation was found and fixed; everything else matched.
+
+- **Fix — `app/Services/GipService.php`.** The `ADD_GIP`/`UPDATE_GIP`
+  `tbl_audit_logs` old/new JSON only encoded the 16 editable columns
+  (`->only(self::COLUMNS)`). v1 `save_gip.php` encodes the **full row**
+  (`SELECT *` then `json_encode`), which is exactly what `SCHOLAR_ANALYSIS`
+  §1.5 / §4 item 6 document ("full-row old/new JSON"). Now `getAttributes()`
+  is used for all three payloads (update-old, update-new, insert-new), so the
+  audit rows carry `id` + `client_id` + the 16 columns in table order, like v1.
+- **Tests — `tests/Feature/GipTest.php`** +4 assertions on the ADD_GIP payload
+  (decodes `new_value`, asserts `id`/`client_id` keys, `client_id` value,
+  and a sample field), locking the full-row contract against regression.
+- **Verification.** Full suite green: **132 tests, 668 assertions**;
+  `vendor\bin\pint` clean across the project; `php artisan view:cache`
+  compiled every Blade view (incl. the P6 pages not exercised by tests —
+  `qr/viewer`, `grantee_update/self-service`, `update_logs/index`,
+  `scholarship_reports/index`, `clients/_gip`). Tests run on the forced
+  `main_system_test` DB — production `main_system` untouched; no schema work.
+- **Docs.** `P6_SCHOLARS.md` header refreshed to **COMPLETE** (was still
+  claiming GIP/grantee-updates/QR viewer "remain to be built");
+  `ENGINEERING_BLUEPRINT.md` P6 module status → **Done** (2026-08-13);
+  `README.md` P6 row corrected (blueprint §1.7, was §1.12) + prose now lists
+  P6 complete. `SCHOLAR_ANALYSIS.md` unchanged — already the canonical record.
+
+**Deviations:** the fix itself re-aligns the implementation with the documented
+v1 contract; no new deviations.
+
 ---
 
 *End of current implementation log. Append new dated entries above this line.*

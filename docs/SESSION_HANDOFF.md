@@ -1,6 +1,6 @@
 # 2DMIS v2 — Session Handoff
 
-**Last Updated:** 2026-08-13
+**Last Updated:** 2026-08-13 (P6 finalization close-out)
 
 ---
 
@@ -12,117 +12,102 @@
 - Architecture: Complete
 - Migration Planning: Complete
 - Engineering Blueprint: Complete
-- Implementation: In Progress
+- Implementation: **P0 → P6 complete; P7 (Administration) next**
 
 ### Current Milestone
 
-**P6 — Scholars / GIP** (Phase 3 in progress — scholar registry + relink + scholarship reports done 2026-08-12; GIP details + QR viewer + grantee updates done 2026-08-13; client picker for the standalone create form done 2026-08-13 — **P6 scope complete**) → next: P7 — Administration
+**P7 — Administration** (blueprint §1.11) — permission management, user
+creation, audit viewer + leaderboard. Not yet started; the legacy analysis
+(`docs/ADMIN_ANALYSIS.md`) is done and the build contract
+(`docs/implementation/P7_ADMINISTRATION.md`) is verified against v1.
 
 ---
 
 ## Completed Milestones
 
-### P0 — Foundations
+| Phase | Scope | Status |
+|---|---|---|
+| P0 | Laravel 12 foundation, env, baseline schema (additive 6-migration fixes), CI | Complete |
+| P1 | Username auth on `tbl_users`, single-device `session_token`, ACL service + gates + `page:` middleware, audit logging | Complete |
+| P2 | Clients registry, households, family members, duplicates, photos, student self-service, slide-over details panel | Complete |
+| P3 | Transactions: 17-program `TransactionService`, CRUD, program-gated list/feed/filters/inline-edit, 4 CSV export modes | Complete |
+| P4 | Config-driven scanner engine (14 keys / 8 modes), shared scan view, per-key routes + gates | Complete |
+| P5 | Payout attendance (3 variants), unpaid verification admin + public self-service + search/verify/delete, BOM CSV | Complete |
+| P6 | Scholars module: registry CRUD + feed + relink + client picker, GIP (with audit), grantee self-update + update-log viewer, scholarship reports + BOM CSV, QR viewer (decision C) | Complete |
 
-- Laravel 12 foundation, environment setup, baseline schema, CI setup.
-
-Status: Complete
-
----
-
-### P1 — Authentication & RBAC
-
-- Username authentication, single-device login, Access Control Service (ACL),
-  gates, authorization middleware, audit logging.
-
-Status: Complete — Tests: Passing
-
----
-
-### P2 — Clients & Households
-
-- Clients, households, family members, duplicate detection, client photos,
-  student self-service, right-side slide-over details panel.
-
-Status: Complete — Tests: Passing
+**Final P6 verification (2026-08-13):** full suite **132 tests / 668
+assertions** green on `main_system_test`; `vendor\bin\pint` clean across the
+project; `php artisan view:cache` compiled every Blade view (incl. the P6 pages
+not covered by tests); production `main_system` untouched (tests force
+`DB_DATABASE=main_system_test`).
 
 ---
 
-### P3 — Transactions
+## Last Session Summary (P6 finalization)
 
-- Transaction module, CRUD, reports, CSV export, filters, program permissions.
-
-Status: Complete — Tests: Passing
-
----
-
-### P4 — Scanner Engine
-
-- Config-driven `ScanService` (8 behavioral modes) replacing all 14 v1
-  scanners as config; single shared scanner view; 14 scanner routes gated by
-  `page:scanner_*.php` middleware.
-
-Status: Complete — Tests: Passing
-
----
-
-### P5 — Payout Attendance & Unpaid Verification
-
-- Config-driven payout module (`config/payout.php`, 3 attendance variants) with
-  one shared list view + DataTables feeds; unpaid verification admin screen,
-  **public** self-service form (`disabled_unpaid.php` equivalent), verify/search,
-  delete, and BOM CSV export. No audit on any P5 write path (v1 parity).
-
-Status: Complete — Tests: Passing
-
----
-
-## Last Session Summary
+The P6 module was audited against every v1 source file and the P6 contract
+docs. One real parity deviation was found and fixed; everything else matched.
 
 **Completed:**
 
-- P6 Phase 3 step 1: scholar relink (`update_client_id.php` port)
-- P6 Phase 3 step 3: scholarship reports — `ReportController` (screen + feed + BOM CSV export), `scholarship_reports` view, routes behind `page:scholarship_reports.php`, sidebar link, 7 tests (60 assertions)
-- P6 Phase 3 step 5: GIP details (`save_gip.php` port) — `GipService` (v1-parity upsert + `ADD_GIP`/`UPDATE_GIP` audit via `AuditService`), `GipController@store`, `POST clients/{client}/gip` gated by `clients.php`, GIP accordion + modal on the client profile (`clients/_gip.blade.php`), `Client::gipInfo()` relation, 6 tests (20 assertions)
-- P6 Phase 3 step 4: QR viewer (`view_qrcode.php` port) — public top-level `GET qr-viewer` (`QrController@show`, `qr/viewer.blade.php`) reusing the shared `grantee-search` endpoints; verify now returns `client.full_name`; QR encodes the persisted comma-form name (decision C) via external `api.qrserver.com` (parity, no package); 3 tests (11 assertions)
-- P6 grantee updates (`save_grantee_update.php` / `disabled_update_grantee.php` / `update_logs.php` port, SCHOLAR_ANALYSIS §6 steps 3+4) — public `GET grantee-update` + `POST grantee-update/save` (`GranteeUpdateController` + `GranteeUpdateService`: v1-exact transaction — client update preserving name/location, latest scholar_info upsert, `tbl_update_logs` append with IP + exact action string); public `grantee/verify-mobile` + `grantee/barangays` aliases; gated `GET update-logs` (`page:update_logs.php`) with v1 name formatting + PHT conversion; `fetch_update_logs.php` NOT ported (dead in v1); sidebar Update Logs link; 10 tests (37 assertions)
-- P6 step 9 (SCHOLAR_ANALYSIS §6): client picker for the standalone scholar create form — `GET scholars/clients-search` in the `page:scholars.php` group reusing `TransactionController@searchClients`; `scholars/_form.blade.php` now uses a search picker (hidden `client_id` + live results) shared by create (prefill via `?client_id=`) and edit (prefill from the scholar's client, fixing the empty select); 6 tests (13 assertions)
-- Full suite green on `main_system_test` (126 → **132 tests, 651 → 664 assertions**)
+- **GIP audit payload fix** — `GipService` now writes **full-row** old/new JSON
+  to `tbl_audit_logs` (`getAttributes()`, incl. `id`/`client_id`) matching v1
+  `save_gip.php` `SELECT *` → `json_encode` and SCHOLAR_ANALYSIS §1.5/§4.6
+  ("full-row old/new JSON"). It previously encoded only the 16 editable
+  columns. Locked with +4 assertions in `GipTest` (payload `id`/`client_id`/value).
+- **Docs refreshed:** `P6_SCHOLARS.md` header → **COMPLETE** (was claiming
+  GIP/grantee-updates/QR viewer "remain to be built"); blueprint P6 module
+  status → **Done**; README P6 row (§1.7) + prose now list P6 complete;
+  `IMPLEMENTATION_LOG.md` P6 finalization entry appended.
+- **P7 readiness (analysis only, no P7 code):** created
+  `docs/ADMIN_ANALYSIS.md` — verified v1 ground truth for `register.php`,
+  `add_user.php`, `manage_permissions.php`, `manage_program_permissions.php`,
+  `manage_multi_device_exemptions.php`, `audit_logs.php`, `fetch_logs.php`,
+  `fetch_leaderboard.php`; parity requirements; corrections to
+  `P7_ADMINISTRATION.md`; open decisions. `P7_ADMINISTRATION.md` header now
+  points to it; README index updated.
 
-**Next:**
-
-- **P7 — Administration**: permissions (`manage_permissions.php` / `manage_program_permissions.php`), audit viewer, hardening.
+**Next:** P7 — Administration (see below).
 
 ---
 
-## Current Work — P6 Scholars / GIP
+## Current Work — P7 Administration
 
-**Goal:** Port the v1 scholars/GIP module
-(`docs/implementation/P6_SCHOLARS.md`).
+**Goal:** port the v1 administration screens
+(`docs/implementation/P7_ADMINISTRATION.md`) after reading
+`docs/ADMIN_ANALYSIS.md`.
 
 **Focus:**
 
-- Scholar management / exam results
-- GIP info screens
-- Preserve v1 behavior
-- Preserve database parity
-- Build automated tests
+- `AdminPermissionController` — page permissions, program permissions,
+  multi-device exemptions (full-replace / idempotent-toggle parity).
+- `UserController` — v1 `register.php`/`add_user.php` create-only contract;
+  disable/enable is an **open decision** (§5).
+- `AuditController` — `audit_logs.php`/`fetch_logs.php`/`fetch_leaderboard.php`
+  ports (table whitelist, username join, clients/transactions display names,
+  UTC→Asia/Manila `m/d/Y - h:i A`, per-table leaderboard).
+- All routes behind `page:` gates with the v1 page keys; **no username/id
+  checks**, `'*'` row is the only admin marker; `manage_php.php` excluded.
 
-Reference contract: `docs/implementation/P6_SCHOLARS.md`. P5 delivered the
-payout attendance lists, unpaid verification (admin + public self-service),
-grantee search/verify, and CSV exports — all reads, with **no audit** on any
-P5 write path (v1 parity confirmed in `docs/implementation/P5_PAYOUT.md`).
+Reference: `docs/ADMIN_ANALYSIS.md` (canonical analysis) →
+`docs/implementation/P7_ADMINISTRATION.md` (build contract) → v1 files under
+`C:\xampp\htdocs\system` (read-only).
 
 ---
 
-## Development Priorities (P6)
+## Development Priorities (P7)
 
-1. Read `docs/implementation/P6_SCHOLARS.md` (§2 v1 ground truth, §4 extension
-   points) and the matching v1 files under `C:\xampp\htdocs\system` (read-only).
-2. Confirm the v1 audit `action` strings before inventing new ones.
-3. Port the scholars/GIP screens following the P3/P4/P5 conventions
-   (config/controller-driven where several pages share one shape).
-4. Write feature tests and keep the full suite green on `main_system_test`.
+1. Read `docs/ADMIN_ANALYSIS.md` first — it resolves the contract doc's open
+   questions against the actual v1 files.
+2. Settle the open decisions (§5 of the analysis) before writing code:
+   disable/enable column vs create-only; production admin bootstrapping;
+   `MANAGE_*` audit action strings; which v2 additions (date filters, audit-on-
+   permission-writes) are in scope.
+3. Follow the P3/P4/P5/P6 conventions: controllers + services + `FormRequest`
+   validation, server-rendered + DataTables feeds, `page:` gates.
+4. Write feature tests; keep the full suite green on `main_system_test`; run
+   `vendor\bin\pint` before finishing; append the P7 entry to
+   `docs/IMPLEMENTATION_LOG.md` and flip the blueprint §1.11 / README statuses.
 
 ---
 
@@ -131,46 +116,46 @@ P5 write path (v1 parity confirmed in `docs/implementation/P5_PAYOUT.md`).
 - Soft-deletes / client-merge: in scope or not.
 - Additive indexes on existing tables (recommended: yes).
 - ADR-001..010 flip from Proposed to Accepted.
-- Git: repo has no remote yet (docs live in a separate repo).
+- Git: this repo has no remote yet (docs live in a separate repo).
+- **P7 (from `ADMIN_ANALYSIS.md` §5):** user disable/enable (new additive
+  `active` column vs create-only); how the first admin gets the `'*'`/page rows
+  in production (local `AccessControlSeeder` must not run there); `MANAGE_*`
+  audit action names; which v2-only additions (date-range audit filter,
+  leaderboard date window, audit-on-permission-writes) to ship.
 
 ---
 
 ## Current Risks
 
-### Highest Risk
-
-Payout parity (now delivered — remaining watch items).
-
-- The one-scan-per-transaction unique constraint contract is preserved (no
-  app-level dedup added).
-- The proxy snapshot semantics are preserved; removal is a plain delete
-  (no `disabled` flag), matching v1.
-- No P5 write path audits (v1 does zero audit calls in these files) — verify
-  this remains true if any P5 file is touched again.
-
-### Secondary Risks
-
-- `tbl_payout_scans` (legacy variant 1) rows may no longer be meaningful in
-  production — the first screen is wired but real data was never eyeballed.
-- The dead `export_scanned_payouts_unpaid.php` link: v1 has no working payout
-  export; P5 deliberately ships only the unpaid-verification export.
+- **P7 admin bootstrapping** — v1 gated the admin screens by username/id, so
+  production `tbl_permissions` may lack rows for `manage_permissions.php`,
+  `manage_program_permissions.php`, `manage_multi_device_exemptions.php`,
+  `audit_logs.php`. Without a granted `'*'` row no one can reach the screens.
+- **Schema creep** — a user-disable `active` column would be a schema change:
+  must go through the additive-migration + `schema:dump` baseline regen
+  workflow (AGENTS.md), never a destructive migration.
+- **Program catalog drift** — the P7 program-permission screen must use the
+  same program strings as `TransactionService::PROGRAMS` / the DB enum (v1's
+  hard-coded 17-program array is the only v1 source of truth).
+- **Audit viewer scope** — v1 resolves display names only for
+  `tbl_clients`/`tbl_transactions`; other tables show raw `target_id`; the
+  feed has `LIMIT 10000` and no date range. Don't over-promise v1 parity.
+- **Payout (P5) watch items still stand** — no P5 write-path audits; unique
+  scan constraint preserved; the `export_scanned_payouts_unpaid.php` dead link
+  is deliberately not shipped.
 
 ---
 
 ## Before Next Session
 
-**P6 — Scholars / GIP is complete** (SCHOLAR_ANALYSIS §6 fully delivered).
-
-Next: **P7 — Administration** using `docs/ENGINEERING_BLUEPRINT.md` and the v1
-files under `C:\xampp\htdocs\system` (read-only) as the build contract.
-
-Priority:
-
-1. Read the P7 contract/analysis (permissions, audit viewer, hardening) and the
-   matching v1 files (`manage_permissions.php` / `manage_program_permissions.php`).
-2. Confirm the exact v1 audit `action` strings before inventing new ones.
-3. Build the screens + feeds + tests; run `vendor\bin\pint` before finishing.
-4. Append the P7 entry to `docs/IMPLEMENTATION_LOG.md` when delivered.
+1. Read `docs/ADMIN_ANALYSIS.md` (canonical) and
+   `docs/implementation/P7_ADMINISTRATION.md` (contract).
+2. Resolve the P7 open decisions with the user (disable/enable, bootstrapping,
+   v2 additions scope) — do not decide silently.
+3. Build the P7 screens + feeds + tests; run `vendor\bin\pint`; append the P7
+   `IMPLEMENTATION_LOG.md` entry; update blueprint §1.11 + README status.
+4. Verify the full suite on `main_system_test`; confirm production `main_system`
+   untouched; confirm no destructive schema operations.
 
 Do not redesign behavior. Parity comes before optimization.
 
@@ -178,18 +163,16 @@ Do not redesign behavior. Parity comes before optimization.
 
 ## Documentation Status
 
-Current documents:
-
-- README
-- Migration Plan
-- Migration Planning
-- Engineering Blueprint
-- Architecture Decisions
-- Implementation Log
-- P5 Payout contract (`docs/implementation/P5_PAYOUT.md`)
-- P6 Scholars contract (`docs/implementation/P6_SCHOLARS.md`)
-
-Status: Up to date.
+| Document | Status |
+|---|---|
+| `README.md` | Up to date (P6 complete; P7 next; index has `ADMIN_ANALYSIS.md`) |
+| `ENGINEERING_BLUEPRINT.md` | P0–P6 rows done; P7 §1.11/§2 rows pending build |
+| `IMPLEMENTATION_LOG.md` | P0–P6 + finalization entry recorded |
+| `implementation/P6_SCHOLARS.md` | Header **COMPLETE** |
+| `implementation/P7_ADMINISTRATION.md` | Contract verified vs `ADMIN_ANALYSIS.md` |
+| `SCHOLAR_ANALYSIS.md` | Canonical P6 analysis (unchanged) |
+| `ADMIN_ANALYSIS.md` | **New** — canonical P7 analysis |
+| `MIGRATION_PLAN.md` / `MIGRATION_PLANNING.md` / `ARCHITECTURE_DECISION.md` | Unaffected by P6/P7 so far |
 
 ---
 
@@ -197,10 +180,10 @@ Status: Up to date.
 
 Do not modify:
 
-- Production database schema
-- Legacy v1 source code
-- Authentication contract
-- Permission keys
-- Audit log format
+- Production database schema (`main_system`)
+- Legacy v1 source code (`C:\xampp\htdocs\system`)
+- Authentication contract (username, `session_token` single-device)
+- Permission keys (`page_name` values identical to v1)
+- Audit log format (`AuditService` is the single writer)
 
 Database parity is mandatory.
