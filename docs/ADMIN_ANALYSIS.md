@@ -2097,3 +2097,2514 @@ modified. Open Decision #3 (`MANAGE_*` strings) is **resolved by this contract**
 (pending owner sign-off); Open Decision #4 is **resolved in part** (C/D/E in
 scope, A/B optional/deferred, F schema-deferred); Open Decision #6 remains
 `DEFERRED — REQUIRES AUTHORIZATION ARCHITECTURE RESEARCH`.
+
+---
+
+### P8 — Action-Level Authorization Architecture Research (2026-08-15)
+
+> **Scope**: research/architecture pass only. Determines whether and how v2
+> should add **action-level** authorization — per-operation grants
+> (view/create/edit/delete/export/approve) layered on the current page-level
+> model. **Read-only**: no code, schema, migration, route, model, controller,
+> service, view, test, seeder, or DB operation was run, and no file other than
+> this one was modified (verified with `git status`, §18). Open Decision #6
+> remains `DEFERRED — REQUIRES AUTHORIZATION ARCHITECTURE RESEARCH`, with the
+> four-way breakdown in §17: **A (action-level CRUD) may be recommended here but
+> is not finalized; B (municipality/data-scope) and C (combined model) are NOT
+> finalized; D (schema) is left UNRESOLVED** where it depends on B/C.
+>
+> **Method**: full re-read of the v2 authorization machinery
+> (`AccessControlService`, `AuthorizePage`, the `page`/`program` Gates in
+> `AppServiceProvider`, `AuditService`, the `Permission`/`ProgramPermission`/
+> `MultiDeviceExemption`/`User` models, `ClientPolicy`), every P1–P7 controller,
+> `routes/web.php`, and the audit-action inventory (grep across `app/`); the P7
+> build contract and its canonical evidence (Passes 1–7 of this document); the
+> v1 ground truth already recorded in Pass 1. Every conclusion is labelled FACT
+> (read from code/schema) / INFERENCE (derived) / RECOMMENDATION (proposed —
+> owner decision required, not claimed as approved) / UNRESOLVED.
+
+#### 1. Objective
+
+1. Establish the **current authorization baseline** (§2) as the ground truth any
+   future layer must preserve.
+2. Produce the **module/action inventory** (§3–§4) — the complete set of
+   operations today's page gates admit.
+3. Evaluate **granularity** (§5), **page-vs-action modeling** (§6), **storage**
+   (§9), **allow/deny semantics** (§10), **defaults and adoption** (§11),
+   **enforcement** (§12), **special operations** (§13), and the **audit
+   relationship** (§14).
+4. **Test compatibility** with the future municipality/data-scope dimension
+   (§15) and enumerate the **security failure modes** a new layer must avoid
+   (§16).
+5. Split Open Decision #6 into its four components, **recommend** (not
+   finalize) the action-level architecture (§17–§20), and leave the **next
+   pass** clearly scoped (§22).
+
+#### 2. Current authorization baseline (FACT)
+
+1. **Page level** — `tbl_permissions` (`id, user_id, page_name varchar(100),
+   can_access tinyint(1) DEFAULT 1`), `UNIQUE(user_id, page_name)` (migration
+   2026_08_05_000004). Verified byte-identical to the production schema (Pass 4
+   §11).
+2. **Super-admin is a data row** — `page_name = '*'`
+   (`AccessControlService::SUPER_ADMIN_PAGE`) with `can_access = 1` is the only
+   admin marker. `isSuperAdmin()` tests exactly that row. No username or
+   `user_id` checks exist anywhere (ADR-003, grep-verified this pass).
+3. **`canAccessPage`** — `'*'` → `isSuperAdmin`; otherwise `isSuperAdmin` **or**
+   a `(page_name, can_access=1)` row. Absence = deny. A `can_access=0` row is
+   treated as explicit denial (Pass 3 §4).
+4. **Program level** — `tbl_program_permissions` (`user_id, program_name`),
+   `UNIQUE(user_id, program_name)`. `canAccessProgram` = `isSuperAdmin` **or** a
+   row. **Empty permitted list = unrestricted** (v1 parity — no rows = allow
+   all). Enforced only by `TransactionController::authorizeProgram` (store,
+   update) and the `program` Gate; **not** enforced on scanner routes (Pass 3 §5
+   fact: a user can scan a program they hold no program row for — unchanged from
+   v1, decision deferred).
+5. **Enforcement points** — `AuthorizePage` middleware (`page:<key>`, 403 JSON
+   vs redirect-to-dashboard with `login_status=denied`); the `page`/`program`
+   Gates (`AppServiceProvider`); `ClientPolicy` (the **only** policy,
+   registered via `Gate::policy`; `ClientController@destroy` →
+   `authorize('delete')` re-asserts `page:clients.php`, it does **not** tighten
+   beyond the page); sidebar gating via `canAccessPage`. **There is no
+   action-level enforcement anywhere.**
+6. **The `page:` groups** (`routes/web.php`): every business page group is one
+   flat group — a holder of the page key can exercise **every** route in the
+   group (view + feed + create + edit + delete + export + program-gated writes).
+7. **Data-scope** — none. No municipality/data-scope dimension exists (Pass 2:
+   `tbl_clients.city_municipality`/`barangay` store int IDs as varchar;
+   `tbl_unpaid_verifications.municipality_id` is the only true FK to
+   `tbl_municipalities`). Municipality is a filter attribute, never an authz
+   boundary.
+8. **Correction to an earlier P7 claim**: `permittedPages()` returns the raw
+   `can_access` page_names (it would include `'*'` if present); the P7 **catalog
+   UI** excludes `'*'` explicitly via `AdminPermissionController::pageCatalog()`
+   (reject of `SUPER_ADMIN_PAGE`), not via `permittedPages()`. The P7 screen
+   behavior is as designed; only the documented mechanism was slightly off.
+
+#### 3. Module / action inventory (FACT)
+
+Derived from `routes/web.php` and the controller methods read this pass.
+"Actions" = distinct operations a page-key holder can perform today.
+
+| Module | Page key(s) | Actions today (all under one page gate) |
+|---|---|---|
+| Auth/session | `currently_logged_users.php`, `force_logout.php` | view online users; force-logout a session |
+| Clients | `clients.php` | view list, feed, details (`show`/panel), create, edit, delete, duplicates (view/feed/batch-delete), photo upload, verify-mobile, add GIP (`gip.store` shares `clients.php`) |
+| Households | `household.php` | view, feed, create, show, delete, search, client-picker |
+| Family members | `clients.php` (shared key) | view picker, create, search |
+| Transactions | `all_transactions.php` | view, feed, create, edit (page + inline), delete, client-search, **export CSV**, plus per-program gate |
+| Scanners (14 keys) | `scanner_*.php` | view page, lookup (read), save (write/attendance) |
+| Payout attendance (3 variants) | `scanned_payouts*.php` | view, feed, delete (via feed `delete_id`) |
+| Unpaid verifications | `unpaid_verifications.php` | view, feed, **export CSV**, delete (via feed) |
+| Scholars | `scholars.php` | view, feed, create, edit, update, relink client-id |
+| Scholarship reports | `scholarship_reports.php` | view, feed, **export CSV** |
+| Grantee update logs | `update_logs.php` | view |
+| Administration | `register.php`; `manage_permissions.php`; `manage_program_permissions.php`; `manage_multi_device_exemptions.php`; `audit_logs.php` | create user; grant/revoke pages incl. `'*'`; grant/revoke programs; grant/revoke exemptions; view audit + leaderboard |
+
+**Public (no auth, no page gate)** — out of scope for any authorization layer by
+construction: `student/*`, `unpaid-verification*`, `grantee-search/*`,
+`grantee-update/*`, `grantee/verify-mobile`, `grantee/barangays`, `qr-viewer`,
+`session/status`. These are anonymous self-service flows (v1 parity) and must
+**not** acquire action grants.
+
+**Dashboard** — `auth, single-device` only, no page gate; reachable by every
+logged-in user.
+
+#### 4. Existing action vocabulary (FACT)
+
+The audit strings are the de-facto operation vocabulary (Pass 6 §2):
+
+- Domain writes: `ADD_CLIENT`/`EDIT_CLIENT`/`DELETE_CLIENT`,
+  `ADD_HOUSEHOLD`/`DELETE_HOUSEHOLD`, `ADD_FAMILY_MEMBER`/`DELETE_FAMILY_MEMBER`,
+  `ADD_TRANSACTION`/`EDIT_TRANSACTION`/`DELETE_TRANSACTION`,
+  `ADD_GIP`/`UPDATE_GIP`, `LOGIN`/`LOGOUT`/`FORCE_LOGOUT`.
+- P7 admin: `MANAGE_USER_CREATE`, `MANAGE_PAGE_PERMISSIONS`,
+  `MANAGE_SUPER_ADMIN_GRANT`/`REVOKE`, `MANAGE_PROGRAM_PERMISSIONS`,
+  `MANAGE_EXEMPTION_GRANT`/`REVOKE`.
+- Scanner config: dash-style (`SCAN-CEAP`, `UPDATE-CEDSSG-PAYMENT`, …) — a
+  scanner-config artifact, not a general convention (Pass 6 §2.4).
+- **Gaps**: scholar writes (create/update/relink) emit **no** audit action;
+  payout/unpaid deletes emit no audit (P5 parity); exports emit no action.
+
+The existing strings map 1:1 to a future canonical action set —
+`view/create/edit/delete/export/approve` (Pass 6 §12: every `MANAGE_*` string is
+a 1:1 stand-in for a future action grant; the viewer's distinct-action filter
+doubles as the future grant-catalog checklist). **This is the strongest existing
+hook for action-level authorization**: the vocabulary already exists, is stable,
+and is user-visible.
+
+#### 5. Granularity options (A/B/C)
+
+| Option | Model | Effect vs today | Verdict for v2 |
+|---|---|---|---|
+| **A. Page-level only (status quo)** | `tbl_permissions` page grant = all actions on the page | No change; coarse | Current baseline; fine for parity, insufficient once the owner wants "encoder can add, cannot delete" |
+| **B. Action-level CRUD (this pass's subject)** | per (page, action) grants layered on the page grant | A page holder performs only granted actions | **RECOMMENDED to consider** (§17.A, §20) |
+| **C. Action + data-scope (municipality)** | (page, action, municipality) | Adds a row-level dimension | **Deferred** (§17.B/C) — v2 has no data-scope today (Pass 2) and no consistent municipality representation to model on |
+
+#### 6. Page-vs-action modeling options (A–D)
+
+How actions relate to pages — four ways to express "the create button on the
+clients page":
+
+| Option | Shape | Strengths | Weaknesses |
+|---|---|---|---|
+| **A. Orthogonal verbs** | grants = (page, action); action ∈ {view, create, edit, delete, export, approve} global | one verb set everywhere; simplest catalog; matches audit vocabulary | some pages have no natural "approve"; verb set must be a superset |
+| **B. Per-page capability names** | each page declares its own actions (`clients:add-client`, `clients:delete-client`) | precise; matches v1 page-per-file granularity | larger catalog; needs a per-page action manifest; less uniform |
+| **C. Page = view; actions layer on top (hierarchical)** | page permission remains the "enter" gate; non-view actions additionally require an action grant | keeps `tbl_permissions` semantics intact; view stays v1-parity; writes can be tightened without touching viewers | write behavior changes for existing holders when a page adopts actions (see §11) |
+| **D. Synthetic compound page keys** | each action becomes its own `page_name` value (`clients.php:delete`) in `tbl_permissions` | no new table | **violates ADR-003** (`page_name` identical to v1), breaks the real-catalog derivation, `permittedPages()`, the P7 screen, and the `'*'` contract — rejected |
+
+**RECOMMENDATION (consolidated in §20): Option C** — page permission = view/
+enter (v1 parity preserved, `tbl_permissions` untouched), with a layered action
+grant for every non-view operation. Option A supplies the verb set (see §14's
+mapping) rather than full verb orthogonality; B's per-page precision is
+achievable inside C via the per-page action catalog.
+
+#### 7. `'*'` super-admin semantics under action authz
+
+1. **FACT**: `'*'` satisfies every page gate by construction (`canAccessPage`
+   short-circuits on `isSuperAdmin`).
+2. **RECOMMENDATION**: `'*'` must **also satisfy every action grant** — the
+   action check is `isSuperAdmin` **or** (page grant **and** action grant).
+   Otherwise a `'*'` holder could be blocked from an action, breaking the admin
+   contract, the P7 screens (which rely on `'*'` reaching everything), and the
+   bootstrap model (Pass 5 §5 grants a `'*'` row for the first production
+   admin).
+3. **INFERENCE**: because `'*'` bypasses actions, the only admin who can
+   *restrict* another super-admin is a super-admin via the P7 `'*'` toggle —
+   unchanged from today. Action grants can only tighten **non-**`'*'` users;
+   that is the entire point (data encoders, approvers, regional staff).
+
+#### 8. Program-permission interaction (FACT + RECOMMENDATION)
+
+1. **FACT**: program permissions are **orthogonal** to page permissions. Today
+   `TransactionController` checks `authorizeProgram` on create/update only; the
+   scanner routes do **not** check `canAccessProgram` (Pass 3 §5, deferred);
+   payout/unpaid routes do not check program permissions at all.
+2. **RECOMMENDATION**: the action layer **does not change** `canAccessProgram`.
+   Composition is AND: an action grant gates *which operation*, a program grant
+   gates *which program*. A transaction write check =
+   `canAccessAction(page=all_transactions.php, action)` **and**
+   `canAccessProgram(program)`. The scanner program-gate question (Pass 3 §5 /
+   Pass 4 §14.5) stays deferred; the action layer composes with either outcome.
+3. **INFERENCE**: P7 admin screens (which manage program grants) need **no**
+   program permission themselves (Pass 5 §8) — the action layer must not add one,
+   or permission admins would need a program row to manage programs.
+
+#### 9. Storage options (A–D)
+
+All additive; none alter existing tables' columns.
+
+| Option | Design | Pros | Cons / risk |
+|---|---|---|---|
+| **A. New table `tbl_action_permissions`** | `id, user_id, page_name, action, created_at`, `UNIQUE(user_id, page_name, action)` — the exact shape of `tbl_program_permissions` | zero risk to `tbl_permissions` (ADR-003 "identical to v1" stays true); mirrors the proven program pattern; **scope-ready** (a future additive scope column leaves room for §15); clean catalog queries | one new table (additive migration + baseline regen per AGENTS.md) |
+| **B. `action` column on `tbl_permissions`** | additive `action varchar(50) NULL`; `NULL` = page-level (all actions); `UNIQUE(user_id, page_name, action)` | reuses the existing table/screen | pollutes the v1-identical table; `NULL`-means-all is ambiguous and error-prone (§10); the P7 catalog derivation (`page_name` distinct) must be reworked; a future scope column would sit in an already-polluted table |
+| **C. JSON `actions` column on `tbl_permissions`** | `actions JSON` | flexible | not first-normal-form; hard to query/audit/join; same pollution objection as B |
+| **D. No new storage — synthetic page keys** | see §6.D | — | **rejected** (violates ADR-003; breaks catalog/`'*'`/`permittedPages`) |
+
+**RECOMMENDATION: Option A.** It is the only storage that keeps
+`tbl_permissions` byte-identical (the non-negotiable), reuses a proven pattern
+(`tbl_program_permissions`), and is the cleanest base for the deferred
+municipality dimension (§15). Any adoption of A requires the additive-migration
++ `schema:dump` baseline workflow (AGENTS.md) — a build item, **not** this pass.
+
+#### 10. Allow vs deny semantics (RECOMMENDATION)
+
+1. **Allow-list only**: presence of a (page, action) grant = allow; absence =
+   deny. No separate deny rows. This mirrors the page model (`can_access=1` row
+   = allow, absence = deny) and keeps the P7 permission screens simple
+   (checkboxes, full-replace).
+2. **No flag column needed** if a row's presence is the grant;
+   `tbl_program_permissions` sets the precedent (presence = allow, no flag).
+3. **No per-action deny overrides `'*'`** (§7): `'*'` always wins.
+
+#### 11. Defaults and adoption (backward compatibility)
+
+The core tension: v2 must keep **every current page holder** working at cutover
+(zero production data change), while still allowing pages to *adopt* action
+enforcement later.
+
+| Strategy | Rule | Risk |
+|---|---|---|
+| **S1. Implicit adoption** | `canAccessAction(U,page,action)` = `'*'` OR (`canAccessPage(U,page)` AND (page has **no** action rows → true; else U has the (page,action) row)). A page is "adopted" the moment its first action row exists | **one user's new action grant flips the whole page's behavior** — the widest lockout/loosening footgun; behavior depends on row presence, not configuration |
+| **S2. Explicit per-page enforcement flag** | an explicit "actions enforced for this page" switch (config `config/actions.php` or a small data table); a page with the flag off behaves exactly like today; a page with the flag on requires action grants | deterministic; adoption is a deliberate, reviewable act; **recommended** |
+| **S3. Full backfill at go-live** | adopt actions for every page at once and backfill `create/edit/delete` grants for every current page holder (reviewed SQL) | deterministic but a production **data** change; heavier; guarantees behavior changes everywhere at once |
+
+**RECOMMENDATION: S2** (explicit per-page enforcement flag) as the primary
+strategy, with **S3-style backfill** available *per page* at the moment each
+page is adopted (an admin grants the existing writers their current actions — a
+P7 screen operation, not a blind seed). This preserves: zero production data
+change at cutover; per-page opt-in; and a reversible, audited adoption (the P7
+permission screen records `MANAGE_*` rows for action grants too).
+
+**Default for a non-adopted page** = today's exact behavior (page permission =
+all actions). **Default for an adopted page** = page permission = view only;
+every write/export/approve operation needs its own action grant.
+
+#### 12. Enforcement layer (RECOMMENDATION)
+
+1. **`AccessControlService::canAccessAction(User, page, action)`** — the single
+   implementation (ADR-003); `'*'` and the S2 rule live here. Per-request cache
+   mirrors the existing `pagePermissions`/`programPermissions` pattern.
+2. **An `action` Gate** — `Gate::define('action', fn (User $u, string $page,
+   string $action) => app(AccessControlService::class)->canAccessAction(...))`,
+   alongside the existing `page`/`program` Gates.
+3. **An `action:` middleware** — mirror of `AuthorizePage` (`403` JSON /
+   redirect-flash), applied per write route, e.g.
+   `action:all_transactions.php:create`. The `page:` middleware stays the
+   enter/view gate on the group; `action:` is layered on the specific mutation
+   routes (store/update/destroy/inline-update/export/toggle).
+4. **Controller-level where middleware is awkward** — `Gate::authorize('action',
+   [page, action])` or the same `canAccessAction` call in the method, matching
+   the `ClientPolicy` precedent (the only existing non-route authz).
+5. **Sidebar/UI** — keep page-level gating for menu visibility; **add
+   action-level hiding** for buttons once a page is adopted (a user who can view
+   but not delete must not see a delete button). This is UX, not security; the
+   server check is authoritative.
+6. **Feeds (`/data`) are reads** → page gate only, no action needed (v1 feeds
+   and the P7 feeds are read surfaces). **Exports are NOT reads** — `export` is
+   a distinct action and every export route (`transactions.export`,
+   `scholarship-reports.export`, `unpaid-verifications.export`) must be
+   action-gated when its page adopts actions (CSV exfiltration is the classic
+   overlooked action).
+
+#### 13. Special operations (RECOMMENDATION)
+
+Operations that need care regardless of the general model:
+
+| Operation | Today | Action model |
+|---|---|---|
+| `'*'` grant/revoke (P7 toggle) | page-level under `manage_permissions.php` | keep page-level **and** treat it as the highest-privilege action; a dedicated action (`manage_permissions.php:super-admin`) so a page-holder without it cannot flip admin status. `'*'` holders pass it by definition |
+| Exemption grant/revoke | page-level under `manage_multi_device_exemptions.php` | dedicated actions (`grant`/`revoke`) on that page; `'*'` passes |
+| User create | page-level under `register.php` | `register.php:create` |
+| Audit viewer / leaderboard | page-level under `audit_logs.php` | view-only by nature → **no** action beyond page access; never add a read audit (§14) |
+| Force logout / online users | page-level | `view`/`force` actions optional; low priority |
+| Public self-service flows | no auth | **never** action-gated (§3) |
+| First-admin bootstrap (Pass 5 §5) | operator SQL granting `'*'` | unchanged — the `'*'` row grants all actions (§7) |
+
+#### 14. Audit relationship (FACT + RECOMMENDATION)
+
+1. **FACT**: `AuditService` is the sole `tbl_audit_logs` writer; reads are never
+   audited (no `VIEW_*`); the P7 `MANAGE_*` strings are the administration
+   vocabulary (Pass 6).
+2. **RECOMMENDATION**: the canonical action catalog **is derived from the audit
+   vocabulary** (`view/create/edit/delete/export/approve`, mapping to
+   `ADD_*`/`EDIT_*`/`DELETE_*`/`MANAGE_*` where they exist, §4). Every action
+   grant corresponds to an existing or future audit string, so the audit
+   viewer's distinct-action filter remains the grant-catalog checklist (Pass 6
+   §12) — **no new vocabulary is invented**; new actions must pass the Open
+   Decision #3 stability discipline.
+3. **RECOMMENDATION**: granting/revoking an **action** row is itself audited via
+   the existing `MANAGE_*` family (extend the P7 screen's payloads to include
+   `actions`, or add a `MANAGE_ACTION_*` pair under the same stability rules) —
+   the permission-grant trail stays complete.
+4. **INFERENCE**: action checks gate *before* an operation and audit rows record
+   *after* it; the layers are complementary — action grants answer "may they?",
+   audit rows answer "did they?".
+
+#### 15. Municipality (data-scope) compatibility test (UNRESOLVED but bounded)
+
+Open Decision #6.B is **not finalized here**; this section only tests whether the
+recommended action architecture is compatible with a future municipality/
+data-scope dimension and whether it would need redesign.
+
+1. **Composability**: the future check is naturally
+   `canAccessAction(page, action)` **and** `canAccessScope(record-municipality)`.
+   The action and scope dimensions are orthogonal — one is an operation gate, the
+   other a row filter.
+2. **Storage**: Option A (§9) is the only storage that leaves room for a scope
+   column (additive scope column on `tbl_action_permissions`) **without**
+   touching `tbl_permissions`. Options B/C would force the scope into the
+   v1-identical table. → **storage A is the scope-ready choice**; this is a
+   supporting argument, not a decision on B/C.
+3. **Data-representation blocker (carried from Pass 2)**: there is **no
+   consistent municipality representation** in the schema to model scope on —
+   `tbl_clients.city_municipality`/`barangay` are int IDs stored as varchar(100)
+   (no FK); `tbl_unpaid_verifications.municipality_id` is the only true int FK
+   to `tbl_municipalities`; households/transactions have no municipality column
+   of their own (derived via client join). **Until the owner decides the
+   municipality-scope data model, B/C cannot be designed**, and D remains
+   unresolved (§17.D).
+4. **Enforcement point for scope later**: feeds (`/data`) and exports must be
+   the scope-enforcement target (server-side row filtering), not just UI selects
+   — the current feeds already filter on municipality (P2/P3), which is the
+   natural seam.
+
+**Verdict: the recommended architecture is scope-compatible (§15.2) and the
+scope question is data-blocked, not architecture-blocked.**
+
+#### 16. Security failure modes
+
+The layer must be built so these cannot happen:
+
+1. **Adoption lockout** — flipping a page to enforced without backfilling locks
+   legitimate writers out (availability). → S2 explicit adoption + per-page
+   backfill at adoption (§11).
+2. **Behavior-dependent-on-data** — S1's "rows exist ⇒ enforced" makes every
+   action grant a global switch (§11). → S2.
+3. **Ambiguous `NULL`-means-all** — storage B/C's "no row = everything"
+   confusion. → storage A with explicit row-per-grant (§9, §10).
+4. **Forgotten export** — `export` left page-level while the page is enforced
+   leaks CSV. → `export` is always a distinct action (§12.6).
+5. **`'*'` drift** — someone makes `'*'` non-bypassing (or bypassing only page,
+   not action). → `'*'` short-circuits both, in one service method (§7).
+6. **Inconsistent enforcement** — middleware on some routes, nothing on others.
+   → one `action:` middleware + `canAccessAction` as the only implementation
+   (§12).
+7. **Username/id relapse** — an implementer "helps" by hard-coding a name/id
+   check for the action screen. → ADR-003 guard: no username/id checks, ever
+   (P7 contract §22 never-change list).
+8. **Program coupling** — requiring program grants on the P7 admin screens (§8.3)
+   or on actions that don't consume programs.
+9. **Scope-by-UI-only (later)** — municipality filters that only hide rows in
+   the browser without server-side enforcement (§15.4).
+10. **Catalog drift** — action names that diverge from the audit vocabulary
+    (§14.2), making the viewer's filter and the grant catalog disagree.
+
+#### 17. Open Decision #6 breakdown (A/B/C/D)
+
+| Component | Status this pass | What happens next |
+|---|---|---|
+| **A. Action-level CRUD authorization** | **RECOMMENDED** (not finalized) — the layered model of §6.C + §9.A + §10–§12, with the §20 architecture | Owner approves/rejects; if approved, a contract pass (Pass 9) fixes the per-page action catalog, the S2 adoption mechanism, and the P7 action-management screen |
+| **B. Municipality/data-scope** | **NOT finalized** — only bounded (§15); data-blocked by the absent municipality representation (Pass 2) | Owner must decide the municipality-scope *data model* first (which tables, which columns, FK or enum) |
+| **C. Combined model (action + scope)** | **NOT finalized** — depends on A adoption + B data decision | only designable after B; §15.1 shows it composes as action AND scope |
+| **D. Fine-grained schema** | **LEFT UNRESOLVED** — a candidate (storage A) is offered and justified (§9.A, §15.2) but not locked | locked only when A is adopted (and B shape known); any migration goes through the additive-migration + `schema:dump` workflow (AGENTS.md) |
+
+Open Decision #6 therefore remains exactly
+`DEFERRED — REQUIRES AUTHORIZATION ARCHITECTURE RESEARCH` **pending owner
+approval of A**; this pass resolves none of it.
+
+#### 18. Facts (summary)
+
+1. v2 authorization is page-level only; a page-key holder can exercise every
+   route in the group (view/feed/create/edit/delete/export) plus program-gated
+   writes (FACT — `routes/web.php`, controllers).
+2. `tbl_permissions` (incl. `'*'`) and `tbl_program_permissions` are verified
+   byte-identical to the production schema (Pass 4 §11); `page_name` identical to
+   v1 is a binding contract (ADR-003).
+3. `'*'` is the sole admin marker; no username/id checks exist (grep).
+4. `ClientPolicy` is the only policy and does not tighten beyond `page:clients.php`.
+5. The audit vocabulary already enumerates the operations (§4); scholar writes,
+   payout/unpaid deletes, and exports are un-audited (parity).
+6. Scanner routes do not check `canAccessProgram`; transaction create/update do.
+7. No municipality data-scope exists; `tbl_clients` municipality/barangay are
+   int-in-varchar, only `tbl_unpaid_verifications.municipality_id` is a true FK
+   (Pass 2).
+8. Public self-service routes (student/unpaid/grantee/QR) are unauthenticated by
+   design (v1 parity) and out of scope for action grants.
+9. This pass modified **only** this file (`git status` clean elsewhere).
+
+#### 19. Inferences
+
+1. Action-level authorization is the **only** remaining coarse-granularity gap
+   in the v2 authorization story: page-level covers "which screen", program-level
+   covers "which program", and neither covers "which operation".
+2. The audit strings are sufficient and stable enough to seed the canonical
+   action catalog without inventing vocabulary.
+3. The recommended storage (A) and modeling (C) keep `tbl_permissions` and the
+   `'*'` contract untouched, so adoption is fully reversible and additive — no
+   v1/production parity is at risk until an owner-approved build executes.
+4. The municipality question is data-blocked (not architecture-blocked): the
+   action layer's design does not foreclose it.
+
+#### 20. One recommendation (consolidated)
+
+**RECOMMENDATION — adopt action-level authorization as a layered, explicit,
+allow-list refinement, pending owner approval:**
+
+1. **Keep `tbl_permissions` (and `'*'`) byte-identical** — page permission stays
+   the view/enter gate (v1 parity, ADR-003).
+2. **Add storage Option A**: a new `tbl_action_permissions`
+   (`id, user_id, page_name, action`, `UNIQUE(user_id, page_name, action)`),
+   additive migration + `schema:dump` baseline regen (AGENTS.md).
+3. **One service method** `AccessControlService::canAccessAction(User, page,
+   action)`: `'*'` → true; else `canAccessPage(page)` **and** (page **not
+   enforced** (S2 flag off) → true; else explicit action row).
+4. **Explicit adoption (S2)**: `config/actions.php` (or a small flag) declares,
+   per page, the action catalog and whether actions are enforced; enforcement is
+   a deliberate, reviewable, audited act; adoption goes live per page with a
+   backfill of current writers' existing actions.
+5. **Enforcement**: an `action` Gate + `action:` middleware layered on write/
+   export routes (`page:` middleware unchanged for view); `export` is always a
+   distinct action.
+6. **Vocabulary**: canonical actions = `view, create, edit, delete, export,
+   approve`, mapped from the existing audit strings; no new strings without the
+   Open Decision #3 discipline.
+7. **P7 screen**: the permission editor gains an action-management mode
+   (grant/revoke (page, action) rows per user), audited via the `MANAGE_*`
+   family — extending, not replacing, the page screen.
+8. **Scope-ready**: leave `tbl_action_permissions` room for a future additive
+   scope column (§15) so municipality/data-scope (B/C) composes later without
+   redesign.
+
+This is **not claimed as approved** — it requires owner sign-off on §17.A (and
+separately on the §22 next pass) before any build.
+
+#### 21. Unresolved questions
+
+1. Does the owner adopt action-level authorization (§17.A) at all, and under the
+   layered model (§20) or a simpler variant?
+2. Is S2 (explicit per-page enforcement flag) accepted, or does the owner prefer
+   S1/S3 (§11)?
+3. Canonical action catalog per page — is `view/create/edit/delete/export/
+   approve` right, or does any page need a different set (e.g. `approve` for
+   transaction payouts)?
+4. Should `export` be a distinct action on every page that exports (§12.6)?
+5. Which pages are adopted first (recommended: none until a contract pass defines
+   the catalog; then `all_transactions.php` or `clients.php` as pilots)?
+6. Scholar writes, payout/unpaid deletes: are their missing audit strings a
+   blocker for those pages' action catalog (§4 gap)?
+7. Municipality-scope data model (B): which tables/columns carry the scope
+   (carried from Pass 2 — owner decision needed before B/C can be designed).
+8. First-admin bootstrap unchanged (§13)? (A `'*'` row grants all actions.)
+
+#### 22. Recommended next research pass
+
+- **Pass 9 — Action-Level Authorization Contract** (if the owner approves
+  §17.A/§20): fix the per-page action catalog from the §3/§4 inventory, the S2
+  adoption mechanism, the `tbl_action_permissions` DDL + additive migration
+  shape, the `canAccessAction` contract, the `action:` middleware semantics, the
+  P7 action-management screen contract (routes/requests/audit strings), and the
+  pilot adoption pages. Read-only research; no build. **Do not proceed until the
+  user confirms.**
+
+---
+
+**HARD STOP — P8 complete.** No code, schema, migration, route, model,
+controller, service, view, test, seeder, or DB operation was run; no file other
+than this one was modified. Open Decision #6 remains
+`DEFERRED — REQUIRES AUTHORIZATION ARCHITECTURE RESEARCH`, split into A
+(recommended, not finalized), B/C (not finalized, data-blocked), and D
+(unresolved). Next step: Pass 9 on owner approval.
+
+---
+
+### P9 — Action-Level Authorization Contract (2026-08-15)
+
+> **Scope**: contract definition only — turns the Pass 8 recommendation into a
+> precise, owner-reviewable authorization contract. **Nothing is implemented.**
+> No code, schema, migration, route, model, controller, service, middleware,
+> FormRequest, view, JS/CSS, test, seeder, or DB operation was run; no file
+> other than this one was modified (verified with `git status`, §20). The
+> proposed `tbl_action_permissions` is **conceptual only** — it is **NOT
+> created**. P7 is **not** modified. Municipality implementation is **not**
+> started.
+>
+> **Status**: Pass 9 produces a complete recommendation for Open Decision #6.A
+> (§18–§19) but does **not** finalize it — every decision point is listed in
+> §18 for owner approval. B and C are **not** finalized; D remains unresolved.
+>
+> **Method**: re-read of the v2 authorization machinery (Pass 8 §2–§4 facts
+> carried forward), `routes/web.php` (route → page-key → action mapping),
+> `config/scanner.php` (scan modes + audit strings), the P7 build contract and
+> Passes 1–8 evidence, and v1 ground truth (Pass 1). Every conclusion is
+> labelled FACT / INFERENCE / RECOMMENDATION / REQUIRES OWNER DECISION /
+> UNRESOLVED.
+
+#### 1. Objective
+
+Produce the explicit action-level authorization contract that answers:
+
+1. What is an **action**? (§3)
+2. Which **actions exist**, with evidence? (§4)
+3. Which **pages adopt** action authorization, and in which phase? (§5)
+4. Which **page/action combinations** are valid? (§5, §18.2)
+5. How is an action **evaluated**? (§3, §11)
+6. What does **`'*'`** mean under the action model? (§10)
+7. What happens when an **action row is absent**? (§11)
+8. How does **page authorization interact** with action authorization? (§2, §6)
+9. How are **exports** protected? (§8)
+10. How are **direct endpoint requests** protected? (§13)
+
+#### 2. Page-Level Baseline
+
+Preserve the P7 architecture exactly (FACT — Pass 8 §2; P7 contract §3):
+
+```
+    Page Permission
+          ↓
+    Can enter module?
+          ↓
+       YES / NO
+```
+
+Action authorization is a **refinement layered after** page authorization:
+
+```
+    Page Permission         (existing tbl_permissions — unchanged)
+          ↓
+    Action Permission       (proposed tbl_action_permissions — conceptual)
+          ↓
+      Operation
+```
+
+Contract rules:
+
+1. **Do NOT replace `tbl_permissions`** with action permissions.
+2. **Do NOT remove or reinterpret existing page permissions.** `page_name`
+   stays identical to v1 (ADR-003); `'*'` stays the sole super-admin marker.
+3. The page gate decides **whether a user may enter the module at all**. The
+   action layer decides **which operations inside the module are allowed**.
+4. `view` (VIEW) is the bridge: on an adopted page, page permission **is** the
+   VIEW grant (no duplicate view row needed — §6).
+
+#### 3. Action Model
+
+**What is an action?** A named, server-side-checked operation that a user may
+perform on a page after entering it (e.g. "create a client on `clients.php`").
+It is **not** a page and **not** a program: page = which module, action = which
+operation, program = which program the operation targets (§14).
+
+Evaluation chain (conceptual):
+
+```
+    user
+      ↓
+    page (tbl_permissions)      — entry gate, unchanged
+      ↓
+    action (tbl_action_permissions) — operation gate, new
+      ↓
+    allowed / denied
+```
+
+**Proposed conceptual table `tbl_action_permissions`** (NOT created):
+
+| Column | Type | Rationale |
+|---|---|---|
+| `id` | INT PK AUTO_INCREMENT | project convention (every legacy table has `id`) |
+| `user_id` | INT NOT NULL | grant subject; mirrors `tbl_permissions.user_id` |
+| `page_name` | VARCHAR(100) NOT NULL | **must reference real v1 page keys** (`page_name` identical to v1 — ADR-003); never synthetic `clients.php:delete` keys (Pass 8 §6.D rejected) |
+| `action` | VARCHAR(50) NOT NULL | canonical action name from the §4 catalog (uppercase, underscore-free verb) |
+| `created_at` | DATETIME (optional) | present on `tbl_audit_logs`/`tbl_multi_device_exemptions`; absent on `tbl_program_permissions`. RECOMMENDATION: include (grant-time accountability); not required for correctness |
+| `can_access` | TINYINT(1) DEFAULT 1 (optional) | mirrors `tbl_permissions`; presence-of-row = allow (RECOMMENDED, no deny rows — §11.C); the flag is optional future-proofing only |
+
+**Conceptual unique constraint**: `UNIQUE(user_id, page_name, action)` —
+exactly the `tbl_program_permissions` pattern. It makes the grant idempotent
+(repeat inserts are no-ops on the same triple) and gives the P7 editor a clean
+full-replace target. No migration code is written in this pass.
+
+**FACT**: an action row must **never** be grantable for a page the user has no
+page row for — page remains the entry gate (§11.D).
+
+#### 4. Canonical Action Catalog
+
+Actions are derived **only** from actual v1/v2 operations and the established
+audit vocabulary (Pass 8 §4; Pass 6 §12). No action is added "because other
+systems have it".
+
+| Action | Meaning | Existing operation (evidence) | Modules/pages | Required now? |
+|---|---|---|---|---|
+| `VIEW` | Read: enter page, list/index, detail/show, feeds (`/data`) | every read route; v1 restriction-gated screens; `permittedPages` | all pages | **YES** — the bridge between page and action (§6). On adopted pages page permission == VIEW |
+| `CREATE` | Insert a new record | `ADD_CLIENT`, `ADD_HOUSEHOLD`, `ADD_FAMILY_MEMBER`, `ADD_TRANSACTION`, `MANAGE_USER_CREATE`, `ADD_GIP`; scanner scholarship_transaction/date_guarded inserts | clients, households, family members, transactions, scholars, register.php, gip (under clients.php) | **YES** (adopted pages) |
+| `EDIT` | Modify an existing record | `EDIT_CLIENT`, `EDIT_TRANSACTION`, `inline-update`, `UPDATE_GIP`, `UPDATE-CEDSSG-PAYMENT` (cedssg_update scanner), scholar update/relink | clients, transactions, scholars, gip | **YES** (adopted pages) |
+| `DELETE` | Remove a record | `DELETE_CLIENT`, `DELETE_HOUSEHOLD`, `DELETE_FAMILY_MEMBER`, `DELETE_TRANSACTION`, duplicate batch-delete, payout/unpaid `delete_id` destroys | clients (+duplicates), households, family members, transactions, payout, unpaid | **YES** (adopted pages) |
+| `EXPORT` | Stream a CSV/file | `transactions.export`, `scholarship-reports.export`, `unpaid-verifications.export` (all currently page-gated) | transactions, scholarship reports, unpaid verifications | **YES** — always distinct on adopted pages (§8) |
+| `APPROVE` | Advance a record's workflow state (e.g. PENDING PAYOUT → PAID) | **NO v1/v2 evidence** — transactions are created directly with a status; the payout **scan** (not an approval action) marks paid | — | **NO** — future capability only; **REQUIRES OWNER DECISION** to add (§18.1) |
+| `SCAN` | Run a scanner save (attendance/transaction write) | `SCAN-CEAP`, `SCAN-CEAP_NEW`, `SCAN-CEDSSG`, `SCAN-CEDSSG_NEW`, `SCAN-OTCES`, `SCAN-OTEA`, `SCAN-TODA`, `SCAN-TUPAD`, `SCAN-{program}` (generic) in `config/scanner.php`; modes `scholarship_transaction`, `date_guarded_transaction`, `seat_attendance`, `unpaid_attendance`, `exam_derived`, `update_in_place` | the 14 `scanner_*.php` pages | **Reserved** — no page adopts SCAN in Phase 1 (§5); high-stakes writes, adopt after pilots |
+| `VERIFY` | Identity/eligibility check | `verify_mobile.php` port, student verify, grantee search/verify, unpaid verify — **all read-only checks, mostly public** | clients, student, grantee, unpaid (public) | **NO** — folded into VIEW (FACT: every verify is a read; no distinct privileged write). **REQUIRES OWNER DECISION** only if a tracked verify capability is wanted (§18.1) |
+| `PAYOUT` | Record payout attendance | `scanner_payout` (`seat_attendance`), `scanner_payout_unpaid` (`unpaid_attendance`) | scanner_payout pages, payout lists | **NO** — folded into SCAN (attendance write) + VIEW/DELETE (lists). **REQUIRES OWNER DECISION** if a distinct "record payout" capability is wanted (§18.1) |
+| `MANAGE` | Administer a managed resource (grant/revoke, user create, exemptions) | `MANAGE_USER_CREATE`, `MANAGE_PAGE_PERMISSIONS`, `MANAGE_SUPER_ADMIN_GRANT/REVOKE`, `MANAGE_PROGRAM_PERMISSIONS`, `MANAGE_EXEMPTION_GRANT/REVOKE` | the 4 P7 admin pages (register.php, manage_permissions.php, manage_program_permissions.php, manage_multi_device_exemptions.php) | **Reserved** — P7 stays page-only in Phase 1 (§5); MANAGE is the natural action when adopted, with `manage_permissions.php:super-admin` as the highest-privilege special op (Pass 8 §13) |
+
+**FACT — action names are single uppercase verbs** (`VIEW`, `CREATE`, …),
+matching the underscore-free portion of the audit vocabulary's `VERB` slot
+(`ADD_CLIENT` → `CREATE` on `clients.php`; the `MANAGE_*` prefix groups admin
+events, the `SCAN-*`/`UPDATE-*` dash strings are a scanner-config artifact, Pass
+6 §2.4). The action catalog maps 1:1 onto existing audit strings (Pass 6 §12),
+so **no new audit vocabulary is introduced for business operations** (only the
+grant-change event in §15, which is a new, justified string).
+
+#### 5. Page/Action Adoption Matrix
+
+Established by reading `routes/web.php` and every P1–P7 controller (FACT).
+Phase 1 adopts only pages whose adoption is low-risk and high-value; everything
+else stays page-only (today's behavior) until the model is proven.
+
+| Page | Existing page gate | Action authorization? | Actions | Reason |
+|---|---|---|---|---|
+| dashboard | none (auth + single-device) | **Page-only** | — | not a gated resource; every authenticated user |
+| `currently_logged_users.php` | `page:` | Page-only Phase 1 | `VIEW`, `FORCE` (reserved) | P1 parity; low priority |
+| `force_logout.php` | `page:` | Page-only Phase 1 | `FORCE` (reserved) | P1 parity |
+| `clients.php` | `page:clients.php` | **ADOPT (pilot)** | `VIEW, CREATE, EDIT, DELETE` | core registry; highest-value tightening; shared sub-resources map onto these actions (§5.1) |
+| `household.php` | `page:household.php` | **ADOPT (pilot)** | `VIEW, CREATE, DELETE` | FACT: no household EDIT exists (no `edit_household` route — blueprint §8 row 38 shows only add/view/delete); small surface |
+| `all_transactions.php` | `page:all_transactions.php` | **ADOPT (pilot)** | `VIEW, CREATE, EDIT, DELETE, EXPORT` | highest daily usage; exercises program interaction (§14); has an export (§8) |
+| `scholars.php` | `page:scholars.php` | **ADOPT (pilot)** | `VIEW, CREATE, EDIT` | self-contained; relink = EDIT; no export |
+| `scholarship_reports.php` | `page:scholarship_reports.php` | Page-only Phase 1 | `VIEW, EXPORT` (reserved) | read-only reporting page; export already page-gated |
+| `scanner_*.php` (14 keys) | `page:scanner_*.php` each | Page-only Phase 1 | `VIEW, SCAN` (reserved) | high-stakes attendance/transaction writes; adopt **after** pilots prove the model; scanner program-gate question stays deferred (Pass 8 §8) |
+| `scanned_payouts*.php` (3) | `page:` each | Page-only Phase 1 | `VIEW, DELETE` (reserved) | low traffic; parity |
+| `unpaid_verifications.php` | `page:unpaid_verifications.php` | Page-only Phase 1 | `VIEW, DELETE, EXPORT` (reserved) | parity; admin + public surfaces |
+| `update_logs.php` | `page:update_logs.php` | Page-only Phase 1 | `VIEW` | view-only page |
+| `register.php` | `page:register.php` | **ADOPT (pilot)** | `CREATE` | single-operation page (create user); page entry already implies the form (§6) |
+| `manage_permissions.php` | `page:` | Page-only Phase 1 | `MANAGE` + `super-admin` special op (reserved) | **P7 must not be broken**; `'*'` toggle logic stays page-level until adoption (Pass 8 §13) |
+| `manage_program_permissions.php` | `page:` | Page-only Phase 1 | `MANAGE` (reserved) | P7 parity |
+| `manage_multi_device_exemptions.php` | `page:` | Page-only Phase 1 | `MANAGE` (reserved) | P7 parity |
+| `audit_logs.php` | `page:` | Page-only Phase 1 | `VIEW` | read-only viewer; **never** action-beyond-page, never a read-audit (Pass 8 §13/§14) |
+| public self-service (`student/*`, `unpaid-verification*`, `grantee-search/*`, `grantee-update/*`, `grantee/*`, `qr-viewer`) | none | **No action authorization (never)** | — | anonymous flows (v1 parity); no authz layer applies (Pass 8 §3) |
+
+**§5.1 Shared-key sub-resource mapping (`clients.php`)** — FACT: the
+`page:clients.php` group also gates family members, duplicates, photo upload,
+and GIP. Under (page, action) these inherit the page's actions:
+
+| Route (FACT) | Page key | Action (RECOMMENDED classification) |
+|---|---|---|
+| `clients.index` / `clients.data` / `clients.show` / `clients.verify-mobile` / `duplicates.index` / `duplicates.data` | `clients.php` | `VIEW` |
+| `clients.create` / `clients.store` | `clients.php` | `CREATE` |
+| `family-members.create` / `family-members.store` | `clients.php` | `CREATE` (sub-resource) |
+| `gip.store` | `clients.php` | `CREATE` (sub-resource) |
+| `clients.edit` / `clients.update` / `clients.photo` | `clients.php` | `EDIT` |
+| `clients.destroy` / `duplicates.destroy` | `clients.php` | `DELETE` |
+
+No per-resource page keys are invented (ADR-003); the mapping above is the
+contract for how sub-operations classify. **REQUIRES OWNER DECISION** whether
+GIP/family-member creation should be `CREATE` on `clients.php` or a future
+dedicated action (§18.2).
+
+**§5.2 First adoption phase = the five pilots**: `clients.php`, `household.php`,
+`all_transactions.php`, `scholars.php`, `register.php`. Every other page stays
+page-only (byte-for-byte today's behavior) until the owner approves the next
+tranche. **RECOMMENDATION.**
+
+#### 6. VIEW Semantics
+
+1. **VIEW controls page entry, list/index, detail/show, AND feed (`/data`)
+   responses** — all read surfaces on a page. On an adopted page, the page
+   permission row **is** the VIEW grant: there is **no separate `view` row**
+   (`tbl_permissions` already encodes "can enter this page").
+2. **No duplicate gate**: the page gate is not re-checked for VIEW; the action
+   check for VIEW is simply `canAccessPage`. This keeps the middleware stack
+   unchanged for read routes.
+3. **Feed protection (the direct-feed concern)**: a user who cannot enter the
+   page cannot call its `/data` feed — `AuthorizePage` already answers 403 JSON
+   on `expectsJson()` for every route in the page group (FACT). A user **with**
+   page permission may call the feed (that **is** VIEW). There is no scenario in
+   which page entry is granted but VIEW is not — they are the same predicate.
+   (§13 documents that feeds must not be additionally action-gated, or read
+   parity breaks.)
+4. **UI is not the boundary**: the sidebar hides links via `canAccessPage`
+   (FACT), but that is presentation; the middleware is the boundary.
+
+#### 7. CREATE / EDIT / DELETE Semantics
+
+| Action | Precisely | Domain-specific handling |
+|---|---|---|
+| `CREATE` | Insert a **new** record for the page's primary resource (+ documented sub-resources, §5.1) | GIP add and family-member add classify as `CREATE` on the shared `clients.php` key (§5.1). Scanner inserts classify as `SCAN`, **not** `CREATE` (a scanner save is a scripted, config-driven insert — `SCAN` preserves its operational identity, Pass 8 §7). Scholar create = `CREATE` on `scholars.php`. User create = `CREATE` on `register.php` |
+| `EDIT` | Modify an **existing** record | Transaction inline-update and page edit both = `EDIT` on `all_transactions.php`. Scholar relink (`scholars.update-client-id`) = `EDIT`. GIP upsert-to-existing (`UPDATE_GIP`) = `EDIT` under `clients.php`. Scanner `cedssg_update` (`UPDATE-CEDSSG-PAYMENT`, update-in-place) = `SCAN`, not `EDIT` — the scanner mode is a scan workflow, not a general editor (§9) |
+| `DELETE` | Remove/delete a record or row set | Duplicate batch-delete = `DELETE` (per-row `DELETE_CLIENT`), payout/unpaid `delete_id` destroys = `DELETE` on their pages, household destroy = `DELETE`, transaction destroy = `DELETE` |
+
+**RECOMMENDATION**: do **not** force scanner/payout operations into `EDIT` or
+`DELETE` — `SCAN` and the reserved domain actions preserve authorization
+clarity for operational (attendance/payout) writes (§9).
+
+#### 8. EXPORT Semantics
+
+1. **Current exports (FACT — routes/web.php)**: `transactions.export`
+   (`all_transactions.php`, P3, 4 modes), `scholarship-reports.export`
+   (`scholarship_reports.php`, P6), `unpaid-verifications.export`
+   (`unpaid_verifications.php`, P5). **All three are currently page-gated only.**
+   No other exports exist (payout attendance and audit logs have no export —
+   FACT).
+2. **`EXPORT` is always a distinct action** on an adopted page that exports
+   (RECOMMENDATION, Pass 8 §12.6). `VIEW` alone does **not** grant `EXPORT`.
+   A user with `VIEW` but no `EXPORT` may view list/feed/detail but must get
+   403/redirect on the export route.
+3. **Direct export endpoint**: the export route carries both its page gate
+   (unchanged) and the `EXPORT` action check (§13). Knowing the export URL
+   grants nothing — the check is server-side on the route, the UI link is only
+   presentation.
+4. **Non-adopted pages**: an export on a page that has not adopted actions keeps
+   today's behavior (page permission = all actions incl. export) until adopted
+   (§12) — no lockout, no accidental open export.
+5. **Future**: if a future page adds an export, `EXPORT` must be added to its
+   action catalog at adoption time, never left implicit (§17 fail-closed).
+
+#### 9. Domain-Specific Actions
+
+Inspection of P4/P5/P6 operations (FACT — config/scanner.php, routes, services):
+
+| Actual operation | Current endpoint | Current authorization | Recommended action | Adopt now or later |
+|---|---|---|---|---|
+| Scanner transaction insert (CEAP/CEAP_NEW/CEDSSG/CEDSSG_NEW/OTCES/OTEA/TODA/TUPAD/generic) | `POST scanners/{key}/save` | `page:scanner_{key}.php` only | `SCAN` | **Later** (Phase 1 keeps scanners page-only; §5) |
+| Scanner update-in-place (cedssg_update) | `POST scanners/cedssg_update/save` | page gate only | `SCAN` | Later |
+| Scanner lookup (identity/eligibility read) | `POST scanners/{key}/lookup` | page gate only | `VIEW` (read) | Later (view is covered by the page gate) |
+| Payout seat attendance (`scanner_payout`) | `POST scanners/payout/save` | page gate only | `SCAN` (attendance write) | Later |
+| Unpaid attendance (`scanner_payout_unpaid`) | `POST scanners/payout_unpaid/save` | page gate only | `SCAN` | Later |
+| QR viewer | `GET qr-viewer` | **public** (no auth) | none | Never (anonymous) |
+| Student photo upload / verify | `student/*` | **public** | none | Never (anonymous) |
+| Grantee self-update | `grantee-update/*` | **public** | none | Never (anonymous) |
+| Unpaid self-service submit | `unpaid-verification/submit` | **public** | none | Never (anonymous) |
+| Unpaid search/verify | `grantee-search/*` | **public** | none | Never (anonymous) |
+| GIP add/update | `POST clients/{client}/gip` | `page:clients.php` | `CREATE`/`EDIT` (sub-resource, §5.1) | **Pilot** (with clients.php) |
+| Scholar create/update/relink | `POST scholars`, `PUT scholars/{s}`, `POST scholars/update-client-id` | `page:scholars.php` | `CREATE`/`EDIT` | **Pilot** (with scholars.php) |
+| Transaction inline-update | `POST transactions/inline-update` | `page:all_transactions.php` + program | `EDIT` | **Pilot** (with all_transactions.php) |
+| Payout list delete | `POST payout-attendance/{v}/data` (delete_id) | page gate | `DELETE` | Later |
+| Unpaid delete | `POST unpaid-verifications/data` (delete_id) | page gate | `DELETE` | Later |
+
+**No workflows are invented** — every row above is an existing operation. The
+verification/QR/public flows are read-only or anonymous and get **no** action
+grants.
+
+#### 10. `'*'` Super-Admin Contract
+
+**RECOMMENDATION — `'*'` bypasses both page AND action restrictions** (Pass 8
+§7 confirmed):
+
+1. `canAccessAction(U, page, action)` short-circuits **true** for any `'*'`
+   holder, **regardless of whether any action row exists for that user**.
+2. **`'*'` user + no action row** → allowed (the marker is the grant; no action
+   rows are needed or implied for super-admins).
+3. **`'*'` user + hypothetical explicit deny row** → allowed (if deny rows are
+   ever introduced, `'*'` still wins — §11.C; Pass 8 §10.3). RECOMMENDATION:
+   **no deny rows exist**, so this case cannot arise (§11.C).
+4. **`'*'` user + future municipality restriction** → **UNRESOLVED** and
+   **out of scope** (Pass 8 §17.B/C; §16): whether data-scope can constrain a
+   super-admin is a B-decision, not an action-layer decision. RECOMMENDATION
+   (for later): treat `'*'` as scope-exempt by default, same as today's
+   program/page behavior.
+5. **Preserved (non-negotiable)**: `'*'` is the sole super-admin marker; **no
+   username-based admin checks**; **no user-ID-based admin checks** (ADR-003).
+   The P7 `'*'` toggle stays page-level and becomes a dedicated
+   `super-admin` special action only when `manage_permissions.php` adopts
+   actions (§5, Pass 8 §13).
+
+#### 11. Missing Action Row Semantics
+
+This is the critical decision. Case table:
+
+| Case | Page permission | Action row | Verdict |
+|---|---|---|---|
+| **A** | ✓ | present, allowed | **ALLOW** |
+| **B** | ✓ | missing | **Page non-adopted → ALLOW** (today's behavior, §12). **Page adopted → DENY for write/export actions** (fail closed); `VIEW` still allowed (page = VIEW). **RECOMMENDED** |
+| **C** | ✓ | present, denies | **DENY** — but RECOMMENDATION: **no deny rows** (allow-list only, Pass 8 §10); if a `can_access=0` flag is ever introduced, deny wins over allow, and `'*'` still wins over deny (§10.3) |
+| **D** | ✗ | present (any) | **DENY** — action rows never grant page entry; page is the entry gate. **Fail closed** (§6, §13) |
+| **E** | `'*'` | — | **ALLOW everything** (§10) |
+
+**Safest default (RECOMMENDATION)**: **fail closed** —
+`canAccessAction` returns **false** for:
+- any unknown **page**,
+- any unknown **action**,
+- any adopted page where the (page, action) row is absent,
+- any action row present without a page row (case D).
+
+The **only** deliberate exceptions (documented compatibility mechanisms) are:
+(a) non-adopted pages (today's behavior), and (b) `'*'` (super-admin). Newly
+introduced privileged actions are **deny-by-default until explicitly granted**.
+This is required by the security properties (§17).
+
+#### 12. Backward Compatibility
+
+Problem (FACT): every existing v2 user has page permissions and **zero** action
+rows. Action authorization must be introduced without (a) locking out
+legitimate users, (b) silently granting everyone every new action, (c) breaking
+P7, or (d) touching production authorization data.
+
+| Strategy | Mechanism | Risk |
+|---|---|---|
+| **S1. Implicit adoption** | page "adopted" the moment its first action row exists | one grant flips the whole page's behavior — rejected (Pass 8 §11) |
+| **S2. Explicit per-page enforcement flag (RECOMMENDED)** | `config/actions.php` (or a small data flag) declares, per page, the action catalog + enforcement state; enforcement off ⇒ today's behavior; on ⇒ action rows required | deterministic, reviewable, reversible |
+| **S3. Full backfill at go-live** | adopt all pages at once; backfill `CREATE/EDIT/DELETE` for every current holder via SQL | production data change; behavior changes everywhere at once |
+
+**RECOMMENDED strategy — S2 with per-page S3-style backfill at adoption**:
+
+1. **Cutover (P9 → build)**: new table empty, enforcement flags off, zero
+   production data change. Behavior is byte-identical to today.
+2. **Per-page adoption procedure (RECOMMENDED, audited)**:
+   a. An admin grants the page's current holders the actions they currently
+      exercise (`CREATE`/`EDIT`/`DELETE`/`EXPORT` as applicable) via the P7
+      action-management screen (audited — §15). **Grant first.**
+   b. The enforcement flag for that page is flipped on. **Flip second.**
+      No lockout window (grants precede enforcement).
+   c. The adoption is recorded in the audit trail (grant events) and in
+      `IMPLEMENTATION_LOG` at build time.
+3. **P7 is never broken**: the P7 admin pages stay page-only in Phase 1 (§5);
+   their `'*'`/exemption logic is untouched.
+4. **No silent grant-everyone**: the backfill grants are **explicit, per-user,
+   per-page, audited actions taken by a permission admin** — never a blind
+   seed, never an automatic rule.
+
+#### 13. Enforcement Contract
+
+**Canonical enforcement layer: route middleware backed by the single ACL
+service**, mirroring the existing `AuthorizePage` pattern.
+
+1. **The one implementation** — a future `AccessControlService` extension
+   `canAccessAction(User, page, action)` containing all semantics of §11 (§10,
+   fail-closed, adoption flags). This is the canonical decision point (ADR-003:
+   one ACL service). Per-request caching mirrors the existing
+   `pagePermissions`/`programPermissions` pattern (FACT).
+2. **`action:` middleware** — a mirror of `AuthorizePage` (403 JSON when
+   `expectsJson()`, else redirect-dashboard + `login_status=denied`), applied
+   **on the specific mutation/export routes** of adopted pages, e.g.
+   `action:all_transactions.php:create`. The `page:` middleware stays on the
+   group (entry/view); `action:` layers on the writes.
+3. **Gate** — `Gate::define('action', fn (User $u, string $page, string $action)
+   => app(AccessControlService::class)->canAccessAction(...))`, for
+   controller-level checks where middleware is awkward (the `ClientPolicy`
+   precedent — the only existing policy, FACT).
+4. **Layers evaluated** — middleware for route-level; policy only for the
+   existing `ClientPolicy`-style need if any; **FormRequests do NOT authorize**
+   (they validate; `authorize()` returning true is not a boundary — FACT: the
+   P7 requests return `true`); **services do NOT authorize** (they assume
+   authorization; a defensive service re-check is optional belt-and-braces but
+   never the boundary).
+5. **Bypass prevention (mandatory)**:
+   - **UI bypass** — links/buttons are presentation only; the server check is
+     authoritative (§6.4).
+   - **Direct POST bypass** — every store/update/destroy/inline-update route
+     carries `action:`.
+   - **Direct JSON endpoint bypass** — every `/data` feed stays under the page
+     group (403 JSON for the unpermitted); feeds are VIEW, not separately
+     action-gated (§6.3).
+   - **Direct export bypass** — the export route carries `page:` **and**
+     `action:...:export` (§8.3).
+6. **No enforcement is skipped for anonymous routes**: public self-service
+   routes have no authz layer by design (v1 parity) and are outside this
+   contract (§5).
+
+#### 14. Program Permission Interaction
+
+Do not redesign program permissions (RECOMMENDATION — Pass 8 §8). Coexistence
+order for domain operations that consume programs (transactions, feeds with
+program filter, GIP):
+
+```
+    PAGE   (canAccessPage — entry)
+      ↓
+    ACTION (canAccessAction — which operation)
+      ↓
+    PROGRAM (canAccessProgram — which program, 17-program model)
+      ↓
+   operation executes
+```
+
+1. **Program is evaluated AFTER action, only for operations that touch a
+   program** (FACT: `TransactionController::authorizeProgram` on store/update
+   today; feeds apply program restrictions; scanners do **not** check program —
+   deferred, Pass 8 §8).
+2. Example: `transactions EDIT on GIP` =
+   `canAccessAction(all_transactions.php, EDIT)` **and**
+   `canAccessProgram('GIP')`. Both must pass.
+3. The action layer adds **no** program checks to admin screens (§8.3 of
+   Pass 8) and no program checks where none exist today (scanners stay as-is —
+   deferred question untouched).
+4. Empty `tbl_program_permissions` remains "unrestricted" (v1 parity, FACT);
+   the action layer does not change that.
+
+#### 15. Audit Relationship
+
+Preserve the P7 `AuditService` contract exactly (FACT — sole writer, 7
+`MANAGE_*` strings, no `VIEW_*` reads; Pass 6/P7 §12).
+
+1. **Two distinct concepts** (RECOMMENDATION):
+   - **Changing someone's action permission** → audited as a **grant-change
+     event** (see 2).
+   - **Performing an authorized business action** → audited by the existing
+     domain string (`ADD_CLIENT`, `EDIT_TRANSACTION`, `SCAN-CEAP`, …). No
+     change.
+2. **Grant-change audit (RECOMMENDATION — one new string)**: when a permission
+   admin saves a user's action grants for a page, write
+   **`MANAGE_ACTION_PERMISSIONS`** — `target_table = 'tbl_action_permissions'`,
+   `target_id` = subject user id, `old_value`/`new_value` JSON
+   `{'username', 'page', 'actions': [allowed set]}`. Justification for the new
+   string: the P7 page-permission event records *pages*; action grants are a
+   distinct object (page × action set) that must be filterable in the viewer.
+   This is the **only** new audit string proposed; it follows the Open
+   Decision #3 stability discipline. **REQUIRES OWNER DECISION** (§18.7).
+   - The `'*'` toggle keeps `MANAGE_SUPER_ADMIN_GRANT`/`REVOKE` unchanged.
+3. **No read-audits**: viewing feeds, the audit viewer, or the leaderboard
+   writes nothing (`VIEW` is not audited). Never add `VIEW_*` (Pass 6 §9.2).
+4. **Secrets**: action/permission payloads contain only `username`, `page`,
+   `action` names — never `password`/`session_token` (P7 §12.3; §17).
+
+#### 16. Municipality Compatibility
+
+Do **not** design municipality authorization (REQUIRES OWNER DECISION for the
+data model — Pass 2 authoritative: municipality is a **data attribute, not an
+authorization boundary**). This section only verifies the proposed action model
+can later support:
+
+```
+    User → Page → Action → Program → Municipality/Data Scope
+```
+
+1. **Composable**: the future check is `canAccessAction(page, action)` **and**
+   `canAccessScope(record)`. Scope is a row-filter dimension, orthogonal to the
+   operation gate (Pass 8 §15.1).
+2. **Storage assumption (kept)**: `tbl_action_permissions` leaves room for a
+   future additive scope column **without** touching `tbl_permissions` (Pass 8
+   §9.A/§15.2). If B/C storage were chosen instead (action column on
+   `tbl_permissions`), the future scope column would pollute the v1-identical
+   table — **this is a reason to keep storage A**.
+3. **Assumptions to avoid** (would make the future model difficult):
+   - baking municipality into `page_name` (violates ADR-003; rejected, §3),
+   - scope-by-UI-only (feeds/exports must be the server-side enforcement seam —
+     the existing P2/P3 municipality filters are the natural target, Pass 8
+     §15.4),
+   - assuming `'*'` is scope-constrained (default: scope-exempt, §10.4 —
+     **UNRESOLVED**, owner decision when B is researched).
+4. **Data blocker (carried, UNRESOLVED)**: `tbl_clients.city_municipality`/
+   `barangay` store int IDs as varchar (no FK); only
+   `tbl_unpaid_verifications.municipality_id` is a true FK to
+   `tbl_municipalities`; households/transactions derive municipality via client
+   join (Pass 2). No B/C design is possible until the owner picks the scope
+   data model.
+5. **Verdict**: the action model imposes **no assumption** that blocks the
+   future chain; the chain composes as ANDs (page, action, program, scope).
+
+#### 17. Security Requirements
+
+Mandatory properties of the future build (all server-side):
+
+1. **Fail closed for unknown actions** (§11): unknown page/action → deny.
+2. **No UI-only authorization** (§6.4, §13.5): UI hides buttons/links;
+   middleware is the boundary.
+3. **No username-based bypass** (ADR-003 — no `super_admin`/`jordi` name
+   checks; grep-enforceable).
+4. **No user-ID-based bypass** (ADR-003 — no `user_id = 1`; all checks through
+   the ACL service).
+5. **`'*'` remains centralized** (§10): the marker bypasses page and action
+   restrictions in the one service method.
+6. **Authorization enforced server-side** on every write, export, and feed
+   route of adopted pages (§13).
+7. **Exports protected** (§8): distinct `EXPORT` action on the export route.
+8. **Feeds protected** (§6.3): page group gate (403 JSON) covers `/data`.
+9. **Direct endpoints protected** (§13.5): every mutation route carries
+   `action:`.
+10. **Permission changes audited** (§15): `MANAGE_ACTION_PERMISSIONS` (+ the
+    existing `MANAGE_*` family unchanged).
+11. **Canonical decision point** (§13.1): `AccessControlService`
+    (`canAccessAction`) or its future extension is the **only** authorization
+    implementation; middleware/gates call it.
+12. **No secrets in authorization/audit payloads** (§15.4): only
+    username/page/action names; never password/session_token.
+
+#### 18. Owner-Approval Decisions
+
+Every decision below is **required before implementation** and is **not**
+claimed as approved.
+
+| # | Decision | Recommendation | Status |
+|---|---|---|---|
+| 1 | **Action vocabulary** (§4) | `VIEW, CREATE, EDIT, DELETE, EXPORT` adopted; `SCAN`, `MANAGE` reserved; `APPROVE`, `VERIFY`, `PAYOUT` **not** added (no evidence / folded in) | **REQUIRES OWNER DECISION** (each addition/omission) |
+| 2 | **Page adoption matrix** (§5) | Phase 1 pilots = `clients.php`, `household.php`, `all_transactions.php`, `scholars.php`, `register.php`; all else page-only; sub-resource mapping §5.1 | **REQUIRES OWNER DECISION** (esp. GIP/family-member classification) |
+| 3 | **`'*'` semantics** (§10) | `'*'` bypasses page **and** action; no deny rows; scope-exempt later | **REQUIRES OWNER DECISION** |
+| 4 | **Missing action-row behavior** (§11) | fail closed (B/E exceptions only); no deny rows; case D always denies | **REQUIRES OWNER DECISION** |
+| 5 | **Backward-compatibility strategy** (§12) | S2 explicit per-page flag + audited per-page backfill at adoption; zero cutover data change | **REQUIRES OWNER DECISION** |
+| 6 | **Conceptual `tbl_action_permissions`** (§3) | `id, user_id, page_name, action, created_at`; `UNIQUE(user_id, page_name, action)`; presence = allow | **REQUIRES OWNER DECISION** (exact DDL fixed at build, after approval) |
+| 7 | **Enforcement mechanism** (§13) | `canAccessAction` + `action:` middleware + `action` Gate; no FormRequest/Service authz | **REQUIRES OWNER DECISION** |
+| 8 | **Program/action interaction** (§14) | PAGE → ACTION → PROGRAM order; program only for program-consuming ops; admin screens get no program checks | **REQUIRES OWNER DECISION** |
+| 9 | **Audit grant-change string** (§15.2) | one new string `MANAGE_ACTION_PERMISSIONS` (Open Decision #3 discipline); 7 existing `MANAGE_*` unchanged | **REQUIRES OWNER DECISION** |
+
+#### 19. Open Decision #6 Status
+
+| Component | Status after Pass 9 |
+|---|---|
+| **A. Action-level authorization** | **Complete recommendation produced** (this pass). Still `DEFERRED — REQUIRES OWNER APPROVAL` (§18.1–§18.9). Not implemented. |
+| **B. Municipality/data-scope** | **NOT finalized.** Data-blocked (Pass 2). Assigned to the future Pass 10 research (§23). |
+| **C. Combined model (action + scope)** | **NOT finalized.** Only verified as composable (AND chain, §16). Depends on A approval + B data model. |
+| **D. Final schema** | **UNRESOLVED.** Candidate `tbl_action_permissions` (storage A) is justified (§3, §16.2) but only locked after A approval and B/C shape is known. Any migration is additive + `schema:dump` regen (AGENTS.md). |
+
+Open Decision #6 remains exactly
+`DEFERRED — REQUIRES AUTHORIZATION ARCHITECTURE RESEARCH` pending owner
+approval of A; Pass 9 finalizes nothing.
+
+#### 20. Facts
+
+1. Page-level authorization is the sole v2 mechanism; a page-key holder can
+   exercise every route in the group (Pass 8 §2; this pass's route/controller
+   re-read).
+2. `tbl_permissions`, `tbl_program_permissions`, `tbl_multi_device_exemptions`
+   are verified byte-identical to the production schema (Pass 4 §11).
+3. `'*'` is the sole super-admin marker; no username/id checks exist (grep).
+4. The audit vocabulary enumerates the operations; scholar writes,
+   payout/unpaid deletes, and exports are un-audited (parity); scanner audit
+   strings are `SCAN-*`/`UPDATE-*` dash-style config artifacts (config/scanner.php).
+5. Exactly **three** exports exist: transactions, scholarship reports, unpaid
+   verifications (routes/web.php).
+6. `household.php` has no EDIT route (create/view/delete/feed/search only).
+7. `clients.php` gates sub-resources (family members, duplicates, photos, GIP).
+8. Scanner routes do not check `canAccessProgram` (deferred); transaction
+   create/update do.
+9. Public self-service routes (student/unpaid/grantee/QR) are anonymous (v1
+   parity) and outside any authz layer.
+10. No municipality data-scope exists; `tbl_clients` municipality/barangay are
+    int-in-varchar; only `tbl_unpaid_verifications.municipality_id` is a true FK
+    (Pass 2).
+11. This pass modified **only** this file (`git status` clean elsewhere).
+
+#### 21. Inferences
+
+1. The five pilot pages exercise every canonical action and every enforcement
+   shape (write, export, shared-key, program) with minimal blast radius.
+2. `SCAN` and `MANAGE` as reserved actions give the model room to grow without
+   inventing vocabulary now.
+3. The S2 adoption strategy keeps production byte-identical at cutover and makes
+   each adoption a deliberate, audited event.
+4. The AND chain (page, action, program, scope) is additive and requires no
+   redesign of any existing layer.
+
+#### 22. Unresolved Questions
+
+1. Does the owner approve the §18 decisions (all nine)?
+2. Is the Phase 1 pilot set right, or should scanners/payout adopt first?
+3. Should GIP/family-member creation be `CREATE` on `clients.php` or a future
+   dedicated action (§5.1)?
+4. Is `MANAGE_ACTION_PERMISSIONS` the right single grant-change string (§15.2)?
+5. Should `can_access` flag be included in `tbl_action_permissions` (§3) or is
+   pure presence-of-row sufficient?
+6. Scanner program-gate question (Pass 3 §5 / Pass 4 §14.5) — still deferred;
+   action adoption does not resolve it.
+7. Municipality-scope data model (B) — which tables/columns carry the scope
+   (Pass 2); pre-requisite for Pass 10.
+8. Whether `'*'` is scope-exempt in the future (B) (§10.4, §16.3).
+
+#### 23. Recommended Next Pass
+
+- **Pass 10 — Municipality / Data-Scope Research**: read-only research on the
+  municipality dimension (Open Decision #6.B) **only after the owner picks the
+  scope data model** (Pass 2 evidence + §16.4) and approves the §18 decisions
+  for A. Do not proceed until the user confirms.
+- If the owner **rejects** action-level authorization, Pass 9's contract is
+  archived and Open Decision #6.A is closed as "rejected — page-level stands".
+
+---
+
+**HARD STOP — Pass 9 complete.** No code, schema, migration, route, model,
+controller, service, middleware, FormRequest, view, JS/CSS, test, seeder, or DB
+operation was run; `tbl_action_permissions` was **not** created; P7 was **not**
+modified; no file other than this one was modified. Open Decision #6 remains
+`DEFERRED — REQUIRES AUTHORIZATION ARCHITECTURE RESEARCH`, with A recommended
+(§18, owner approval pending), B/C not finalized (data-blocked), D unresolved.
+Next step: owner approval of the §18 decisions, then Pass 10 (municipality/
+data-scope research) or build.
+
+---
+
+### P10 — Municipality/Data-Scope Authorization Research (2026-08-15)
+
+> **Scope**: research + architecture analysis only — determines the correct
+> architecture for municipality/data-scope authorization (Open Decision #6.B).
+> **Nothing is implemented.** No code, schema, migration, route, model,
+> controller, service, middleware, policy, Blade view, seeder, or test was
+> written; no database (production or local) was touched; v1 was not modified;
+> no file other than this one was modified (verified with `git status`, §22.13).
+> The proposed `tbl_user_municipalities` is **conceptual only** — it is **NOT
+> created**.
+>
+> **Method**: re-read of the P2/P3/P8/P9 evidence already recorded in this
+> document; verification against the committed schema (`database/schema/
+> mysql-schema.sql`) and the P1–P7 v2 source (`routes/web.php`,
+> `config/scanner.php`, controllers, services, `AccessControlService`,
+> `ClientPolicy`); and the P2 v1 trace (§2 references). Every conclusion is
+> labelled FACT / INFERENCE / RECOMMENDATION / REQUIRES OWNER DECISION /
+> UNRESOLVED. No previous finding was contradicted by source evidence during
+> this pass (§20); nothing in P8/P9 was rewritten.
+
+#### 1. Existing Municipality Representation
+
+The municipality dimension is verified from `database/schema/mysql-schema.sql`
+(FACT).
+
+**Dimension root.**
+
+- **`tbl_municipalities`** — `id` INT PK AUTO_INCREMENT, `name`
+  varchar(255) NOT NULL, `code` varchar(5) NULL; KEY `m_n` (`name`). No column
+  on it marks "archived"/"active".
+
+**Real integer FKs to `tbl_municipalities.id` (FACT — the ONLY two in the
+schema):**
+
+1. `tbl_barangays.municipality_id` INT NOT NULL, FK ON DELETE CASCADE.
+2. `tbl_unpaid_verifications.municipality_id` INT NOT NULL, FK (no cascade).
+
+**Per-table classification (FACT, verified in schema + v2 source):**
+
+| Table | Municipality representation | Category |
+|---|---|---|
+| `tbl_municipalities` | dimension root (`id`, `name`, `code`) | — (reference) |
+| `tbl_barangays` | `municipality_id` INT, real FK | **A — direct FK** |
+| `tbl_unpaid_verifications` | `municipality_id` INT, real FK | **A — direct FK** |
+| `tbl_clients` | `city_municipality` varchar(100) **NOT NULL** — int IDs stored as strings; `barangay` varchar(100) — same | **B — varchar/string** (no FK; `KEY idx_clients_muni`, `idx_clients_brgy` exist) |
+| `tbl_household` | none; `head_household` FK → `tbl_clients.id`; municipality **derived via head client** | **C — derived through client** |
+| `tbl_transactions` | none; `client_id` FK → `tbl_clients.id` | **C — derived through client** |
+| `tbl_scholar_info` | none; `client_id` FK → `tbl_clients.id` | **C — derived through client** |
+| `tbl_gip_info` | none; `client_id` FK → `tbl_clients.id` | **C — derived through client** |
+| `tbl_family_members` | none; `client_id`/`relative_id` → `tbl_clients.id` | **C — derived through client** |
+| `tbl_payout_scans` / `tbl_payout_scans2` / `tbl_payout_scans_unpaid` | none; `transaction_id` FK → `tbl_transactions.id` → `client_id` | **C — derived through transaction → client** |
+| `tbl_exam` | `town` varchar(255), `barangay` varchar(255) — **municipality NAME strings**, not ids | **E — display text only** |
+| `tbl_seats` / `tbl_seats2` | `town` varchar(100) — name string | **E — display text only** |
+| `tbl_details`, `tbl_kababaihan`, `temp_details` | `TOWN`/`town` name strings | **E — display text only** (legacy import tables) |
+| `tbl_users` | none | **F — no relationship** |
+| `tbl_permissions` | none | **F — no relationship** |
+| `tbl_program_permissions` | none | **F — no relationship** |
+| `tbl_multi_device_exemptions` | none | **F — no relationship** |
+| `tbl_audit_logs` | none | **F — no relationship** |
+
+**v2 model facts:** `Client` casts `city_municipality`/`barangay` to integer and
+`belongsTo(Municipality::class, 'city_municipality')` (FACT) — the app treats the
+varchar as an int at the model layer while the column stays varchar (parity).
+`UnpaidVerification` has a real integer FK relationship. `HouseholdService::
+generateHouseholdId` derives the household ID prefix from the head client's
+municipality `code` (fallback: name-derived), but the household row itself
+carries no municipality.
+
+**Key conclusion (INFERENCE, consistent with Pass 2):** the schema has **two
+consistent scoping surfaces** — `tbl_clients.city_municipality` (authoritative
+for every client-rooted table) and `tbl_unpaid_verifications.municipality_id`
+(the only standalone row-level FK). Everything else derives through the client
+chain.
+
+#### 2. Current v1 Municipality Filtering
+
+Traced in Pass 2 (§5 table); re-affirmed as FACT here.
+
+- **Pages with municipality filters**: clients, households, all transactions,
+  scanned payouts (3 variants), unpaid verifications, scholarship reports,
+  duplicates.
+- **Mechanism**: filter comes from a GET/POST parameter (`municipality`,
+  `municipality_id`, `brgy`, `barangay`) and becomes a SQL `WHERE` on
+  `c.city_municipality` (client-rooted) or `uv.municipality_id` (unpaid).
+- **Default behavior**: parameter absent ⇒ **no municipality condition ⇒ "All
+  municipalities"** (FACT).
+- **Joins**: `INNER/LEFT JOIN tbl_municipalities m ON m.id = c.city_municipality`
+  (int-vs-varchar comparison works because the varchar holds integer strings).
+- **Exports**: `export_unpaid_verifications.php`, `fetch_scholarship_reports.php`
+  CSV path, transaction export — same param-driven WHERE; **omitted param ⇒
+  full export** (FACT).
+- **Writes**: `add_client.php` `intval()` on municipality; `unpaid_save.php`
+  stores the submitted `municipality_id` with **no client cross-check**;
+  scanner saves accept any client/transaction id with no municipality
+  restriction (FACT — Pass 2 §5, §6).
+- **Public self-service verify**: `search_grantee.php`/`search_unpaid_grantee.php`
+  compare `intval(client.city_municipality) !== submitted municipality_id` and
+  reject ("Municipality does not match our records.") — **an integrity check,
+  not authorization** (FACT).
+
+**Verdict (INFERENCE):** v1 municipality filtering is **reporting/filtering, not
+authorization**. No user is ever restricted; the default is "All"; filters are
+omittable client-side and only shape result sets.
+
+#### 3. Current v2 Municipality Handling
+
+Verified against v2 source (FACT for every bullet).
+
+- **Where values are read**: `ClientController::data()`, `DuplicateController::
+  data()`, `HouseholdController::data()`, `TransactionController::data()` +
+  `applyExportFilters()`, `PayoutAttendanceController::data()`,
+  `ReportController::scholarshipData()`/`scholarshipExport()`, and
+  `UnpaidVerificationController::data()`/`export()` all read an optional
+  municipality parameter and apply `WHERE` only when present.
+- **Centralized?** **NO.** Every controller builds its own join + WHERE. The
+  single `AccessControlService` (the one authorization service) has **no
+  municipality concept** — its surface is `isSuperAdmin`, `canAccessPage`,
+  `canAccessProgram`, `isSingleDeviceExempt`, `isMultiDeviceExempt`,
+  `permittedPages`, `permittedPrograms` (FACT).
+- **Writes validate municipality ownership?** **NO.**
+  - `ClientRequest` requires `city_municipality` `integer|exists:
+    tbl_municipalities,id` — a well-formedness check (must be a real id), **not
+    an ownership/scope check** (FACT).
+  - `TransactionController::store()`/`update()` validate `client_id` exists and
+    authorize the **program**, never the municipality (FACT).
+  - `UnpaidVerificationController::store()` (public) checks only
+    `client_id != 0 && municipality_id != 0`; the stored `municipality_id` is
+    **not cross-checked against the client** (parity with v1 `unpaid_save.php`)
+    (FACT).
+  - Scanner `ScanService::save()` writes against the looked-up client/transaction
+    with no municipality restriction (FACT — Pass 3/4 evidence; client
+    municipality resolved to a name for display only).
+- **Exports honor municipality filters?** Only when the param is supplied;
+  `transactions.export`, `scholarship-reports.export`, and
+  `unpaid-verifications.export` all stream **the full permitted set when the
+  param is omitted** (subject only to program filters where present) (FACT).
+- **Services receive municipality scope?** **No service takes a scope argument**
+  (FACT — `TransactionService`, `ScanService`, `ClientService`, etc. operate on
+  ids, not scopes).
+- **Policies/middleware enforce scope?** **None.** The only policy
+  (`ClientPolicy::delete`) delegates to `canAccessPage` (FACT). `AuthorizePage`
+  is page-level only.
+- **Existing authorization layer with scope semantics?** **None.** (FACT —
+  grep confirms zero municipality references in `tbl_users`,
+  `tbl_permissions`, `tbl_program_permissions`, `tbl_multi_device_exemptions`.)
+
+#### 4. Data-Scope Security Gap
+
+The gap is where a **future** restriction must be enforced; today there is no
+restriction to bypass (INFERENCE — "do not overstate"). For each vector:
+
+| Bypass vector | Example | Existing v1 behavior | Existing v2 behavior | Future authorization requirement |
+|---|---|---|---|---|
+| Change URL param | `?municipality=1` → `=2` | returns muni-2 rows | identical (parity) | feed queries must override the client param with the effective scope (or reject out-of-scope params) |
+| Omit the municipality filter | call `transactions.data` with no `municipality` | full dataset | full dataset | scope predicate must be injected server-side regardless of params |
+| Change a POST field | `municipality` on feeds (DataTables sends POST) | same | same | same as above |
+| Change a hidden form field | `head_household` on households.create | no check | no check | head client must be within scope before household creation |
+| Change an ID | `transactions/{id}` show/edit/update/destroy; `clients/{id}` | page-gated only | page-gated only | single-record check must compare the record's municipality to scope |
+| Change `client_id` | `transactions.store` posts another client | no check | no check | store must load the client and scope-check it |
+| Change `municipality_id` | public `unpaid-verification/submit` | stored as-is, no cross-check | stored as-is, no cross-check (parity) | public flows are **out of scope** by design (anonymous); admin unpaid handling must scope-check the row |
+| Request an export directly | `transactions/export` with no params | full export | full export | export must apply scope predicate server-side (§18) |
+| Call a feed directly | `clients/data`, `households/data`, `payout-attendance/*/data` | full dataset | full dataset | feed scope injection (§13) |
+| Call a detail endpoint directly | `households/{household}` show | page-gated | page-gated | single-record scope check |
+| Scanner lookup/save | POST `/scanners/{key}/save` with arbitrary id | no check | no check | SCAN action + scope check on the target client/transaction when adopted |
+
+**Categorization (INFERENCE):** every row is **existing v1 + existing v2
+behavior** (byte-identical parity) and becomes a **future authorization
+requirement** if data-scope is adopted. No row is a v2-only regression.
+
+#### 5. Scope Model Options
+
+Evaluated against the five moderators in the objective (A–E) and the verified
+schema.
+
+| Option | Description | Fits 2DMIS? | Blockers |
+|---|---|---|---|
+| **A. Single municipality per user** | one `municipality_id` on the user | **No** (Moderator C needs several) | rejects the "multiple municipalities" requirement outright |
+| **B. Multiple municipalities per user** | a user↔municipality pivot | **Yes** — supports Moderator A/B/C | none; standard additive table |
+| **C. All-municipalities flag** | boolean "all" per user | Partial — needs to coexist with B | creates a three-state model (none / subset / all); representation question (§16) |
+| **D. Municipality permission table** | rows `(user_id, municipality_id)` | **Yes** — this IS option B; a permission-style pivot | naming only; must be additive |
+| **E. Scope attached to page/action permission** | municipality column on `tbl_permissions` / `tbl_action_permissions` | **No** | couples a data dimension to operation grants; duplicates assignments per (page,action); pollutes v1-identical tables (ADR-003) |
+| **F. Scope attached to program permission** | municipality on `tbl_program_permissions` | **No** | municipality is orthogonal to programs (a user may own all programs in one town, or one program in all towns) |
+| **G. Separate reusable municipality-scope table** | `tbl_user_municipalities` (user_id, municipality_id) + all-marker | **Yes** — the recommended shape of B/D | none; name is the only choice |
+| **H. Role-based municipality scope** | roles carry municipalities | **No** | v2 has **no role concept** (permission rows are per-user); introducing roles is a much larger change than this decision |
+
+**Recommendation (RECOMMENDATION):** option **B/G** — a dedicated, additive
+user↔municipality pivot. Options A, E, F, H are rejected for the stated reasons;
+C is folded in as the "all" representation inside the pivot (§16) rather than a
+separate boolean.
+
+#### 6. Recommended Scope Architecture
+
+**RECOMMENDATION — the scope is USER-LEVEL, not page/action/program-level.**
+
+- **Ownership**: a user-level set of municipalities (one, many, or all).
+- **Single vs multiple**: multiple — the pivot supports 1..n; "all" is a
+  marker inside it (§16).
+- **"All municipalities"**: represented by an explicit all-scope marker, not by
+  "absence of rows" (§16 — recommended but **REQUIRES OWNER DECISION**).
+- **"No municipalities"**: represented by zero rows + no all-marker. **Fails
+  closed** — the user has scope over **no** municipality data (§17).
+- **Super Admin bypass**: `'*'` bypasses page, action, program **and** scope
+  without needing scope rows (§9).
+- **User has page/action access but no municipality scope**: on a
+  scope-enforced module, **denies all municipality-sensitive reads/writes**
+  (fail closed, §17). On non-scoped pages (P7 admin, audit viewer) scope does
+  not apply.
+- **User has municipality scope but no page/action permission**: **denied** —
+  scope never grants entry; page remains the gate.
+
+**Evaluation model (RECOMMENDATION, with justification):**
+
+```
+canEnterModule   = canAccessPage(USER, page)             — entry gate (unchanged)
+canPerformAction = canAccessAction(USER, page, action)   — P9 operation gate
+canUseProgram    = canAccessProgram(USER, program)       — P3 gate (unchanged)
+canTouchRecord   = recordMunicipality ∊ userScope(USER)  — NEW row gate
+effectiveAccess  = canEnterModule AND canPerformAction
+                   AND canUseProgram AND canTouchRecord
+```
+
+**Justification for the AND relationship (INFERENCE):** each dimension answers a
+different question (which module / which operation / which program / which data
+rows). OR-ing any dimension would let one grant widen another; the moderators in
+the objective are separable — e.g. Moderator B has VIEW on Transactions but not
+CREATE (action differs) while Moderator A has both (page/action differ);
+Moderator D has no Transactions access at all (page fails, everything below is
+moot); Moderator C needs two municipalities (scope differs). Only AND satisfies
+all five simultaneously without inventing roles or composite keys. **REQUIRES
+OWNER DECISION** to accept the AND chain as final.
+
+#### 7. Interaction With P9 Action Authorization
+
+Scope composes with every P9 action (RECOMMENDATION — future enforcement rules,
+not implementation):
+
+| Action | Scope rule |
+|---|---|
+| **VIEW** | every list/search/detail/feed row returned must have `recordMunicipality ∊ userScope` — feeds inject the scope predicate; single-record endpoints scope-check before serving |
+| **CREATE** | the **submitted municipality must be within scope**: for `clients.php`, the posted `city_municipality`; for derived writes (transaction via client, scholar via client, GIP via client, household via head client), the **client's** `city_municipality` must be in scope (the write itself posts no municipality); for unpaid, the submitted `municipality_id` must be in scope |
+| **EDIT** | the **existing record's municipality must be in scope** (client edit: `city_municipality`; transaction/scholar/GIP edit: the bound client's municipality; also the **new** municipality on client edits must be in scope) |
+| **DELETE** | the **existing record's municipality must be in scope** (client delete: `city_municipality`; duplicates batch-delete: each target client; payout/unpaid list deletes: via client / row FK) |
+| **EXPORT** | **every exported row must be within scope** — the scope predicate is applied to the export query server-side; the UI filter parameter must not be trusted (§18) |
+| `SCAN` (reserved, P9 §4) | when adopted: the looked-up/created client (or transaction) must be in scope — a scanner save is both a `SCAN`-action write and a scope-touching write |
+
+**CREATE/EDIT/DELETE nuance (INFERENCE):** transactions, scholars, GIP, and
+households have **no municipality column** — their scope check is a **join back
+to `tbl_clients`** at enforcement time (the same join the feeds already use).
+`tbl_unpaid_verifications` is the one table with an **own** FK, so its scope
+check is direct.
+
+#### 8. Interaction With Program Permissions
+
+- **No redesign** of `tbl_program_permissions` (RECOMMENDATION — P9 §14; P3 is
+  final).
+- **Chain**: `Page AND Action AND Program AND Municipality` (§6) — the
+  four-dimension AND model. Program and municipality are **independent
+  dimensions** (FACT: a moderator could legitimately hold {GIP} programs across
+  all towns, or all programs within one town — neither implies the other).
+- **Transactions**: program permission already narrows
+  `TransactionController::data()`/`store()`/`export()` (FACT). Municipality adds
+  an **orthogonal row restriction**: program filters the `program` column; scope
+  filters the client-join municipality. Both apply on the same query.
+- **Admin screens / audit viewer**: no program checks today (P7/Pass 8 §8.3)
+  and **no scope** — they manage metadata (users/permissions), not
+  municipality-bearing data rows (§13 exceptions).
+
+#### 9. Super Admin Semantics
+
+**RECOMMENDATION — `'*'` means all pages, all actions, all programs, AND all
+municipalities, without requiring any scope rows.**
+
+```
+isSuperAdmin(USER) == '*' in tbl_permissions
+   ⇒ canAccessPage:      true
+   ⇒ canAccessAction:    true          (P9 §10)
+   ⇒ canAccessProgram:   true
+   ⇒ effectiveScope:     ALL           (no tbl_user_municipalities rows needed)
+```
+
+- **Consistency check (INFERENCE):** this mirrors P8/P9 exactly — `'*'` is the
+  single marker that already satisfies every page gate and every program gate;
+  extending it to scope is the same rule applied to a fourth dimension, and it
+  keeps "Super Admin" in the objective working (no scope rows, no UI lockout).
+- **No scope rows required, and scope rows for a `'*'` user are** ignored
+  (harmless) **RECOMMENDATION**.
+- **REQUIRES OWNER DECISION** whether a `'*'` user may ever be *restricted* by
+  scope in the future (P9 §10.4 — currently recommended **not**).
+
+#### 10. Existing Database Constraints
+
+What the schema permits without breaking production compatibility (FACT):
+
+- **FK limitations**: only `tbl_barangays` and `tbl_unpaid_verifications` FK
+  to `tbl_municipalities`. `tbl_clients.city_municipality` has **no FK** (a
+  varchar holding integer strings). Adding a scope pivot is safe; adding a FK on
+  `city_municipality` would require a data-repair migration — **not
+  recommended**.
+- **varchar municipality fields**: `tbl_clients.city_municipality`/
+  `barangay` (int-in-varchar); `tbl_exam.town`; `tbl_seats*.town`;
+  `tbl_details.TOWN`; `tbl_kababaihan.town` — only `tbl_clients` is
+  scoping-relevant; the rest are display/legacy text.
+- **Integer municipality IDs**: `tbl_barangays.municipality_id`,
+  `tbl_unpaid_verifications.municipality_id`.
+- **Derived relationships**: household/transactions/scholar/GIP/family/payout
+  all derive through `client_id` → `tbl_clients`.
+- **Missing constraints**: no FK, no CHECK on `city_municipality` (any string
+  accepted by the schema; app validates `exists:` on writes).
+- **Nullable fields**: `tbl_unpaid_verifications.municipality_id` is
+  NOT NULL; `tbl_clients.city_municipality` is NOT NULL.
+- **Existing indexes**: `idx_clients_muni` (`city_municipality`),
+  `idx_clients_brgy` (`barangay`), `KEY m_n` on `tbl_municipalities.name`,
+  `municipality_id` keys on barangays/unpaid. The scoping joins are already
+  index-backed.
+- **Existing uniqueness**: `uniq_permission_user_page` (permissions),
+  `uniq_program_permission_user_program` (programs), `user_id` (exemptions),
+  `household_id` (household), `client_id`/`relative_id` (family), `username`
+  (users).
+- **Tables requiring joins to determine municipality**:
+  `tbl_household`, `tbl_transactions`, `tbl_scholar_info`, `tbl_gip_info`,
+  `tbl_family_members`, `tbl_payout_scans*` (all via `tbl_clients`).
+
+**Compatibility (INFERENCE):** a **user-scope pivot** (option B/G) is the only
+model that is fully compatible with the existing production schema without
+touching any existing table. Every other option either repurposes an existing
+column (forbidden) or invents a per-row/per-action scope that the derived tables
+cannot satisfy.
+
+#### 11. Additive Schema Compatibility
+
+**Conceptual additions (NOT created; exact DDL fixed at build, after owner
+approval):**
+
+**1. `tbl_user_municipalities` — the scope pivot.**
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | INT PK AUTO_INCREMENT | project convention |
+| `user_id` | INT NOT NULL | mirrors `tbl_permissions.user_id` |
+| `municipality_id` | INT NOT NULL | → `tbl_municipalities.id` |
+| `created_at` | DATETIME (optional) | grant-time accountability |
+| unique | `UNIQUE(user_id, municipality_id)` | `tbl_program_permissions` pattern; idempotent full-replace target |
+
+- **Purpose**: the user's effective municipality set.
+- **Relationship**: N:M user↔municipality; additive; **no existing table is
+  altered**.
+- **Required?** Yes — if data-scope is adopted (there is no other compatible
+  home, §10).
+- **Ambiguity risk**: none (mirrors `tbl_program_permissions` exactly).
+
+**2. All-municipality marker — representation to be finalized (§16).**
+Candidates: a sentinel row (`municipality_id` = reserved value / `NULL` with a
+flag) or a separate `tbl_user_all_municipalities`-style row. **UNRESOLVED** —
+depends on §16 owner decision. No column on `tbl_users` is proposed (avoid
+polluting the auth table).
+
+**3. No changes to `tbl_clients`, `tbl_unpaid_verifications`, or any derived
+table.** Scope is evaluated by **joining to `tbl_clients`** (or using the unpaid
+FK) at query time — no per-row scope columns, no data backfill.
+
+**Does it affect existing tables?** No. **Additive?** Yes (new tables only;
+`schema:dump` regen per AGENTS.md). **Risks ambiguity?** Only if the all-marker
+is added later without a decision (§16) — hence the explicit owner decision.
+
+#### 12. Scope Enforcement Location
+
+Distinguish two layers (RECOMMENDATION):
+
+**A. Page/action authorization** — *operation* gate, already defined:
+middleware (`page:`, future `action:`) + `AccessControlService`
+(`canAccessPage`, P9 `canAccessAction`). This decides **which operations** a user
+may attempt. It is **not** row-sensitive.
+
+**B. Row/data authorization** — *record* gate, new: decides **which rows** may
+be read/written. Because the v2 feeds, exports, and detail endpoints are
+directly addressable and use the **query builder (`DB::table`) — not Eloquent
+models** (FACT), a global Eloquent scope **cannot** be the enforcement seam
+(queries never touch the models). The workable seams are:
+
+1. **A single scope service** — `AccessControlService::effectiveMunicipalityIds
+   (User)` (+ `canAccessRecord(User, table, recordMunicipality)`) as the one
+   authority for "what is in scope" — canonical, cacheable, testable
+   (mirrors `permittedPrograms`).
+2. **Query-scope application at composition time** — every
+   municipality-sensitive feed/export query gets an injected `whereIn(scope)`
+   clause composed by the service, so filters, exports, and feeds cannot be
+   widened by parameters (§4).
+3. **Record-level check on single-record and write endpoints** — show/edit/
+   update/destroy/export single row: fetch → compute record municipality
+   (direct or client-join) → `canAccessRecord` → 403/deny.
+4. **Controller/service/policy**: the check lives **in the service layer + a
+   policy or controller call**, not in `FormRequest` (requests validate shape,
+   not scope — consistent with P9 §13.4).
+
+**Why UI filtering is insufficient (FACT):** every municipality filter today is
+a client-supplied parameter; there is nothing server-side tying a page-gated
+user's result set to a scope. A restricted user calling any feed/export directly
+without the filter receives the full dataset (§3, §4). UI-only hiding would leave
+every direct endpoint open.
+
+#### 13. Read Operations
+
+**Requirement (RECOMMENDATION):** every municipality-sensitive read must respect
+the effective scope.
+
+| Read surface | Must scope? | Mechanism (conceptual) |
+|---|---|---|
+| index/list (page) | yes | view may render the dropdown limited to scope; the feed is the boundary |
+| search (client picker used by transactions/scholars/households) | yes | scope `whereIn` on the shared search queries (they join `tbl_clients`) |
+| detail/show (`clients/{id}`, `households/{id}`, `transactions/{id}`) | yes | record municipality check |
+| dashboard | yes (counts/summaries that show data rows) | scope the aggregate queries (future; P1 parity today shows all) |
+| reports (`scholarship-reports/data` + export) | yes | scope on the client join |
+| feeds (`*/data`) | yes | scope injection (§12.B) |
+| AJAX (barangay cascade, mobile verify, grantee verify-mobile) | no (geo/lookup helpers, no data rows) | exception |
+| exports | yes (§18) | scope predicate in the export query |
+| audit viewer / leaderboard | **no exception is needed** — `tbl_audit_logs` has no municipality dimension (FACT) | not scopeable |
+| P7 admin screens (users/permissions/exemptions) | **no exception** — metadata, no municipality data | not scopeable |
+| public self-service (student/unpaid/grantee/QR) | **no exception** — anonymous by design, outside any authz layer (P8 §3) | N/A |
+
+#### 14. Write Operations
+
+**Requirement (RECOMMENDATION) — each write checks the municipality it creates
+or touches:**
+
+| Write | Submitted value to authorize | Existing record to authorize | Derived (client) municipality |
+|---|---|---|---|
+| client CREATE | posted `city_municipality` ∊ scope | — | — |
+| client EDIT | new `city_municipality` ∊ scope | existing client's municipality ∊ scope | — |
+| client DELETE / duplicate batch-delete | — | each target client ∊ scope | — |
+| transaction CREATE | — | — | bound client ∊ scope (the write posts no municipality) |
+| transaction EDIT / inline-update | — | transaction's client ∊ scope | — |
+| transaction DELETE | — | transaction's client ∊ scope | — |
+| household CREATE | head client ∊ scope | — | — |
+| household DELETE | — | head client ∊ scope | — |
+| scholar CREATE / EDIT / relink | — | scholar's client ∊ scope | — |
+| GIP CREATE / EDIT | — | client ∊ scope | — |
+| scanner save (when adopted) | — | target client/transaction ∊ scope | — |
+| unpaid admin delete | — | row's own `municipality_id` ∊ scope | — |
+| unpaid public submit | **out of scope** — anonymous flow (v1 parity); its `municipality_id` stays un-cross-checked until the owner decides otherwise | — | — |
+
+**Verification note (FACT):** transactions/scholars/GIP/households have no own
+municipality column — "record municipality" always means **the bound client's
+`city_municipality`** (derived, §1), resolved at enforcement time. The unpaid
+row is the only table whose own column is used.
+
+#### 15. Multi-Municipality Users
+
+- **Requirement is real (FACT — objective Moderator C):** one user may need
+  Transactions and/or Scholars across several municipalities.
+- **Architecture (RECOMMENDATION):** support **one, many, and all** without
+  separate accounts:
+  - one / many → the `tbl_user_municipalities` pivot rows;
+  - all → the all-marker (§16);
+  - no separate user account required in any case (pivot rows are per-user).
+- **Edge cases handled (INFERENCE):** a user with a pivot row for {A, B} sees A+B
+  only (feeds inject `IN (A,B)`); adding C is one new row (P7-style admin
+  screen, future); removing all rows without the all-marker = no scope (§17).
+
+#### 16. "All Municipalities" Semantics
+
+| Option | Mechanism | Security | Maintainability | Verdict |
+|---|---|---|---|---|
+| A. special `'*'`-like marker | reuse the `'*'` concept in the scope pivot (e.g. reserved `municipality_id` or an `all=1` row) | distinct from `'*'` user marker; cannot be granted accidentally | one row instead of 34 | **Recommended** (inside the pivot) |
+| B. `NULL` | `NULL` municipality_id = all | ambiguous: NULL rows are indistinguishable from "unset"; risky with UNIQUE constraints | poor — `whereIn` vs null logic | reject |
+| C. dedicated boolean | `all_municipalities` on the pivot or user | two-state; cannot express "all" + nothing else | separate column to keep in sync | acceptable, but adds a column where a row suffices |
+| D. dedicated scope row | e.g. `tbl_user_all_municipalities` | clean; another table | extra table | acceptable |
+| E. another mechanism (role/env) | — | n/a (no roles; env is global) | n/a | reject |
+
+**RECOMMENDATION — Option A as a marker inside the pivot** (either a reserved
+sentinel `municipality_id` documented as "ALL" or an `is_all` flag on a single
+pivot row), with the exact column chosen at build. The marker must be a **grant**
+(only an admin with scope-management can set it), never a default. **REQUIRES
+OWNER DECISION** on the precise representation.
+
+#### 17. No-Scope Semantics
+
+**RECOMMENDATION — fail closed.** A user with page/action/program access but
+**no municipality scope and no all-marker** has scope over **zero** records:
+
+- reads: feeds/exports/search return **empty**; single-record endpoints deny;
+- writes: CREATE/EDIT/DELETE deny (no in-scope record can even be addressed);
+- on non-scoped surfaces (audit viewer, P7 admin, public flows) scope does not
+  apply.
+
+**Rationale (INFERENCE):** the only safe default for a *data-scoping* feature is
+that an un-configured user sees nothing, not everything. The alternative
+(no-scope = all) would silently grant every existing page-gated user full data —
+the exact accident the feature is meant to prevent (§21).
+
+**Cutover caveat (RECOMMENDATION):** because today's users are all
+implicitly "all", flipping on fail-closed scope for a module changes behavior
+for everyone. Cutover must follow the P9 S2 pattern — grant scope rows for
+existing users **before** enforcement per module (§21).
+
+#### 18. Export Security
+
+**Requirement (RECOMMENDATION — treat exports as a distinct security surface):**
+
+1. **Scope predicate is applied server-side to the export query** — the same
+   `whereIn` injection as feeds (§12.B). An export URL with no municipality
+   param, or with an out-of-scope param, yields **only** in-scope rows (or an
+   empty file), never a widening.
+2. **The three existing exports** (`transactions.export`,
+   `scholarship-reports.export`, `unpaid-verifications.export`) are the exact
+   routes that must carry the predicate when their module adopts scope (FACT —
+   they currently stream the full permitted set on param omission, §3).
+3. **UI filter is presentation** — the CSV link's municipality/barangay values
+   are client-chosen; the server recomputes scope regardless.
+4. **No future export** (e.g. payout attendance) may be added without the same
+   predicate at adoption time (P9 §8.5 applies to scope as well).
+5. **Export is never a bypass** around row-level restrictions: a user scoped to
+   A cannot produce a CSV containing B by any combination of parameters.
+
+#### 19. Scope + Audit
+
+- **Scope grant changes should be audited (RECOMMENDATION).** The existing
+  `AuditService` convention (P7 §12; `target_table`, `target_id`,
+  `old_value`/`new_value` JSON) supports it without new infrastructure (FACT).
+- **Reusable convention (INFERENCE):** future events
+  `MANAGE_SCOPE_GRANT` / `MANAGE_SCOPE_REVOKE` / `MANAGE_SCOPE_ALL`
+  (final names **not** decided here) with `target_table =
+  'tbl_user_municipalities'`, `target_id` = the subject user id, and
+  `old_value`/`new_value` carrying `{'username', 'municipalities': [ids], 'all':
+  bool}` — the same shape as the P9-proposed `MANAGE_ACTION_PERMISSIONS`
+  (§15.2 of Pass 9). **REQUIRES OWNER DECISION** on the final strings; nothing
+  is added now.
+- **No read-audits** — scope evaluation itself writes nothing (P9 §15.3
+  discipline).
+- **No secrets** in scope/audit payloads (P9 §15.4).
+
+#### 20. Scope + Action Permission Table
+
+| Option | Mechanism | Verdict |
+|---|---|---|
+| **A. Independent of action permissions** | scope = user-level pivot; action rows stay `(user, page, action)` | **Recommended** — scope is a data dimension owned by the user, not by an operation grant; one scope set serves every page/action; no duplication |
+| **B. Embedded in action permission records** | municipality on `tbl_action_permissions` rows | Rejected — would duplicate the same municipality list across every (page,action) row for the same user, make "add municipality C" a multi-row update, and couple operation grants to a data dimension that outlives them |
+
+**Recommendation (RECOMMENDATION):** **A — independent**. Scope is evaluated at
+row-access time by joining the user's pivot to the record's municipality,
+regardless of which page/action the user reached the record through. This also
+keeps the P9 `tbl_action_permissions` design untouched and additive.
+
+#### 21. Migration/Cutover Considerations
+
+Future bootstrap requirements only (nothing is migrated in this pass):
+
+1. **Existing users** are implicitly "all" today (no restriction exists). Under
+   fail-closed scope (§17), every non-`'*'` user with page access to a
+   scoped module **must receive explicit scope rows (or the all-marker) before
+   that module's enforcement flips on** — otherwise they silently see nothing
+   (lockout) or, if no-scope defaulted to all, everything (over-grant).
+2. **Super Admin (`'*'`)** is unaffected — no scope rows needed, scope bypass
+   guaranteed (§9). No data change.
+3. **Page-permission holders** keep their page rows; scope is additive and does
+   not touch `tbl_permissions`.
+4. **Program-permission holders** keep their program rows; scope is orthogonal
+   (§8). No change.
+5. **Users with no explicit permissions** remain unable to enter any module —
+   scope rows do not grant page entry (§6). No change.
+6. **Existing production records** remain byte-identical — scope is evaluated
+   by join, no per-row backfill (§11.3).
+7. **Adoption sequence (RECOMMENDATION):** grant scope → flip module
+   enforcement → audit each step — the P9 S2 per-page procedure reused for
+   scope. There is **no migration** in this pass and none is designed yet
+   beyond the additive `tbl_user_municipalities` + all-marker.
+
+#### 22. Final Recommendation
+
+1. **Municipality scope ownership** — **VERIFIED**: schema has two consistent
+   scoping surfaces (`tbl_clients.city_municipality`, `tbl_unpaid_verifications.
+   municipality_id`); everything else derives via client. **RECOMMENDED**: scope
+   is **user-level**.
+2. **Single vs multiple** — **RECOMMENDED**: multiple (pivot), covering one,
+   many, all.
+3. **All-municipality semantics** — **RECOMMENDED**: explicit all-marker inside
+   the pivot (Option A, §16); **OPEN DECISION** on the exact column/flag.
+4. **No-scope semantics** — **RECOMMENDED**: **fail closed** (zero records;
+   §17).
+5. **Super Admin behavior** — **RECOMMENDED**: `'*'` = all pages/actions/
+   programs/municipalities, no scope rows needed (§9).
+6. **Interaction with page permissions** — **RECOMMENDED**: page remains the
+   entry gate; scope is applied after it (AND, §6).
+7. **Interaction with P9 action permissions** — **RECOMMENDED**: scope
+   composes with VIEW/CREATE/EDIT/DELETE/EXPORT (and reserved SCAN) as defined
+   in §7; scope is **independent** of action rows (§20).
+8. **Interaction with program permissions** — **RECOMMENDED**: independent AND
+   dimension; no change to `tbl_program_permissions` (§8).
+9. **Read enforcement** — **RECOMMENDED**: scope injection into every
+   municipality-sensitive feed/search/export/detail; UI-only filtering rejected
+   (§12, §13).
+10. **Write enforcement** — **RECOMMENDED**: CREATE/EDIT/DELETE scope-check the
+    submitted/derived/existing record municipality (§14).
+11. **Export enforcement** — **RECOMMENDED**: server-side scope predicate on all
+    exports; exports are never a bypass (§18).
+12. **Audit considerations** — **RECOMMENDED**: future scope grant/revoke/all
+    events via the existing `AuditService` convention; names **OPEN DECISION**
+    (§19).
+13. **Additive schema compatibility** — **RECOMMENDED**: one additive pivot
+    `tbl_user_municipalities` (+ all-marker); **no** alteration of any existing
+    table or column (§11). **OPEN DECISION** on the all-marker representation.
+
+**Verdict (INFERENCE):** the combined model is
+`Page AND Action AND Program AND Municipality` — every dimension independent,
+additive, and byte-compatible with production. Nothing is implemented.
+
+#### 23. Update Open Decision #6
+
+Open Decision #6 — **Fine-Grained Authorization Architecture** — remains
+**DEFERRED — REQUIRES OWNER APPROVAL**, now with complete recommendations for
+both dimensions:
+
+| Component | Status after P9 + P10 |
+|---|---|
+| **A. Action-level authorization** | **RECOMMENDED (complete contract, P9 §18)** — not approved, not implemented |
+| **B. Municipality/data-scope** | **RECOMMENDED (complete research, this pass)** — not approved, not implemented; requires the owner to pick the scope **data model** (pivot + all-marker representation) |
+| **C. Combined model** | **Architecture verified** as the AND chain `Page ∧ Action ∧ Program ∧ Municipality` — **not finalized** (depends on A and B approval) |
+| **D. Final schema** | **UNRESOLVED** — candidates `tbl_action_permissions` (P9) and `tbl_user_municipalities` (+ all-marker) proposed; any migration additive + `schema:dump` regen (AGENTS.md); nothing created |
+
+The overall decision **stays DEFERRED** until the owner approves the P9 §18 and
+P10 §24 checklists.
+
+#### 24. Owner Approval Checklist
+
+Future owner decisions (approve the **architecture**, not implementation):
+
+1. **Municipality scope model** — user-level pivot (option B/G) vs alternatives
+   (§5).
+2. **Single vs multiple municipalities** — multiple supported via pivot (§15).
+3. **All-municipality representation** — all-marker inside the pivot vs boolean
+   vs separate table (§16).
+4. **No-scope behavior** — fail closed (§17).
+5. **Super Admin scope bypass** — `'*'` = all, no scope rows (§9).
+6. **Action + municipality composition** — scope applies to
+   VIEW/CREATE/EDIT/DELETE/EXPORT (+ reserved SCAN) per §7.
+7. **Program + municipality composition** — independent AND dimension; program
+   permissions untouched (§8).
+8. **Enforcement architecture** — scope service + query injection + record-level
+   checks; UI filtering rejected (§12).
+9. **Migration/cutover strategy** — P9-S2-style per-module adoption; no data
+   backfill; additive table only (§21).
+
+---
+
+**HARD STOP — Pass 10 complete.** No code, schema, migration, route, model,
+controller, service, middleware, policy, view, test, seeder, or DB operation
+was run; `tbl_user_municipalities` was **not** created; no existing table was
+altered; v1 was not modified; the local or production database was not touched;
+no file other than this one was modified (verified with `git status`). Open
+Decision #6 remains `DEFERRED — REQUIRES AUTHORIZATION ARCHITECTURE RESEARCH`,
+with A (action) and B (municipality/data-scope) both carrying complete
+recommendations pending owner approval, C verified-composable but not
+finalized, and D unresolved. Next step: owner approval of the P9 §18 and P10
+§24 checklists, then build (or further research only on owner instruction).
+
+---
+
+### P11 — Combined Authorization Architecture Contract (2026-08-15)
+
+> **Scope**: research + architecture contract only — reconciles the P8 action
+> research, the P9 action contract, and the P10 municipality/data-scope research
+> into **one** proposed authorization architecture. **Nothing is implemented.**
+> No code, schema, migration, route, model, controller, service, middleware,
+> policy, view, seeder, or test was written; no database (local or production)
+> was touched; v1 was not modified; no file other than this one was modified
+> (verified with `git status`). `tbl_action_permissions` and
+> `tbl_user_municipalities` remain **conceptual — NOT created**.
+>
+> **Method**: synthesis and validation of P8 (research), P9 (action contract),
+> and P10 (municipality research) against the verified v2 baseline
+> (`routes/web.php`, `config/scanner.php`, `AccessControlService`,
+> `AppServiceProvider` Gates, `AuthorizePage`, `ClientPolicy`,
+> `database/schema/mysql-schema.sql`). Every statement is labelled FACT /
+> INFERENCE / RECOMMENDATION / REQUIRES OWNER DECISION / UNRESOLVED. No previous
+> finding was contradicted; P8/P9/P10 are preserved unchanged and referenced,
+> not repeated.
+
+#### 1. Current Authorization Baseline
+
+Verified v2 baseline (FACT — P7 contract; `AccessControlService`,
+`AppServiceProvider`, `AuthorizePage`, schema):
+
+| Mechanism | Current shape | Status in the target architecture |
+|---|---|---|
+| **`tbl_permissions`** | `id, user_id, page_name varchar(100), can_access tinyint(1) default 1`; `UNIQUE(user_id, page_name)` | **UNCHANGED** — stays the page gate and the `'*'` home |
+| **`'*'` Super Admin marker** | a `page_name='*'` row in `tbl_permissions`; sole super-admin marker; satisfies every page gate (FACT) | **UNCHANGED** — semantics extended to bypass action/program/scope (§11) |
+| **`AccessControlService`** | the one ACL service: `isSuperAdmin`, `canAccessPage`, `canAccessProgram`, `isSingleDeviceExempt`, `isMultiDeviceExempt`, `permittedPages`, `permittedPrograms` | **UNCHANGED core** — gains `canAccessAction` (P9) + scope methods (P10) as the single authority (ADR-003) |
+| **`page:` middleware** (`AuthorizePage`) | 403 JSON on `expectsJson()` else redirect-dashboard + `login_status=denied`; applied on every route group | **UNCHANGED** — remains the page gate; `action:` is a new sibling (P9 §13) |
+| **Gates** | `Gate::define('page', ...)` and `Gate::define('program', ...)` in `AppServiceProvider`, both delegating to `AccessControlService` | **UNCHANGED** — a new `action` Gate is added (P9 §13) |
+| **`tbl_program_permissions`** | `id, user_id, program_name varchar(100)`; `UNIQUE(user_id, program_name)`; empty set = unrestricted (v1 parity, FACT) | **UNCHANGED** — independent dimension (§12) |
+| **Multi-device exemptions** | `tbl_multi_device_exemptions` (single-device bypass); single-device login via `session_token` | **UNCHANGED** — orthogonal to authorization (session/device layer) |
+| **`AuditService`** | sole audit writer; 7 approved `MANAGE_*` strings; `target_table`/`target_id`/`old_value`/`new_value` convention | **UNCHANGED** — future scope/action-mutation events use the same convention (§20) |
+| **`ClientPolicy`** | only policy; `delete` delegates to `canAccessPage` | **UNCHANGED** — precedent for controller-level checks |
+
+**Unchanged contract (FACT):** page-level authorization is the only mechanism
+active today; every page-key holder can exercise every route in its group
+(P8 §2); P7 admin pages, the `'*'` toggle, exemptions, and the audit strings
+must remain byte-compatible.
+
+#### 2. Target Authorization Dimensions
+
+**FOUR dimensions** (RECOMMENDATION — validated in P8/P9/P10):
+
+| Dimension | Controls | Does NOT control | Level | Required for normal users | `'*'` bypass |
+|---|---|---|---|---|---|
+| **A. PAGE** (`tbl_permissions`) | module **entry**: may the user reach the page at all (UI + routes) | which operations inside; which programs; which rows | user-level (which modules) | **yes** — entry gate | yes |
+| **B. ACTION** (`tbl_action_permissions`, P9) | which **operation** the user may perform on an adopted page (VIEW/CREATE/EDIT/DELETE/EXPORT, reserved SCAN/MANAGE) | module entry; which programs; which rows | user-level (which operations) | **only on adopted pages** — non-adopted pages are page-only (P9 §5/§12) | yes |
+| **C. PROGRAM** (`tbl_program_permissions`) | which of the 17 programs the user may touch on program-consuming operations (Transactions) | module entry; operations; rows | user-level (which programs) | no (empty set = unrestricted, v1 parity) | yes |
+| **D. MUNICIPALITY** (`tbl_user_municipalities`, P10) | which **data rows** (by municipality) the user may read/write on municipality-sensitive surfaces | module entry; operations; programs | user-level (which data scope) | yes **on scope-enforced modules** (fail closed, §10) | yes |
+
+**Separation of concerns (INFERENCE):** A answers "which module", B "which
+operation", C "which program", D "which data". Each is independent and
+user-level; none is a resource-level column (no per-row/per-record permission
+columns anywhere — scope is evaluated by join, P10 §11).
+
+#### 3. Final Conceptual Authorization Chain
+
+**RECOMMENDATION — the four-dimension AND chain** (validated against the P10
+evidence; not assumed):
+
+```
+effectiveAccess(USER, page, action, program, record) =
+    canAccessPage(USER, page)                    -- A. PAGE
+    AND canAccessAction(USER, page, action)      -- B. ACTION (adopted pages only)
+    AND canAccessProgram(USER, program)          -- C. PROGRAM (program-consuming ops only)
+    AND recordMunicipality(record) ∈ userScope(USER)  -- D. MUNICIPALITY (sensitive rows only)
+```
+
+**When each dimension is evaluated (RECOMMENDATION):**
+
+| Step | Where | Trigger |
+|---|---|---|
+| PAGE | `page:` middleware / first route of the group | every request to a gated page (today, FACT) |
+| ACTION | `action:` middleware on the mutation/export routes of adopted pages | only adopted pages; non-adopted pages skip (P9 §12/S2) |
+| PROGRAM | controller `authorizeProgram` (Transactions store/update) + feed WHERE | only operations that consume a program (P9 §14) |
+| MUNICIPALITY | query injection on feeds/exports/search; record check on single-ID and write endpoints | only municipality-sensitive surfaces (P10 §13/§14) |
+
+**Outcomes (RECOMMENDATION):**
+
+- **Page denied** → request never reaches the module (403 JSON or dashboard
+  redirect). No further dimension is evaluated.
+- **Page allowed, action denied** → on an adopted page the operation is refused
+  (403) while reads still work (VIEW).
+- **Page+action allowed, program denied** → the program-consuming operation is
+  refused / the program filter is forced to the permitted set (today's
+  behavior, FACT).
+- **First three allowed, municipality denied** → feed/search/export rows are
+  filtered to scope (possibly empty); single-record/detail and writes deny.
+- **All four allowed** → operation executes.
+
+**Why AND (justification, INFERENCE):** each dimension is necessary — a
+municipality grant must not grant module entry (scope-without-page denies, P10
+§6), an action grant must not widen programs, and no single dimension may OR
+the others open. This reproduces the five moderators of the P10 objective
+exactly (e.g. Moderator B = Transactions page + VIEW + no CREATE; Moderator C =
+same page + multiple scope rows). **REQUIRES OWNER DECISION** to accept.
+
+#### 4. Conceptual Data Model
+
+Two **conceptual** additions only (NOT created; exact DDL fixed at build after
+owner approval).
+
+**1. `tbl_action_permissions`** (P9 §3 — re-affirmed):
+
+| Aspect | Definition |
+|---|---|
+| Purpose | the operation gate for adopted pages |
+| Owner relationship | user-level; `user_id` mirrors `tbl_permissions.user_id` |
+| Fields | `id` INT PK, `user_id` INT NOT NULL, `page_name` varchar(100) NOT NULL (real v1 page keys, ADR-003), `action` varchar(50) NOT NULL, `created_at` DATETIME (optional) |
+| Uniqueness | `UNIQUE(user_id, page_name, action)` — `tbl_program_permissions` pattern; presence = allow (no deny rows, P9 §11.C) |
+| Expected indexes | the unique key (covers lookups) |
+| References existing tables | references `page_name` values and `user_id` values but adds **no FK constraint** to legacy tables (same discipline as `tbl_permissions`) |
+| Additive-only | yes — new table, zero changes to existing tables |
+| Changes existing tables | no |
+
+**2. `tbl_user_municipalities`** (P10 §11 — re-affirmed):
+
+| Aspect | Definition |
+|---|---|
+| Purpose | the user's municipality data scope |
+| Owner relationship | user-level; N:M user↔municipality |
+| Fields | `id` INT PK, `user_id` INT NOT NULL, `municipality_id` INT NOT NULL, `created_at` DATETIME (optional); plus the all-marker representation (§9 — **OPEN DECISION**) |
+| Uniqueness | `UNIQUE(user_id, municipality_id)` |
+| Expected indexes | the unique key; FK-index on `municipality_id` if a constraint is added (optional) |
+| References existing tables | `municipality_id` → `tbl_municipalities.id` (the dimension root); `user_id` → `tbl_users.id`; no changes to either |
+| Additive-only | yes — new table, zero changes to existing tables |
+| Changes existing tables | no |
+
+**Explicitly not added (RECOMMENDATION):** no municipality column on
+`tbl_permissions`, `tbl_action_permissions`, `tbl_program_permissions`, or
+`tbl_users`; no per-row scope column on any data table (P10 §11.3). No
+unnecessary columns were invented.
+
+#### 5. `tbl_permissions` Compatibility
+
+**`tbl_permissions` is never replaced or altered (RECOMMENDATION — P9 §2).**
+
+- **Page-level access**: unchanged — the `(user_id, page_name)` rows continue to
+  answer "may the user enter this module".
+- **`'*'`**: unchanged home of the Super Admin marker; semantics extended only
+  in the ACL service (`'*'` ⇒ all pages/actions/programs/municipalities), never
+  in the table shape.
+- **Legacy page grants**: every existing row keeps its meaning and value;
+  v1 page keys stay identical (ADR-003).
+- **Relationship to action permissions**: on an **adopted** page, page
+  permission = the VIEW grant (P9 §6); action rows refine the same user+page.
+  A page row is **required** for any action to matter (action-without-page
+  denies, P9 §11.D).
+- **Transition (page-only → page+action)**: page-only behavior for a page is
+  preserved exactly until that page's enforcement flag flips on (S2, §21);
+  `tbl_permissions` requires zero rows changed for the transition.
+
+#### 6. Action Permission Model
+
+Final proposed semantics (P9 §4/§7 — re-affirmed after P10):
+
+| Action | Page-scoped | Program-sensitive | Municipality-sensitive | Requires existing record | Applies to collection/list ops |
+|---|---|---|---|---|---|
+| **VIEW** | yes (page row **is** VIEW on adopted pages) | no (list shows permitted programs via the program filter; VIEW itself is program-neutral) | **yes** — every returned/detail row must be in scope | no | **yes** — list, search, feed, detail are VIEW |
+| **CREATE** | yes | yes where the op consumes a program (Transactions store) | **yes** — submitted municipality / derived client municipality in scope | no | no |
+| **EDIT** | yes | yes (Transactions update/inline) | **yes** — existing record's effective municipality in scope | **yes** | no |
+| **DELETE** | yes | no (deletes are program-neutral today; no program check exists on destroy — parity) | **yes** — existing record's effective municipality in scope | **yes** | no |
+| **EXPORT** | yes (distinct from VIEW, P9 §8) | yes — exports inherit the program filter (Transactions export, FACT) | **yes** — every exported row in scope | no | **yes** — the whole exported set is the "collection" |
+| **SCAN** (reserved) | yes (scanner page) | yes — scanner programs from config (FACT) | **yes** when adopted — target client/transaction in scope | sometimes (update-in-place, attendance) | no |
+| **MANAGE** (reserved) | yes (P7 admin pages when adopted) | no | **no** — admin metadata has no municipality dimension | no | yes (full-replace saves) |
+
+**Unsupported (FACT — no new evidence):** `APPROVE`, `VERIFY`, `PAYOUT` are
+**not** added (P9 §4): there is no distinct approve/verify/payout operation in
+v1/v2 — payout is a SCAN variant; verifies are reads; approval is a future
+capability. **REQUIRES OWNER DECISION** only if the owner wants them later.
+
+#### 7. Action Adoption Strategy
+
+**Phase-1 pilots remain correct after P10 (RECOMMENDATION — validated).**
+
+| Pilot page | Page gate | Actions | Program interaction | Municipality interaction |
+|---|---|---|---|---|
+| **`clients.php`** | `page:clients.php` | VIEW, CREATE, EDIT, DELETE | none (client module is program-neutral, FACT) | **direct** — the submitted/edited `city_municipality` is on the row itself |
+| **`household.php`** | `page:household.php` | VIEW, CREATE, DELETE (no EDIT route, FACT) | none | **derived** — via head client's municipality |
+| **`all_transactions.php`** | `page:all_transactions.php` | VIEW, CREATE, EDIT, DELETE, EXPORT | **yes** — `permittedPrograms` on feeds/store/export (FACT) | **derived** — via the transaction's client join |
+| **`scholars.php`** | `page:scholars.php` | VIEW, CREATE, EDIT | none (scholars are program-neutral in the module) | **derived** — via scholar's client |
+| **`register.php`** | `page:register.php` | CREATE | none | **none** — a user record has no municipality (metadata) |
+
+**Why still correct (INFERENCE):** the pilots exercise every enforcement shape —
+direct municipality (clients), derived municipality (household/transactions/
+scholars), program interaction + export (transactions), single-op page
+(register) — with minimal blast radius. **Every other page stays page-only**
+(scanners, payout, unpaid, scholarship reports, update logs, audit logs, the 4
+P7 admin pages, dashboard) until explicitly migrated (P9 §5). Nothing is
+modified.
+
+#### 8. Municipality Scope Model
+
+**`tbl_user_municipalities` re-affirmed (P10 §8/§15/§17):**
+
+- **One municipality**: one pivot row.
+- **Multiple municipalities**: several pivot rows.
+- **All municipalities**: the explicit all-marker (§9).
+- **No municipalities**: zero rows + no all-marker ⇒ **scope over zero records
+  (fail closed, §10)**.
+
+**Properties (RECOMMENDATION — P10 §6/§8):**
+
+1. **Independent authorization dimension** — scope is orthogonal to pages,
+   actions, and programs (each is its own AND term).
+2. **Shared by all modules** — one user-scope set is evaluated against every
+   municipality-sensitive surface; no per-module scope lists.
+3. **Reusable across pages/actions/programs** — the same scope set serves VIEW/
+   CREATE/EDIT/DELETE/EXPORT and every program; no duplication (P10 §20).
+
+#### 9. All-Municipality Semantics
+
+Comparison (P10 §16 — summarized):
+
+| Option | Verdict |
+|---|---|
+| special `'*'` row inside the pivot | **Recommended** — an explicit grant-marker, distinct from `page_name='*'`, cannot be accidentally granted |
+| `NULL` | reject — ambiguous, collides with uniqueness/semantics of "unset" |
+| dedicated boolean on a pivot row | acceptable but adds a column where a marker row suffices |
+| separate all-scope table | acceptable but extra table for no gain |
+
+**Recommendation (RECOMMENDATION):** "all" is an **explicit marker inside
+`tbl_user_municipalities`** (e.g. a reserved `municipality_id` documented as ALL
+or an `is_all` flag on a single pivot row — exact form **OPEN DECISION**, P10
+§16). **Conflict check with `page_name='*'` (FACT):** none — the all-marker
+lives in a different table with a different subject (data scope vs module
+entry); the two `'*'` concepts are independent and the ACL service keeps them in
+separate methods (`isSuperAdmin` vs `hasAllMunicipalities`). **REQUIRES OWNER
+DECISION** on the marker's exact representation.
+
+#### 10. No-Scope Semantics
+
+**Fail closed (RECOMMENDATION — P10 §17).** For each case:
+
+| Case | Verdict |
+|---|---|
+| **A. Page permission, no scope** | page entry granted; on a scope-enforced module, **all** municipality-sensitive reads/writes deny (empty feeds, denied detail/writes). Non-sensitive surfaces (P7 admin, audit viewer) unaffected |
+| **B. Action permission, no scope** | action is moot on sensitive rows — every target record is out of scope, so every operation on that module's data denies |
+| **C. Program permission, no scope** | program set intact, but no scoped record can be reached — combined effect is denial on sensitive surfaces |
+| **D. Multiple page/action/program rows, zero municipality rows** | the user is fully functional only on **non-scoped** surfaces; on scoped modules they see nothing and can write nothing |
+
+**Evidence (FACT):** the alternative (no-scope = all) would silently grant every
+existing page-gated user full data — precisely the accident data-scope is meant
+to prevent. No evidence supports no-scope = all.
+
+#### 11. Super Admin Semantics
+
+**Final proposal (RECOMMENDATION — P9 §10 + P10 §9):**
+
+```
+tbl_permissions.page_name = '*'
+  ⇒ canAccessPage    : true  (bypasses PAGE)
+  ⇒ canAccessAction  : true  (bypasses ACTION — P9 §10)
+  ⇒ canAccessProgram : true  (bypasses PROGRAM)
+  ⇒ effectiveScope   : ALL   (bypasses MUNICIPALITY — P10 §9)
+  ⇒ no tbl_action_permissions rows required
+  ⇒ no tbl_user_municipalities rows required
+```
+
+- **No username-based or user-ID-based admin checks are introduced** (ADR-003;
+  grep-enforceable, P9 §17). `'*'` is the **only** super-admin marker.
+- **Super Admin scope rows**: none required; any rows present for a `'*'` user
+  are ignored (harmless).
+- **Consistency (INFERENCE):** this is the same rule P8/P9/P10 already applied —
+  `'*'` satisfies every gate; extending it to the fourth dimension adds no new
+  mechanism.
+
+#### 12. Program Permission Interaction
+
+**`tbl_program_permissions` is unchanged (RECOMMENDATION — P9 §14 + P10 §8).**
+
+- **Independent dimension**: program access is orthogonal to page, action, and
+  municipality. A user may hold all 17 programs in one town or one program in
+  all towns — neither implies the other.
+- **Evaluation**: program is checked only on program-consuming operations
+  (Transactions store/update/feed/export — the `permittedPrograms` filter,
+  FACT). Admin screens and scanner saves have **no program check today**
+  (deferred scanner-program question, P3 §5/P4 §14.5 — untouched).
+- **Transactions explicitly**: `Page(all_transactions.php) ∧ Action ∧ Program ∧
+  Municipality` — program filters the `program` column; scope filters the
+  client-join municipality; the two conditions coexist on the same query (§3).
+- **Alternatives rejected (INFERENCE):** replacing the chain with a
+  single composite grant, or nesting program inside municipality (or vice
+  versa), breaks the separable moderators of the P10 objective. The AND chain
+  is the minimal structure that keeps every dimension independently
+  administerable.
+
+#### 13. Read Authorization
+
+**Final rules (RECOMMENDATION — P9 §6/§8 + P10 §13):**
+
+| Read surface | Required | Notes |
+|---|---|---|
+| list / feed (`*/data`) | VIEW + scope | scope predicate injected server-side regardless of params (P10 §12) |
+| search (client picker for transactions/scholars/households) | VIEW + scope | searches join `tbl_clients`; scope must apply |
+| detail (`show` endpoints) | VIEW + scope | record municipality check |
+| dashboard | auth + scope (future) | counts/summaries that surface data rows must scope (P1 parity today shows all — future requirement) |
+| reports | VIEW + scope | `scholarship-reports/data` scopes via client join |
+| AJAX helpers (barangay cascade, verify-mobile) | page gate only | no municipality-sensitive rows (exception) |
+| exports | VIEW + **EXPORT** + program + scope | **EXPORT stays a separate action** (P9 §8) |
+
+**VIEW sufficiency (RECOMMENDATION):** VIEW covers list/search/detail/feed
+reads; it does **not** cover EXPORT — the export route additionally requires the
+`EXPORT` action (P9 §8). No read is authorized by UI visibility alone.
+
+#### 14. CREATE Authorization
+
+**`CREATE` requires (RECOMMENDATION — P9 §7 + P10 §14):**
+
+```
+canAccessPage(page)  AND  canAccessAction(page, CREATE)
+  AND canAccessProgram(program) [where the op consumes a program]
+  AND submittedMunicipality ∈ userScope   [clients: posted city_municipality]
+      -- or -- derivedClientMunicipality ∈ userScope  [transaction/scholar/GIP/
+                                                       household via client]
+```
+
+- **Bypass prevention (mandatory):** the `city_municipality` field is
+  **server-checked against scope** at store time — a user cannot change the
+  posted municipality (or omit it) to escape the scope check; the server
+  recomputes `submittedMunicipality` from the validated input and compares it to
+  `userScope`. Changing a hidden field (`client_id`, `head_household`) is
+  likewise caught because the **bound client's** municipality is the checked
+  value (P10 §14).
+
+#### 15. EDIT Authorization
+
+**`EDIT` requires (RECOMMENDATION — P9 §7 + P10 §14):**
+
+```
+canAccessPage(page)  AND  canAccessAction(page, EDIT)
+  AND canAccessProgram(program) [program-consuming ops]
+  AND existingRecordMunicipality ∈ userScope
+  AND (for clients) newSubmittedMunicipality ∈ userScope
+```
+
+- **Derived municipalities (FACT):** transactions, scholars, GIP, households,
+  and family members have **no municipality column** — the checked value is the
+  **bound client's `city_municipality`** (the verified client-join relationship,
+  P10 §1/§14). No direct column is assumed where none exists.
+- **Bypass prevention:** the check reads the **existing record** from the DB
+  (never from the request), so editing an ID that maps to an out-of-scope record
+  denies even if the request body is otherwise valid.
+
+#### 16. DELETE Authorization
+
+**`DELETE` requires (RECOMMENDATION — P9 §7 + P10 §14):**
+
+```
+canAccessPage(page)  AND  canAccessAction(page, DELETE)
+  AND existingRecordMunicipality ∈ userScope
+```
+
+- **Parity note (FACT):** deletes carry **no program check today** (destroy has
+  no `authorizeProgram`); program is not added to DELETE (no evidence, P9 §6).
+- **Bypass prevention (mandatory):** the record's municipality is resolved
+  **server-side from the row** (`tbl_clients.city_municipality` directly, or via
+  the client join for derived tables, or the unpaid row's own FK) **after the
+  id is read from the DB**. Changing `id`/`delete_id`/request parameters cannot
+  alter the checked value (P10 §4).
+
+#### 17. EXPORT Authorization
+
+**`EXPORT` is a separate action (RECOMMENDATION — P9 §8 + P10 §18).**
+
+```
+canAccessPage(page)  AND  canAccessAction(page, EXPORT)
+  AND canAccessProgram(program) [Transactions export inherits the program filter]
+  AND everyExportedRow ∈ userScope
+```
+
+- **Filtered-result enforcement:** the export query gets the scope predicate
+  **injected server-side**; the municipality/barangay parameters from the URL
+  are presentation-only.
+- **Parameter-omission bypass prevention (mandatory):** an export URL with no
+  municipality parameter (today it streams the full set, FACT) or with an
+  out-of-scope parameter must produce **only in-scope rows** (or an empty file) —
+  never a widening (P10 §18).
+- **Explicit statement (non-negotiable):** an export must **never** bypass
+  row-level authorization.
+
+#### 18. Security Enforcement Architecture
+
+**One canonical stack (RECOMMENDATION — P9 §13 + P10 §12):**
+
+| Question | Answering layer |
+|---|---|
+| **A. Can this user access this page?** | `AccessControlService::canAccessPage` + `page:` middleware (+ the `page` Gate) — existing, unchanged |
+| **B. Can this user perform this action?** | `AccessControlService::canAccessAction` + `action:` middleware on mutation/export routes of adopted pages (+ a new `action` Gate) — P9 §13 |
+| **C. Can this user access this program?** | `AccessControlService::canAccessProgram` + `program` Gate + controller `authorizeProgram` — existing, unchanged |
+| **D. Can this user access this record/data?** | `AccessControlService::effectiveMunicipalityIds` / `canAccessRecord` — the **one** scope authority; consumed by (1) a query-scope composer and (2) record-level checks on single-ID/write endpoints (P10 §12) |
+
+**Layer rules (RECOMMENDATION):**
+- `AccessControlService` is the **only** place authorization semantics live
+  (ADR-003; P9 §17.11).
+- **Middleware** guards routes; **Gates** serve controller-level checks (the
+  `ClientPolicy` precedent); **services/controllers** call the service but never
+  re-implement decisions; **FormRequests** validate shape, never authorize (P9
+  §13.4).
+- **Query scopes / query composition** belong to a scope **composer** that adds
+  the WHERE — an authorization **decision** (A–D) is distinct from **query
+  filtering** (application of the decision to a query) (§19).
+
+#### 19. Query / Data-Scope Enforcement
+
+**Distinction (RECOMMENDATION — P10 §12):**
+
+- **Authorization decision**: `canAccessRecord` — a boolean for a single record.
+- **Query/data filtering**: applying the decided scope to a **query builder**
+  (`whereIn(municipality set)`).
+
+**Critical v2 fact (FACT — P10 §12):** the feeds, exports, and searches use
+`DB::table` (query builder), **not** Eloquent models — Eloquent global scopes
+would **never run** on them. Enforcement must therefore be:
+
+1. A **scope composer** that appends the `whereIn(scope)` clause to every
+   municipality-sensitive query (feeds, exports, search), invoked centrally
+   from the same service that owns the scope set.
+2. A **record check** for single-ID endpoints (show/edit/update/destroy/
+   single-row export) — fetch row → resolve municipality (direct or client
+   join) → `canAccessRecord`.
+
+**Bypasses prevented (RECOMMENDATION — all mandatory):**
+
+| Attack | Defense |
+|---|---|
+| unfiltered list access (omit param) | composer injects scope unconditionally |
+| direct-ID access (`show`/`destroy` with an out-of-scope id) | record check on the fetched row |
+| altered municipality parameter | composer ignores/overrides the client param with scope |
+| export bypass | scope predicate in the export query (§17) |
+| AJAX/feed bypass | composer applies to every `*/data` feed |
+| detail endpoint bypass | record check on every `show` |
+
+**Do not overstate (INFERENCE):** no current endpoint has a scope to bypass
+today — these are the future enforcement seams, all server-side.
+
+#### 20. Audit Architecture
+
+**Future authorization mutations that require auditing (RECOMMENDATION — P9
+§15 + P10 §19):**
+
+| Mutation | Audit required | Candidate event (final names OPEN) |
+|---|---|---|
+| action permission grant/revoke (full-replace save) | yes | `MANAGE_ACTION_PERMISSIONS` (P9 §15.2) |
+| municipality scope grant/revoke (row insert/delete) | yes | `MANAGE_SCOPE_GRANT` / `MANAGE_SCOPE_REVOKE` |
+| municipality scope replacement (full-replace save) | yes | `MANAGE_SCOPE_...` (reuse the grant/revoke events on real change, P7 discipline) |
+| all-municipality marker set/cleared | yes | same scope family |
+| existing page/program/super-admin/exemption mutations | **already audited** (7 `MANAGE_*` strings) | unchanged |
+
+- **Convention (FACT):** `AuditService::log(actorId, action, target_table,
+  target_id, old_value, new_value)` with JSON payloads (`username` +
+  ids/sets only, no secrets) supports all of the above without new
+  infrastructure.
+- **The seven approved `MANAGE_*` strings are kept intact** (P7 §12) —
+  `MANAGE_USER_CREATE`, `MANAGE_PAGE_PERMISSIONS`, `MANAGE_PROGRAM_PERMISSIONS`,
+  `MANAGE_SUPER_ADMIN_GRANT`, `MANAGE_SUPER_ADMIN_REVOKE`,
+  `MANAGE_EXEMPTION_GRANT`, `MANAGE_EXEMPTION_REVOKE`.
+- **New strings are NOT added in this pass** (P9 §15.2 named one candidate;
+  final names **REQUIRE OWNER DECISION** and are written only at build).
+
+#### 21. Backward Compatibility
+
+**P9's S2 strategy remains appropriate after P10 (RECOMMENDATION — validated):**
+
+1. **Explicit per-page enforcement flag** (config-driven) — a page is "page-only"
+   (today's behavior) until its flag flips; action and scope enforcement apply
+   only to flagged pages. Zero production behavior change at cutover.
+2. **Audited per-user grants before activation** — grant action rows (P9 §12) and
+   scope rows (P10 §21) for current holders **before** flipping each page's
+   flag. No lockout window, no silent over-grant.
+3. **No destructive cutover** — no backfill UPDATE, no table replacement, no
+   `migrate:fresh`; only additive tables + config.
+4. **P7 remains unchanged** — the four admin pages stay page-only; `'*'`
+   toggle/exemption logic untouched (§1).
+
+**After P10 (INFERENCE):** S2 extends naturally — scope is per-module too
+(flip the flag → scope WHERE activates), and both dimensions share the same
+grant-then-flip ordering. This remains the recommended transition.
+
+#### 22. Migration / Cutover Architecture
+
+**Future requirements only — nothing is migrated (RECOMMENDATION):**
+
+| Aspect | Future requirement |
+|---|---|
+| existing users | non-`'*'` users keep page/program rows; receive explicit action + scope grants per pilot page **before** each flag flips (§21) |
+| existing page permissions | untouched (`tbl_permissions` unchanged) |
+| existing program permissions | untouched |
+| existing Super Admin | `'*'` continues to satisfy every gate; no action/scope rows needed (§11) |
+| new municipality assignments | new rows in `tbl_user_municipalities` (grant-then-flip) |
+| new action permissions | new rows in `tbl_action_permissions` (grant-then-flip) |
+| pilot pages | 5 pilots (§7) adopt first; remaining pages page-only |
+| production cutover | per-page, additive, audited, reversible; no data backfill |
+| rollback | flip the enforcement flag back (config) — behavior returns to page-only; additive tables remain but are inert |
+
+**Must be reviewed before implementation (RECOMMENDATION):** the owner-approved
+architecture (§28) + the exact all-marker representation (§9) + final audit
+strings (§20) + the additive migrations (additive-only, AGENTS.md) + `schema:dump`
+regen. **REQUIRES OWNER DECISION** on the cutover sequence (page-by-page vs
+all-pilots-at-once).
+
+#### 23. Administration Model
+
+**Future Super Admin capabilities (RECOMMENDATION — conceptual, NOT built):**
+
+- manage page permissions (exists — P7 `manage_permissions.php`)
+- manage program permissions (exists — P7 `manage_program_permissions.php`)
+- manage exemptions (exists — P7 `manage_multi_device_exemptions.php`)
+- manage users (exists — P7 `register.php`)
+- manage **action permissions** (new — future)
+- manage **municipality assignments** (new — future)
+- audit viewer (exists — P7 `audit_logs.php`)
+
+**Independent vs combined screens (RECOMMENDATION):**
+
+- **Independent screens** for page, action, program, and municipality — because
+  each dimension is an independent admin resource with its own full-replace
+  save and its own audit event (P7 pattern). Combined screens would couple
+  four orthogonal grant sets into one form and one audit payload for no benefit.
+- **Simple maintainable shape**: one admin page per dimension, each a
+  per-user full-replace save (`{username}` + ids) emitting its own `MANAGE_*`
+  event — mirroring the proven P7 `AdminPermissionController` pattern (FACT).
+- **REQUIRES OWNER DECISION** on whether action+municipality administration
+  ships together (recommended: same milestone, separate screens).
+
+#### 24. Security Invariants
+
+**Final non-negotiable invariants (RECOMMENDATION — mandatory at build):**
+
+1. **No username/id admin checks** — all authorization via `AccessControlService`
+   (ADR-003; grep-enforceable).
+2. **`'*'` is the only Super Admin marker**.
+3. **Page authorization is server-side** (`page:` middleware, unchanged).
+4. **Action authorization is server-side** (`action:` middleware, adopted pages).
+5. **Program authorization is server-side** (`permittedPrograms`/Gate, unchanged).
+6. **Municipality authorization is server-side** (scope composer + record check).
+7. **Missing required authorization fails closed** — unknown page/action denies;
+   no-scope ⇒ zero records (§10); action-without-page denies.
+8. **Exports cannot bypass authorization** (§17).
+9. **Direct-ID requests cannot bypass scope** — record checks read the DB row,
+   never the request (§15/§16/§19).
+10. **Client-derived municipality relationships are verified server-side** (§15).
+11. **UI filters are never treated as authorization** (§19).
+12. **Super Admin bypass is explicit and centralized** in `AccessControlService`.
+13. **Authorization logic is not duplicated across controllers** — one service.
+14. **Existing production data is preserved** — additive-only schema, no
+    destructive operations, `main_system` untouched.
+
+#### 25. Final Target Architecture
+
+**Conceptual diagram (RECOMMENDATION):**
+
+```
+                        User
+                         |
+        +----------------+----------------+----------------+-----------+
+        |                |                |                |           |
+        v                v                v                v           v
+  Page Permissions  Action Permissions  Program Perm.  Municipality  Multi-device
+  (tbl_permissions) (tbl_action_perm.) (tbl_program_)  Scope (tbl_    Exemption
+      incl. '*'                                            user_muni.)  (session/
+                                                                        device)
+        |                |                |                |           |
+        +----------------+----------------+----------------+           |
+                         |                                             |
+                         v                                             |
+             AccessControlService (single authority)                   |
+             |  canAccessPage / canAccessAction /                      |
+             |  canAccessProgram / canAccessRecord                     |
+             |  (isSuperAdmin, isMultiDeviceExempt)                    |
+                         |                                             |
+                         v                                             |
+              +----------+----------+----------+                       |
+              |          |          |          |                       |
+              v          v          v          v                       |
+          PAGE      ACTION      PROGRAM   MUNICIPALITY           (session gate
+         decision   decision    decision    decision               short-circuits
+                                                                  before ACL, at
+                                                                  login/session)
+              |          |          |          |
+              +----------+----+-----+----------+
+                               |
+                               v
+                    Application operation
+            (route middleware -> controller -> service -> query)
+```
+
+**Explanation (INFERENCE):**
+
+- **Four permission surfaces** feed one `AccessControlService`; each surface is
+  a separate additive table (page = existing; action/scope = new).
+- **The service** is the single decision authority (page, action, program,
+  record/scope) — the diagram's "decision" row is four checks of the AND chain,
+  evaluated per §3.
+- **Multi-device exemption** is deliberately a **separate branch**: it is a
+  session/device gate (single-device login), not a data authorization
+  dimension; it is checked at the auth/session layer, not inside the ACL data
+  decisions.
+- **Every application operation** reaches data through the chain; reads are
+  filtered by the scope composer, writes by the record checks, exports by the
+  export predicate — all behind the same service.
+
+#### 26. Final Decision Matrix
+
+| Dimension | Current v2 | Proposed v2 | Schema change | Enforcement | Status |
+|---|---|---|---|---|---|
+| **Page** | `tbl_permissions` rows; `page:` middleware; page key = v1 key | unchanged | none | middleware + `AccessControlService` | **VERIFIED** (existing, final) |
+| **Action** | none (page grant ⇒ all operations) | VIEW/CREATE/EDIT/DELETE/EXPORT on adopted pages; SCAN/MANAGE reserved | additive `tbl_action_permissions` (conceptual) | `action:` middleware + `canAccessAction` + `action` Gate | **RECOMMENDED** (P9) — pending owner approval |
+| **Program** | `tbl_program_permissions`; `permittedPrograms` + `authorizeProgram`; empty = unrestricted | unchanged, independent AND dimension | none | Gate + controller (existing) | **VERIFIED** (existing, final) |
+| **Municipality** | none (filters are reporting-only) | user-level scope; one/many/all; fail-closed no-scope | additive `tbl_user_municipalities` + all-marker (conceptual) | scope composer + record check in `AccessControlService` | **RECOMMENDED** (P10) — pending owner approval |
+| **Super Admin** | `'*'` satisfies page gates | `'*'` bypasses page/action/program/municipality; no rows needed | none | centralized in `AccessControlService::isSuperAdmin` | **VERIFIED** (semantics extension RECOMMENDED) |
+| **Multi-device exemption** | `tbl_multi_device_exemptions`; session gate | unchanged | none | session/auth layer | **VERIFIED** (final) |
+| **Audit** | 7 `MANAGE_*` strings via `AuditService` | + future action/scope mutation events (names OPEN) | none | `AuditService` (sole writer) | **RECOMMENDED** (extensions) — names pending owner decision |
+| **Combined model** | page-only AND | `Page ∧ Action ∧ Program ∧ Municipality` | additive only | as above | **OPEN** — architecture recommended, awaiting owner approval |
+
+#### 27. Open Decision #6
+
+**Open Decision #6 — Fine-Grained Authorization Architecture** — updated after
+P11 (still **DEFERRED — REQUIRES OWNER APPROVAL**; nothing is claimed final):
+
+| Component | Status |
+|---|---|
+| **A. Action-level authorization** | **Recommended** (P9 contract + P11 §6/§7) — pending owner approval, not implemented |
+| **B. Municipality/data scope** | **Recommended** (P10 research + P11 §8–§10) — pending owner approval of the scope model and the all-marker representation, not implemented |
+| **C. Combined authorization model** | **Recommended and validated** — `Page ∧ Action ∧ Program ∧ Municipality` (P11 §3/§26); pending owner approval, not finalized as binding |
+| **D. Final schema** | **Unresolved** — candidates `tbl_action_permissions` and `tbl_user_municipalities` (+ all-marker) proposed; no table created; any migration additive + `schema:dump` regen (AGENTS.md) |
+
+**Verified parts (FACT):** baseline page/program/super-admin/exemption
+mechanics (P11 §1); the AND chain's consistency with every moderator scenario.
+**Recommended but not final:** everything in P9 §18 and P10 §24. **Pending
+owner approval:** the consolidated contract (§28). **Unresolved:** exact
+all-marker representation, final audit strings, exact DDL, cutover sequence.
+
+#### 28. Owner Approval Contract
+
+**One consolidated architecture decision (RECOMMENDATION — replaces separate
+P9/P10 approvals).** The owner approves the architecture **as a whole**, then
+implementation separately.
+
+**ARCHITECTURE APPROVAL — required items:**
+
+1. **Action vocabulary**: `VIEW, CREATE, EDIT, DELETE, EXPORT` (+ reserved
+   `SCAN`, `MANAGE`; no `APPROVE`/`VERIFY`/`PAYOUT`) — P9 §4, P11 §6.
+2. **Phase-1 action adoption**: `clients.php`, `household.php`,
+   `all_transactions.php`, `scholars.php`, `register.php` — P9 §5, P11 §7.
+3. **`'*'` semantics**: bypasses page/action/program/municipality; no rows
+   needed — P9 §10, P11 §11.
+4. **Fail-closed missing-action behavior**: unknown page/action denies;
+   non-adopted pages unchanged — P9 §11, P11 §10.
+5. **`tbl_action_permissions` conceptual model** (user, page, action;
+   UNIQUE triple; presence = allow) — P9 §3, P11 §4.
+6. **Municipality scope model**: user-level pivot, independent dimension —
+   P10 §6/§8, P11 §8.
+7. **`tbl_user_municipalities` conceptual model** (user, municipality;
+   UNIQUE pair) — P10 §11, P11 §4.
+8. **Single/multiple/all municipality support** — one, many, and all without
+   separate accounts — P10 §15, P11 §8.
+9. **No-scope behavior**: fail closed — P10 §17, P11 §10.
+10. **Action + municipality AND relationship** — P10 §7, P11 §14–§16.
+11. **Program + municipality AND relationship** — P10 §8, P11 §12.
+12. **Enforcement architecture**: `AccessControlService` + `action:` middleware
+    + scope composer + record checks; UI filtering rejected — P9 §13, P10 §12,
+    P11 §18/§19.
+13. **Backward compatibility / S2 rollout**: explicit per-page flag, grant-
+    then-flip, zero unexpected access loss, P7 untouched — P9 §12, P11 §21.
+14. **Future administration model**: independent per-dimension screens —
+    P11 §23.
+15. **Cutover strategy**: per-page additive, audited, reversible — P11 §22.
+16. **Future authorization audit requirements**: grant/revoke/replace events via
+    `AuditService`; 7 `MANAGE_*` intact; final names approved at build —
+    P9 §15, P10 §19, P11 §20.
+17. **Final schema approval**: the two additive tables (exact DDL) — P11 §4.
+
+**IMPLEMENTATION APPROVAL — separate, later:** approving this contract is
+**not** approval to build. Implementation begins only on an explicit
+second approval (after this architecture is signed off), following the
+additive-only rules (AGENTS.md) and P7 conventions.
+
+---
+
+**HARD STOP — Pass 11 complete.** No code, schema, migration, route, model,
+controller, service, middleware, policy, view, test, seeder, or DB operation
+was run; `tbl_action_permissions` and `tbl_user_municipalities` were **not**
+created; no existing table was altered; v1 was not modified; the local or
+production database was not touched; no file other than this one was modified
+(verified with `git status`). Open Decision #6 remains `DEFERRED — REQUIRES
+OWNER APPROVAL`, with A (action) and B (municipality/data-scope) recommended,
+C (combined model) recommended and validated as
+`Page ∧ Action ∧ Program ∧ Municipality`, and D (schema) unresolved. Next
+step: the owner reviews and approves the §28 consolidated architecture
+contract (ARCHITECTURE APPROVAL), after which implementation may be proposed
+separately (IMPLEMENTATION APPROVAL).
+
+---
+
+### P11 Architecture Approval (2026-08-15)
+
+> **Status: ARCHITECTURE APPROVAL — GRANTED (implementation NOT approved).**
+> The owner reviewed the Pass 11 Combined Authorization Architecture Contract
+> and approved it as the target authorization architecture for 2DMIS v2.
+> **Implementation approval remains pending** — nothing has been or may be
+> implemented until a separate implementation approval is given.
+
+#### Approved scope
+
+1. **Priority population**: authenticated **staff** users (Administrators,
+   Moderators).
+2. **Client Portal is OUT OF SCOPE** for this authorization implementation.
+   v1 has client records but **no client accounts**; this architecture must
+   **not** introduce client accounts or client authentication (FACT — v1
+   self-service flows are anonymous; P8 §3, P10 §13).
+
+#### Approved architecture items (owner-confirmed, all 16)
+
+1. Action authorization uses **VIEW, CREATE, EDIT, DELETE, EXPORT**; **SCAN**
+   and **MANAGE** remain reserved; **APPROVE, VERIFY, PAYOUT** are not
+   introduced at this time.
+2. Phase-1 action authorization applies to **clients.php, household.php,
+   all_transactions.php, scholars.php, register.php**.
+3. Existing **`tbl_permissions`** remains the page-level authorization layer.
+4. Existing **`tbl_program_permissions`** remains unchanged and independent.
+5. **Municipality/data scope** is a separate authorization dimension.
+6. Authorization is composed as **PAGE ∧ ACTION ∧ PROGRAM ∧ MUNICIPALITY**,
+   with the applicable dimensions enforced according to the operation.
+7. **Municipality authorization is enforced server-side**; UI/reporting filters
+   are never treated as authorization.
+8. Super Admin remains identified solely by **`tbl_permissions.page_name =
+   '*'`** and bypasses page, action, program, and municipality restrictions.
+9. **Missing authorization fails closed.**
+10. **EXPORT** is a distinct authorization action and must not bypass any
+    applicable authorization or municipality restriction.
+11. **`AccessControlService`** remains the single authorization authority.
+12. Existing **P7 authorization** must remain intact.
+13. The **S2 grant-then-flip strategy** is used to introduce action/scope
+    enforcement without unexpectedly removing existing access.
+14. Action permissions and municipality assignments will eventually be managed
+    through dedicated administration functionality.
+15. Future authorization mutations continue to use **`AuditService`** as the
+    sole audit writer.
+16. The conceptual direction of **`tbl_action_permissions`** and
+    **`tbl_user_municipalities`** is approved.
+
+#### Effect on Open Decision #6
+
+| Component | Status after approval |
+|---|---|
+| **A. Action-level authorization** | **APPROVED (architecture)** — implementation pending |
+| **B. Municipality/data scope** | **APPROVED (architecture)** — implementation pending |
+| **C. Combined model** | **APPROVED (architecture)** — `Page ∧ Action ∧ Program ∧ Municipality`, per-operation enforcement |
+| **D. Final schema** | **UNRESOLVED (pending implementation approval)** — conceptual `tbl_action_permissions` + `tbl_user_municipalities` (+ all-marker representation) approved in direction; exact DDL reviewed at implementation |
+
+Open Decision #6 is now: `APPROVED (ARCHITECTURE) — REQUIRES IMPLEMENTATION
+APPROVAL`.
+
+#### Next step
+
+Propose the **IMPLEMENTATION APPROVAL** package (additive migrations with exact
+DDL, `schema:dump` regen, S2 flag config, `AccessControlService` extensions,
+`action:` middleware, scope composer + record checks, P7-compatible admin
+screens, audit events, tests) for the owner to review **before** any code is
+written.
+
+---
+
+**HARD STOP — architecture approval recorded, no implementation.** No code,
+schema, migration, route, model, controller, service, middleware, policy,
+view, test, seeder, or DB operation was run; `tbl_action_permissions` and
+`tbl_user_municipalities` were **not** created; no existing table was altered;
+v1 was not modified; the local or production database was not touched; no file
+other than this one was modified (verified with `git status`). Open Decision #6
+is `APPROVED (ARCHITECTURE) — REQUIRES IMPLEMENTATION APPROVAL`; implementation
+will not begin until a separate IMPLEMENTATION APPROVAL is granted.

@@ -73,6 +73,36 @@
         </a>
     @endif
 
+    @if ($acl->canAccessPage($user, 'register.php'))
+        <a href="{{ route('admin.users.create') }}" @class(['active' => request()->routeIs('admin.users.*')])>
+            Create User
+        </a>
+    @endif
+
+    @if ($acl->canAccessPage($user, 'manage_permissions.php'))
+        <a href="{{ route('admin.permissions.pages') }}" @class(['active' => request()->routeIs('admin.permissions.*')])>
+            Manage Permissions
+        </a>
+    @endif
+
+    @if ($acl->canAccessPage($user, 'manage_program_permissions.php'))
+        <a href="{{ route('admin.program-permissions.pages') }}" @class(['active' => request()->routeIs('admin.program-permissions.*')])>
+            Manage Program Permissions
+        </a>
+    @endif
+
+    @if ($acl->canAccessPage($user, 'manage_multi_device_exemptions.php'))
+        <a href="{{ route('admin.exemptions.pages') }}" @class(['active' => request()->routeIs('admin.exemptions.*')])>
+            Multi-Device Exemptions
+        </a>
+    @endif
+
+    @if ($acl->canAccessPage($user, 'audit_logs.php'))
+        <a href="{{ route('admin.audit-logs.index') }}" @class(['active' => request()->routeIs('admin.audit-logs.*')])>
+            Audit Logs
+        </a>
+    @endif
+
     @if ($acl->canAccessProgram($user, 'AICS'))
         <a href="#">AICS</a>
     @endif

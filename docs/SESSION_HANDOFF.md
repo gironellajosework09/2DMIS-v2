@@ -1,6 +1,6 @@
 # 2DMIS v2 — Session Handoff
 
-**Last Updated:** 2026-08-13 (P6 finalization close-out)
+**Last Updated:** 2026-08-15 (P7 Administration implementation complete)
 
 ---
 
@@ -12,14 +12,15 @@
 - Architecture: Complete
 - Migration Planning: Complete
 - Engineering Blueprint: Complete
-- Implementation: **P0 → P6 complete; P7 (Administration) next**
+- Implementation: **P0 → P7 complete; P8 (Hardening + cutover) next**
 
 ### Current Milestone
 
-**P7 — Administration** (blueprint §1.11) — permission management, user
-creation, audit viewer + leaderboard. Not yet started; the legacy analysis
-(`docs/ADMIN_ANALYSIS.md`) is done and the build contract
-(`docs/implementation/P7_ADMINISTRATION.md`) is verified against v1.
+**P8 — Hardening + cutover** (blueprint §1.12) — not yet started. Includes the
+production admin-bootstrap runbook (grant a nominated existing user a
+`tbl_permissions` row with `page_name = '*'` via reviewed cutover SQL) and the
+deferred P7 audit enhancements (server-side date-range filter, leaderboard
+date-window, IP metadata) if the owner opts in.
 
 ---
 
@@ -34,80 +35,76 @@ creation, audit viewer + leaderboard. Not yet started; the legacy analysis
 | P4 | Config-driven scanner engine (14 keys / 8 modes), shared scan view, per-key routes + gates | Complete |
 | P5 | Payout attendance (3 variants), unpaid verification admin + public self-service + search/verify/delete, BOM CSV | Complete |
 | P6 | Scholars module: registry CRUD + feed + relink + client picker, GIP (with audit), grantee self-update + update-log viewer, scholarship reports + BOM CSV, QR viewer (decision C) | Complete |
+| P7 | Administration: user creation (`register.php`/`add_user.php`), page/program permission management, multi-device exemptions, audit viewer + leaderboard, five `page:` route groups, sidebar links | Complete |
 
-**Final P6 verification (2026-08-13):** full suite **132 tests / 668
-assertions** green on `main_system_test`; `vendor\bin\pint` clean across the
-project; `php artisan view:cache` compiled every Blade view (incl. the P6 pages
-not covered by tests); production `main_system` untouched (tests force
-`DB_DATABASE=main_system_test`).
+**Final P7 verification (2026-08-15):** full suite **158 tests / 769
+assertions** green on `main_system_test` (incl. new `AdministrationTest` — 26
+tests / 101 assertions); `vendor\bin\pint` clean on all changed files;
+production `main_system` untouched (tests force `DB_DATABASE=main_system_test`).
 
 ---
 
-## Last Session Summary (P6 finalization)
+## Last Session Summary (P7 Administration)
 
-The P6 module was audited against every v1 source file and the P6 contract
-docs. One real parity deviation was found and fixed; everything else matched.
+The P7 Administration subsystem was built end-to-end per the owner-approved
+contract (`docs/implementation/P7_ADMINISTRATION.md` + `ADMIN_ANALYSIS.md`).
+
+**Owner decisions settled before building (via question prompt):** no
+automatic/seeder bootstrap — production first-admin access is a reviewed
+one-time cutover SQL grant of a `tbl_permissions` row with `page_name = '*'`
+for a nominated existing user; the seven `MANAGE_*` audit strings approved
+exactly; **no** `active` column (v1 create-only); audit enhancements C/D/E
+(audit-on-permission-writes, subject-name resolution for the P7 tables,
+exemption/`'*'` no-op silence) shipped, A/B/F (server date-range filter,
+leaderboard date-window, IP metadata) deferred; no municipality/data-scope
+authz, no action-level CRUD.
 
 **Completed:**
 
-- **GIP audit payload fix** — `GipService` now writes **full-row** old/new JSON
-  to `tbl_audit_logs` (`getAttributes()`, incl. `id`/`client_id`) matching v1
-  `save_gip.php` `SELECT *` → `json_encode` and SCHOLAR_ANALYSIS §1.5/§4.6
-  ("full-row old/new JSON"). It previously encoded only the 16 editable
-  columns. Locked with +4 assertions in `GipTest` (payload `id`/`client_id`/value).
-- **Docs refreshed:** `P6_SCHOLARS.md` header → **COMPLETE** (was claiming
-  GIP/grantee-updates/QR viewer "remain to be built"); blueprint P6 module
-  status → **Done**; README P6 row (§1.7) + prose now list P6 complete;
-  `IMPLEMENTATION_LOG.md` P6 finalization entry appended.
-- **P7 readiness (analysis only, no P7 code):** created
-  `docs/ADMIN_ANALYSIS.md` — verified v1 ground truth for `register.php`,
-  `add_user.php`, `manage_permissions.php`, `manage_program_permissions.php`,
-  `manage_multi_device_exemptions.php`, `audit_logs.php`, `fetch_logs.php`,
-  `fetch_leaderboard.php`; parity requirements; corrections to
-  `P7_ADMINISTRATION.md`; open decisions. `P7_ADMINISTRATION.md` header now
-  points to it; README index updated.
+- `UserController` (create-only, `MANAGE_USER_CREATE`), `AdminPermissionController`
+  (page full-replace + `'*'` toggle, program full-replace, idempotent exemption
+  toggle), `AuditController` (viewer + `{data,users,actions}` feed + leaderboard),
+  four `FormRequest`s, five Blade views, five `page:` route groups, sidebar links.
+- `tests/Feature/AdministrationTest.php` — 26 tests / 101 assertions (authz,
+  all 7 audit actions, no-op silence, feeds, no-secret payloads).
+- Full suite **158 tests / 769 assertions** green; pint clean.
 
-**Next:** P7 — Administration (see below).
+**Deviations documented in the log:** `pages`/`programs` are `nullable|array`
+(not the contract's `required`) so the v1 remove-all full-replace works; no-op
+exemption toggle returns a message instead of an audit row (contract §11.5).
+
+**Next:** P8 — Hardening + cutover (see below).
 
 ---
 
-## Current Work — P7 Administration
+## Current Work — P8 Hardening + cutover
 
-**Goal:** port the v1 administration screens
-(`docs/implementation/P7_ADMINISTRATION.md`) after reading
-`docs/ADMIN_ANALYSIS.md`.
+**Goal:** harden the v2 application and execute the cutover plan
+(`docs/MIGRATION_PLAN.md`), keeping `main_system` byte-identical to production.
 
 **Focus:**
 
-- `AdminPermissionController` — page permissions, program permissions,
-  multi-device exemptions (full-replace / idempotent-toggle parity).
-- `UserController` — v1 `register.php`/`add_user.php` create-only contract;
-  disable/enable is an **open decision** (§5).
-- `AuditController` — `audit_logs.php`/`fetch_logs.php`/`fetch_leaderboard.php`
-  ports (table whitelist, username join, clients/transactions display names,
-  UTC→Asia/Manila `m/d/Y - h:i A`, per-table leaderboard).
-- All routes behind `page:` gates with the v1 page keys; **no username/id
-  checks**, `'*'` row is the only admin marker; `manage_php.php` excluded.
+- **Production admin bootstrap runbook** (P7 carry-over): a one-time cutover SQL
+  grant of a `tbl_permissions` row with `page_name = '*'` (and the four P7 page
+  keys if preferred) for a nominated existing user — no seeder, no username
+  checks. Optionally also the NULL-user bootstrap audit-row item from
+  `ADMIN_ANALYSIS.md` (note `tbl_audit_logs.user_id`/`target_id` are NOT NULL).
+- **Deferred P7 audit enhancements** (if owner opts in): server-side date-range
+  filter, leaderboard date-window, IP metadata.
+- **Hardening pass:** coverage gaps, error handling, perf, cutover rehearsal.
 
-Reference: `docs/ADMIN_ANALYSIS.md` (canonical analysis) →
-`docs/implementation/P7_ADMINISTRATION.md` (build contract) → v1 files under
-`C:\xampp\htdocs\system` (read-only).
+Reference: `docs/MIGRATION_PLAN.md` / `docs/MIGRATION_PLANNING.md` →
+`docs/ENGINEERING_BLUEPRINT.md` §1.12.
 
 ---
 
-## Development Priorities (P7)
+## Development Priorities (P8)
 
-1. Read `docs/ADMIN_ANALYSIS.md` first — it resolves the contract doc's open
-   questions against the actual v1 files.
-2. Settle the open decisions (§5 of the analysis) before writing code:
-   disable/enable column vs create-only; production admin bootstrapping;
-   `MANAGE_*` audit action strings; which v2 additions (date filters, audit-on-
-   permission-writes) are in scope.
-3. Follow the P3/P4/P5/P6 conventions: controllers + services + `FormRequest`
-   validation, server-rendered + DataTables feeds, `page:` gates.
-4. Write feature tests; keep the full suite green on `main_system_test`; run
-   `vendor\bin\pint` before finishing; append the P7 entry to
-   `docs/IMPLEMENTATION_LOG.md` and flip the blueprint §1.11 / README statuses.
+1. Confirm the P8 scope with the owner (hardening items, deferred P7 audit
+   enhancements, cutover rehearsal) — do not decide silently.
+2. Review P7 residuals: none open besides the deployment-time `'*'` grant.
+3. Keep the full suite green on `main_system_test`; run `vendor\bin\pint`
+   before finishing; append the P8 entry to `docs/IMPLEMENTATION_LOG.md`.
 
 ---
 
@@ -117,29 +114,26 @@ Reference: `docs/ADMIN_ANALYSIS.md` (canonical analysis) →
 - Additive indexes on existing tables (recommended: yes).
 - ADR-001..010 flip from Proposed to Accepted.
 - Git: this repo has no remote yet (docs live in a separate repo).
-- **P7 (from `ADMIN_ANALYSIS.md` §5):** user disable/enable (new additive
-  `active` column vs create-only); how the first admin gets the `'*'`/page rows
-  in production (local `AccessControlSeeder` must not run there); `MANAGE_*`
-  audit action names; which v2-only additions (date-range audit filter,
-  leaderboard date window, audit-on-permission-writes) to ship.
+- **P8:** whether to ship the deferred P7 audit enhancements (server-side
+  date-range filter, leaderboard date-window, IP metadata) and the exact
+  hardening scope.
 
 ---
 
 ## Current Risks
 
-- **P7 admin bootstrapping** — v1 gated the admin screens by username/id, so
-  production `tbl_permissions` may lack rows for `manage_permissions.php`,
-  `manage_program_permissions.php`, `manage_multi_device_exemptions.php`,
-  `audit_logs.php`. Without a granted `'*'` row no one can reach the screens.
-- **Schema creep** — a user-disable `active` column would be a schema change:
-  must go through the additive-migration + `schema:dump` baseline regen
-  workflow (AGENTS.md), never a destructive migration.
-- **Program catalog drift** — the P7 program-permission screen must use the
-  same program strings as `TransactionService::PROGRAMS` / the DB enum (v1's
-  hard-coded 17-program array is the only v1 source of truth).
+- **P7 admin bootstrapping (carry-over, now P8-runbook)** — production
+  `tbl_permissions` may lack rows for the four admin page keys, so no one can
+  reach the P7 screens until a `'*'` (or those keys) is granted to a nominated
+  user via reviewed cutover SQL. `tbl_audit_logs.user_id`/`target_id` are NOT
+  NULL — the bootstrap audit row (if desired) must use a real user id.
 - **Audit viewer scope** — v1 resolves display names only for
-  `tbl_clients`/`tbl_transactions`; other tables show raw `target_id`; the
-  feed has `LIMIT 10000` and no date range. Don't over-promise v1 parity.
+  `tbl_clients`/`tbl_transactions`/P7 subject tables; other tables show raw
+  `target_id`; the feed has `LIMIT 10000` and only a client-side date filter.
+  Don't over-promise parity.
+- **Schema creep** — any hardening change touching the schema (e.g. deferred
+  IP metadata, additive indexes) must go through the additive-migration +
+  `schema:dump` baseline regen workflow (AGENTS.md), never destructive.
 - **Payout (P5) watch items still stand** — no P5 write-path audits; unique
   scan constraint preserved; the `export_scanned_payouts_unpaid.php` dead link
   is deliberately not shipped.
@@ -148,12 +142,12 @@ Reference: `docs/ADMIN_ANALYSIS.md` (canonical analysis) →
 
 ## Before Next Session
 
-1. Read `docs/ADMIN_ANALYSIS.md` (canonical) and
-   `docs/implementation/P7_ADMINISTRATION.md` (contract).
-2. Resolve the P7 open decisions with the user (disable/enable, bootstrapping,
-   v2 additions scope) — do not decide silently.
-3. Build the P7 screens + feeds + tests; run `vendor\bin\pint`; append the P7
-   `IMPLEMENTATION_LOG.md` entry; update blueprint §1.11 + README status.
+1. Read `docs/implementation/P7_ADMINISTRATION.md` (contract, header **COMPLETE**)
+   and `docs/ADMIN_ANALYSIS.md` (canonical) for the deferred items.
+2. Confirm P8 scope with the user (hardening items, deferred P7 audit
+   enhancements, cutover rehearsal) — do not decide silently.
+3. Execute the P8 runbook items and the production `'*'` admin bootstrap grant
+   only with explicit owner sign-off.
 4. Verify the full suite on `main_system_test`; confirm production `main_system`
    untouched; confirm no destructive schema operations.
 
@@ -165,14 +159,12 @@ Do not redesign behavior. Parity comes before optimization.
 
 | Document | Status |
 |---|---|
-| `README.md` | Up to date (P6 complete; P7 next; index has `ADMIN_ANALYSIS.md`) |
-| `ENGINEERING_BLUEPRINT.md` | P0–P6 rows done; P7 §1.11/§2 rows pending build |
-| `IMPLEMENTATION_LOG.md` | P0–P6 + finalization entry recorded |
-| `implementation/P6_SCHOLARS.md` | Header **COMPLETE** |
-| `implementation/P7_ADMINISTRATION.md` | Contract verified vs `ADMIN_ANALYSIS.md` |
-| `SCHOLAR_ANALYSIS.md` | Canonical P6 analysis (unchanged) |
-| `ADMIN_ANALYSIS.md` | **New** — canonical P7 analysis |
-| `MIGRATION_PLAN.md` / `MIGRATION_PLANNING.md` / `ARCHITECTURE_DECISION.md` | Unaffected by P6/P7 so far |
+| `README.md` | Up to date (P7 complete; P8 next) |
+| `ENGINEERING_BLUEPRINT.md` | P0–P7 rows done; P8 §1.12 pending build |
+| `IMPLEMENTATION_LOG.md` | P0–P7 + P7 entry recorded 2026-08-15 |
+| `implementation/P7_ADMINISTRATION.md` | Header **COMPLETE** (contract verified vs `ADMIN_ANALYSIS.md`; implemented) |
+| `ADMIN_ANALYSIS.md` | Canonical P7 analysis (unchanged) |
+| `MIGRATION_PLAN.md` / `MIGRATION_PLANNING.md` / `ARCHITECTURE_DECISION.md` | Unaffected by P7 so far |
 
 ---
 

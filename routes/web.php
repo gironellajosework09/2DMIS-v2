@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AdminPermissionController;
+use App\Http\Controllers\AuditController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\ClientController;
 use App\Http\Controllers\DashboardController;
@@ -20,6 +22,7 @@ use App\Http\Controllers\SessionController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\UnpaidVerificationController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -194,5 +197,35 @@ Route::middleware(['auth', 'single-device'])->group(function () {
             ->name('unpaid-verifications.data');
         Route::get('unpaid-verifications/export', [UnpaidVerificationController::class, 'export'])
             ->name('unpaid-verifications.export');
+    });
+
+    // P7 administration — one page group per v1 page key (register.php,
+    // manage_permissions.php, manage_program_permissions.php,
+    // manage_multi_device_exemptions.php, audit_logs.php). '*' satisfies every
+    // gate; the audit feeds nest inside the audit_logs.php group.
+    Route::middleware('page:register.php')->group(function () {
+        Route::get('admin/users/create', [UserController::class, 'create'])->name('admin.users.create');
+        Route::post('admin/users', [UserController::class, 'store'])->name('admin.users.store');
+    });
+
+    Route::middleware('page:manage_permissions.php')->group(function () {
+        Route::get('admin/permissions', [AdminPermissionController::class, 'pages'])->name('admin.permissions.pages');
+        Route::post('admin/permissions/{user}', [AdminPermissionController::class, 'updatePages'])->name('admin.permissions.update-pages');
+    });
+
+    Route::middleware('page:manage_program_permissions.php')->group(function () {
+        Route::get('admin/program-permissions', [AdminPermissionController::class, 'programs'])->name('admin.program-permissions.pages');
+        Route::post('admin/program-permissions/{user}', [AdminPermissionController::class, 'updatePrograms'])->name('admin.program-permissions.update');
+    });
+
+    Route::middleware('page:manage_multi_device_exemptions.php')->group(function () {
+        Route::get('admin/exemptions', [AdminPermissionController::class, 'exemptions'])->name('admin.exemptions.pages');
+        Route::post('admin/exemptions/{user}', [AdminPermissionController::class, 'toggleExemption'])->name('admin.exemptions.toggle');
+    });
+
+    Route::middleware('page:audit_logs.php')->group(function () {
+        Route::get('admin/audit-logs', [AuditController::class, 'index'])->name('admin.audit-logs.index');
+        Route::post('admin/audit-logs/data', [AuditController::class, 'data'])->name('admin.audit-logs.data');
+        Route::post('admin/audit-logs/leaderboard', [AuditController::class, 'leaderboard'])->name('admin.audit-logs.leaderboard');
     });
 });

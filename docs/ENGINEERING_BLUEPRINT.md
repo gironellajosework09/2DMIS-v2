@@ -307,6 +307,7 @@ completion criteria. Gates build on `MIGRATION_PLANNING.md` §6.
 - **Dependencies:** P1 (ACL), all modules.
 - **Risks:** permission-screen UX change (mitigate: pilot with admin).
 - **Completion criteria:** P7 parity + tests green.
+- **Status:** **Done** 2026-08-15 — `UserController` (create-only + `MANAGE_USER_CREATE`), `AdminPermissionController` (page full-replace + `'*'` toggle, program full-replace, idempotent exemption toggle), `AuditController` (viewer + `{data,users,actions}` feed + leaderboard), four `FormRequest`s, five `page:` route groups, five Blade views, sidebar links. Full suite green (`158 passed / 769 assertions`, incl. `AdministrationTest` 26/101). See `docs/IMPLEMENTATION_LOG.md` P7 entry.
 
 ### P8 — Hardening + regression + cutover
 - **Deliverables:** full test suite; security review vs C1–C5; reconciliation script run on staging; rehearsal cutover + rollback; cutover runbook execution; credential rotation; v1 archive.
@@ -475,13 +476,13 @@ Dead files (`default.php`, `client_photo.php`) are deliberately excluded.
 | 91 | `update_logs.php` | `GranteeUpdateController@logs` + view | P6 | Done (2026-08-13) — gated `update_logs.php`; server-rendered rows + client DataTables |
 | 92 | `fetch_update_logs.php` | DataTables route (update logs) | P6 | Not ported — dead in v1 (never referenced) |
 | 93 | `view_qrcode.php` | `QrController@show` | P6 | Done (2026-08-13) — public, reuses `grantee-search` endpoints |
-| 94 | `manage_permissions.php` | `AdminPermissionController@pages` | P7 | Planned |
-| 95 | `manage_program_permissions.php` | `AdminPermissionController@programs` | P7 | Planned |
-| 96 | `manage_multi_device_exemptions.php` | `AdminPermissionController@exemptions` | P7 | Planned |
-| 97 | `audit_logs.php` | `AuditController@index` + view | P7 | Planned |
-| 98 | `fetch_logs.php` | DataTables route (audit) | P7 | Planned |
-| 99 | `fetch_leaderboard.php` | DataTables route (leaderboard) | P7 | Planned |
-| 100 | `register.php`, `add_user.php`, `manage_php.php` | `UserController` (admin) | P7 | Planned |
+| 94 | `manage_permissions.php` | `AdminPermissionController@pages` | P7 | **Done** (2026-08-15) — full-replace + `'*'` toggle + `MANAGE_*` audit |
+| 95 | `manage_program_permissions.php` | `AdminPermissionController@programs` | P7 | **Done** (2026-08-15) — 17-program full-replace + `MANAGE_PROGRAM_PERMISSIONS` audit |
+| 96 | `manage_multi_device_exemptions.php` | `AdminPermissionController@exemptions` | P7 | **Done** (2026-08-15) — idempotent toggle, `'*'`-holder exclusion, GRANT/REVOKE audit |
+| 97 | `audit_logs.php` | `AuditController@index` + view | P7 | **Done** (2026-08-15) — viewer + client-side DataTables + date filters |
+| 98 | `fetch_logs.php` | DataTables route (audit) | P7 | **Done** (2026-08-15) — `admin.audit-logs.data`, v1 `{data,users,actions}` contract |
+| 99 | `fetch_leaderboard.php` | DataTables route (leaderboard) | P7 | **Done** (2026-08-15) — `admin.audit-logs.leaderboard`, per-table, now session-gated |
+| 100 | `register.php`, `add_user.php`, `manage_php.php` | `UserController` (admin) | P7 | **Done** (2026-08-15) — create-only; `manage_php.php` concept removed |
 
 ---
 

@@ -1,6 +1,8 @@
 # P7 — Administration Subsystem (Build Contract)
 
-> **STATUS: Implementation contract — NOT YET IMPLEMENTED.**
+> **STATUS: COMPLETE — implemented 2026-08-15.** (This document was the
+> authoritative build contract; the P7 build delivered against it — see
+> `docs/IMPLEMENTATION_LOG.md` entry dated 2026-08-15.)
 >
 > This document is the authoritative, consolidated build contract for the P7
 > (Administration) subsystem. It consolidates the authorization research in

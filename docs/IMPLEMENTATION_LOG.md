@@ -27,7 +27,7 @@
 | P4 — Scanner engine | One `ScanService` (8 modes) + program config + shared view + routes | **Done** 2026-08-07 (all 14 v1 scanners as config; 14 tests green — see entry below) |
 | P5 — Payout + unpaid | | **Done** 2026-08-07 (3 payout lists + unpaid verification admin/self-service + CSV export; 15 tests green — see entry below) |
 | P6 — Scholars / GIP | | Scholar registry v1-parity (Phase 2 cleanup 2026-08-07) + relink (2026-08-12) + scholarship reports (2026-08-12) + GIP details (2026-08-13) + QR viewer (2026-08-13) + grantee updates (2026-08-13) + client picker for standalone create form (2026-08-13) done — P6 complete; SCHOLAR_ANALYSIS §6 step 9 implemented |
-| P7 — Administration | | Not started |
+| P7 — Administration | | **Done** 2026-08-15 (user creation, page/program permission management, multi-device exemptions, audit viewer + leaderboard; 26 tests green — see entry below) |
 | P8 — Hardening + cutover | | Not started |
 
 ---
@@ -1191,6 +1191,81 @@ One real parity deviation was found and fixed; everything else matched.
 
 **Deviations:** the fix itself re-aligns the implementation with the documented
 v1 contract; no new deviations.
+
+---
+
+### 2026-08-15 — P7 Administration subsystem (blueprint §1.11)
+
+Owner-approved P7 build per `docs/implementation/P7_ADMINISTRATION.md` +
+`docs/ADMIN_ANALYSIS.md`. Approved decisions: no automatic/bootstrap seeder for
+production admins (first `'*'` access is a reviewed one-time cutover SQL grant
+for a nominated existing user); the seven `MANAGE_*` audit strings exactly;
+**no** `active` column (v1 create-only); audit enhancements C/D/E in scope,
+A/B/F deferred; no municipality/data-scope authz, no action-level CRUD, no
+username/user-id checks, `AccessControlService` canonical, `AuditService` sole
+`tbl_audit_logs` writer.
+
+**Created:**
+
+- `app/Http/Requests/{UserCreateRequest,PagePermissionRequest,ProgramPermissionRequest,ExemptionToggleRequest}.php`
+  — centralized validation: username unique on `tbl_users` (varchar(100)),
+  password min 8 + confirmed; page values in the **real catalog** (distinct
+  `tbl_permissions.page_name` + the five P7 keys, `'*'` excluded — contract §9.2,
+  v1's hard-coded array is incomplete/duplicated so it is not copied); programs
+  `in:TransactionService::PROGRAMS`; `super_admin`/`grant` `sometimes|boolean`.
+- `app/Http/Controllers/UserController.php` — v1 `register.php`/`add_user.php`
+  create-only port (`admin/users/create` + `admin/users`), zero-permission
+  start, `MANAGE_USER_CREATE` audit (payload `{'username': ...}` only — never
+  `getAttributes()`).
+- `app/Http/Controllers/AdminPermissionController.php` — page permissions
+  (full-replace DELETE+INSERT, `'*'` managed solely by the confirmed
+  `super_admin` toggle, GRANT/REVOKE audited only when the `'*'` row flips),
+  program permissions (full-replace on the 17-program catalog), multi-device
+  exemptions (idempotent toggle; `'*'`-holders excluded from the picker and
+  rejected server-side as already-exempt; no-op toggle writes no audit).
+- `app/Http/Controllers/AuditController.php` — v1 `audit_logs.php` +
+  `fetch_logs.php` + `fetch_leaderboard.php` port. Viewer whitelist = the v1
+  business tables **plus the four P7 subject tables** so `MANAGE_*` rows are
+  readable (interpretation of Pass 6 §9.4); subject `target_id` resolves to the
+  username; feed preserves the v1 JSON shape `{data, users, actions}`, UTC →
+  Asia/Manila `m/d/Y - h:i A` (+ `date_raw` for the client-side date filter),
+  `LIMIT 10000`, distinct per-table users/actions; per-table leaderboard ordered
+  by descending action count. Feeds nest inside the `page:audit_logs.php` group
+  (v1 `fetch_leaderboard.php` had no session check; v2 closes that gap).
+- `resources/views/admin/...` — `users/create`, `permissions/{pages,programs,exemptions}`,
+  `audit_logs/index` (client-side DataTables, user/action selects, `type=date`
+  from/to filter replicating v1's `ext.search`, 5s auto-reload, leaderboard
+  modal). Sidebar gains five `canAccessPage`-gated links.
+
+**Edited:**
+
+- `routes/web.php` — five `page:<key>` route groups (register.php,
+  manage_permissions.php, manage_program_permissions.php,
+  manage_multi_device_exemptions.php, audit_logs.php) inside the
+  `auth + single-device` group; feeds nested under audit_logs.php.
+- `resources/views/partials/sidebar.blade.php` — P7 links.
+
+**Deviations (documented):** contract §6.2 says `pages`/`programs` are
+`required, array`; implemented as `nullable|array` so an empty set is accepted
+— required for v1's full-replace **remove-all** semantics (contract §9.6) and
+covered by `test_remove_all_page_permissions_is_allowed` /
+`test_remove_all_program_permissions`. No-op exemption toggle returns a
+status message rather than an audit row (contract §11.5 no-op rule).
+
+**Verification.** New `tests/Feature/AdministrationTest.php` — 26 tests / 101
+assertions covering: page-gate authz for every P7 screen (incl. no
+username/id bypass, program permission not granting screens, JSON 403 on feeds
+without the gate), user creation + duplicate + confirmation + zero-permission
+start + `MANAGE_USER_CREATE`, page/program full-replace + unknown-value
+rejection (no writes on failure), `'*'` grant/revoke rows + audits, granted
+page taking effect for the middleware, catalog incl. P7 keys, exemption
+grant/revoke + idempotence + `'*'` no-op + picker exclusion, feed shapes
+(clients/transactions/subject display names, UTC→Asia/Manila, defaults), and
+credential-leak guard on all payloads. Full suite green: **158 tests, 769
+assertions** on `main_system_test`; `vendor\bin\pint` clean on all changed
+files; production `main_system` untouched; no schema work. Notes:
+`AccessControlService` is a request-lifecycle singleton — tests reset it via
+`forgetInstance()` after writes that flip exemption/permission state.
 
 ---
 

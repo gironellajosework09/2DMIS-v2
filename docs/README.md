@@ -32,7 +32,7 @@
 | [implementation/P4_SCANNER_ENGINE.md](implementation/P4_SCANNER_ENGINE.md) | P4 delivered — config-driven 14-key/8-mode scanner engine, one shared scan view, per-key routes + gates, 14 tests |
 | [implementation/P5_PAYOUT.md](implementation/P5_PAYOUT.md) | P5 delivered — payout attendance lists (3 variants, one shared view/feeds), unpaid verification admin + public self-service + search/verify/delete, BOM CSV export; 15 tests |
 | [implementation/P6_SCHOLARS.md](implementation/P6_SCHOLARS.md) | P6 delivered (2026-08-13) — scholars module: enrollment + client picker, GIP, grantee updates, reports, QR viewer (blueprint §1.7) |
-| [implementation/P7_ADMINISTRATION.md](implementation/P7_ADMINISTRATION.md) | P7 planned — permission management, user CRUD, audit viewer + leaderboard (blueprint §1.11); `manage_php.php` excluded |
+| [implementation/P7_ADMINISTRATION.md](implementation/P7_ADMINISTRATION.md) | P7 delivered (2026-08-15) — user creation, page/program permission management, multi-device exemptions, audit viewer + leaderboard (blueprint §1.11); `manage_php.php` excluded |
 | [ADMIN_ANALYSIS.md](ADMIN_ANALYSIS.md) | P7 canonical analysis — verified v1 admin ground truth (user create, permission/exemption screens, audit viewer + leaderboard), parity requirements, open decisions (disable/enable, admin bootstrapping) |
 
 ## Phase status
@@ -41,15 +41,16 @@
 |---|---|
 | Planning & Analysis | **Complete** |
 | Design | **Complete** |
-| Development | **In progress (P7 — administration)** |
+| Development | **In progress (P8 — hardening + cutover)** |
 | Testing | In progress (per-module gates; full suite in P8) |
 | Rollout | Not started |
 
 P0 foundations, the six additive schema-fix migrations, P1 Auth + RBAC, P2
 clients/households, P3 transactions, P4 the scanner engine, P5 payouts +
-unpaid verification, and P6 the scholars module (GIP, grantee updates,
-scholarship reports, QR viewer) are complete — see `IMPLEMENTATION_LOG.md` for
-the full record.
+unpaid verification, P6 the scholars module (GIP, grantee updates,
+scholarship reports, QR viewer), and P7 the administration module (user
+creation, permissions, exemptions, audit viewer + leaderboard) are complete —
+see `IMPLEMENTATION_LOG.md` for the full record.
 
 ## Guardrails
 
