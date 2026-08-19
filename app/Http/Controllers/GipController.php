@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Services\AccessControlService;
 use App\Services\GipService;
+use App\Support\RecordMunicipality;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -17,13 +19,19 @@ use Illuminate\Http\Request;
  */
 class GipController extends Controller
 {
-    public function __construct(private readonly GipService $gipService) {}
+    public function __construct(
+        private readonly GipService $gipService,
+        private readonly AccessControlService $acl,
+    ) {}
 
     public function store(Request $request, Client $client): RedirectResponse
     {
         $request->validate([
             'client_id' => ['required', 'integer', 'exists:tbl_clients,id'],
         ]);
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'clients.php')
+            || abort(403, 'Access denied.');
 
         $this->gipService->save($request->input(), $request->user()->id);
 

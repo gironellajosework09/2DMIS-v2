@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Services\AccessControlService;
 use App\Services\FamilyMemberService;
+use App\Support\RecordMunicipality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -12,10 +14,16 @@ use Illuminate\View\View;
 
 class FamilyMemberController extends Controller
 {
-    public function __construct(private readonly FamilyMemberService $family) {}
+    public function __construct(
+        private readonly FamilyMemberService $family,
+        private readonly AccessControlService $acl,
+    ) {}
 
-    public function create(Client $client): View
+    public function create(Request $request, Client $client): View
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'clients.php')
+            || abort(403, 'Access denied.');
+
         return view('family_members.create', ['parent' => $client]);
     }
 
@@ -27,6 +35,14 @@ class FamilyMemberController extends Controller
         ], [
             'existing_client_id.required' => 'Please search for and select the family member.',
         ]);
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'clients.php')
+            || abort(403, 'Access denied.');
+        $this->acl->canAccessRecord(
+            $request->user(),
+            RecordMunicipality::ofClient((int) $validated['existing_client_id']),
+            'clients.php',
+        ) || abort(403, 'Access denied.');
 
         if ((int) $validated['existing_client_id'] === $client->id) {
             return redirect()->back()->withErrors(['existing_client_id' => 'A client cannot be their own family member.']);
@@ -53,6 +69,8 @@ class FamilyMemberController extends Controller
             ->leftJoin('tbl_municipalities as m', 'c.city_municipality', '=', 'm.id')
             ->leftJoin('tbl_barangays as b', 'c.barangay', '=', 'b.id')
             ->select(['c.id', 'c.lastname', 'c.firstname', 'c.middlename', 'c.extensionname', 'c.birthdate', 'c.age', 'c.sex', 'c.civil_status', 'c.occupation', 'c.mobile_no', 'c.house_no', 'c.city_municipality', 'c.barangay', 'c.monthly_income', 'c.precinct_no', 'c.voter_id', 'm.name as municipality_name', 'b.name as barangay_name']);
+
+        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'clients.php');
 
         foreach ($words as $word) {
             $like = "%{$word}%";

@@ -141,6 +141,19 @@ CREATE TABLE `tbl_absent` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `tbl_action_permissions`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `tbl_action_permissions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `page_name` varchar(100) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_action_permission_user_page_action` (`user_id`,`page_name`,`action`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tbl_audit_logs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -609,6 +622,18 @@ CREATE TABLE `tbl_update_logs` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `tbl_user_municipalities`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `tbl_user_municipalities` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `municipality_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_user_municipality` (`user_id`,`municipality_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `tbl_users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
@@ -669,3 +694,5 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (6,'2026_08_05_0000
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (7,'2026_08_05_000004_add_unique_permission_constraints',1);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (8,'2026_08_05_000005_unify_table_collations',1);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (9,'2026_08_05_000006_add_payout_scan_foreign_keys',1);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (10,'2026_08_15_000001_create_tbl_action_permissions_table',2);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (11,'2026_08_15_000002_create_tbl_user_municipalities_table',2);

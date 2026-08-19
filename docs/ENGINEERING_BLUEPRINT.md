@@ -309,6 +309,13 @@ completion criteria. Gates build on `MIGRATION_PLANNING.md` §6.
 - **Completion criteria:** P7 parity + tests green.
 - **Status:** **Done** 2026-08-15 — `UserController` (create-only + `MANAGE_USER_CREATE`), `AdminPermissionController` (page full-replace + `'*'` toggle, program full-replace, idempotent exemption toggle), `AuditController` (viewer + `{data,users,actions}` feed + leaderboard), four `FormRequest`s, five `page:` route groups, five Blade views, sidebar links. Full suite green (`158 passed / 769 assertions`, incl. `AdministrationTest` 26/101). See `docs/IMPLEMENTATION_LOG.md` P7 entry.
 
+### P12 (approved contract) — Action authorization + municipality scope
+- **Deliverables:** `tbl_action_permissions` + `tbl_user_municipalities` (additive), `canAccessAction` / `permittedActions` / `canAccessRecord` / `applyMunicipalityScope` on the single ACL service, `action` middleware + Gate, `RecordMunicipality` resolvers, §11 route map on the 5 pilot pages, `config/authorization.php` (all `enforcement` off), two admin screens under `manage_permissions.php` with `MANAGE_ACTION_PERMISSIONS` / `MANAGE_SCOPE_ASSIGNMENTS` audits.
+- **Acceptance criteria:** pre-P12 behavior unchanged until a page's S2 flag flips; fail closed when enforced; `'*'` and the reserved `0` ALL marker bypass.
+- **Dependencies:** P1 (ACL), P2/P3/P6 (pilot controllers), P7 (admin group).
+- **Completion criteria:** P12 contract checklist green.
+- **Status:** **Done** 2026-08-16 — all 8 approved bind-points shipped; 37 new tests; full suite green (`195 passed / 887 assertions`); pint clean; baseline regenerated (sentinel-free). See `docs/IMPLEMENTATION_LOG.md` 2026-08-16 entry and `docs/ADMIN_ANALYSIS.md` BUILD RECORD.
+
 ### P8 — Hardening + regression + cutover
 - **Deliverables:** full test suite; security review vs C1–C5; reconciliation script run on staging; rehearsal cutover + rollback; cutover runbook execution; credential rotation; v1 archive.
 - **Acceptance criteria:** all gates green; rehearsal cutover reconciles; rollback exercised; live cutover green.

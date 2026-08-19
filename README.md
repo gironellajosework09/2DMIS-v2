@@ -130,10 +130,11 @@ in git.
 
 ## Current milestone
 
-**P2 — Clients + households** and **P3 — Transactions** are done (see
+P0–P7 are done and the owner-approved **P12 action authorization + municipality
+scope** contract is implemented (all `enforcement` flags still off — S2).
+Next up is **P8 — Hardening + cutover** (see
 `docs/ENGINEERING_BLUEPRINT.md` §5 for the phase deliverables and
-`docs/IMPLEMENTATION_LOG.md` for the record). Next up is **P4 — Scanner
-engine**.
+`docs/IMPLEMENTATION_LOG.md` for the record).
 
 Done so far:
 - Planning + P0 bootstrap (assets, storage, CI, baseline diff verification).
@@ -169,6 +170,14 @@ Done so far:
   (`duplicates/index`); client photo upload via file or camera capture
   (`PhotoService`, JPEG magic check); public student self-service flow
   (search → birthdate/mobile verify → photo upload) for scholar programs;
-  client details open in a **right-side slide-over panel** on row click
-  (responsive Bootstrap Offcanvas; full page kept as a deep link).
-  60 tests green (20 new).
+   client details open in a **right-side slide-over panel** on row click
+   (responsive Bootstrap Offcanvas; full page kept as a deep link).
+   60 tests green (20 new).
+- **P12 — Action authorization + municipality scope** (owner-approved
+   contract): `tbl_action_permissions` + `tbl_user_municipalities` (additive),
+   `action` middleware + Gate, server-side municipality scoping on feeds and
+   record-level checks on the 5 pilot pages (clients, household, transactions,
+   scholars, register), `config/authorization.php` with all `enforcement`
+   flags **off** (pre-P12 behavior unchanged until a page is flipped), and two
+   admin screens under `manage_permissions.php` (action grid + municipality
+   scope with the ALL marker). 195 tests / 887 assertions green.

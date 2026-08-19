@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthorizeAction;
 use App\Http\Middleware\AuthorizePage;
 use App\Http\Middleware\EnsureSingleDevice;
 use Illuminate\Foundation\Application;
@@ -16,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'single-device' => EnsureSingleDevice::class,
             'page' => AuthorizePage::class,
+            'action' => AuthorizeAction::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

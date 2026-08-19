@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ActionPermissionRequest;
 use App\Http\Requests\ExemptionToggleRequest;
+use App\Http\Requests\MunicipalityScopeRequest;
 use App\Http\Requests\PagePermissionRequest;
 use App\Http\Requests\ProgramPermissionRequest;
+use App\Models\ActionPermission;
 use App\Models\MultiDeviceExemption;
+use App\Models\Municipality;
 use App\Models\Permission;
 use App\Models\ProgramPermission;
 use App\Models\User;
+use App\Models\UserMunicipality;
 use App\Services\AccessControlService;
 use App\Services\AuditService;
 use App\Services\TransactionService;
@@ -188,6 +193,170 @@ class AdminPermissionController extends Controller
         });
 
         return back()->with('login_status', 'Program permissions updated successfully!');
+    }
+
+    /**
+     * P12 action-permission screen. One grid row per adopted page (config
+     * authorization.pages), one column per non-VIEW action in that page's
+     * catalog. The selected user's granted (user, page, action) rows are
+     * pre-checked; VIEW has no checkbox because the page row is the VIEW grant.
+     */
+    public function actions(Request $request): View
+    {
+        $users = User::query()->orderBy('username')->get(['id', 'username']);
+
+        $selectedUserId = $request->integer('user_id');
+        $selectedUser = $users->firstWhere('id', $selectedUserId);
+
+        $pages = [];
+        foreach (config('authorization.pages', []) as $pageName => $page) {
+            $actions = array_values(array_filter(
+                $page['actions'] ?? [],
+                fn (string $action) => $action !== 'VIEW'
+            ));
+
+            if ($actions !== []) {
+                $pages[$pageName] = [
+                    'label' => $this->pageLabel($pageName),
+                    'actions' => $actions,
+                    'enforcement' => (bool) ($page['enforcement'] ?? false),
+                ];
+            }
+        }
+
+        $userActions = [];
+        if ($selectedUser !== null) {
+            foreach ($selectedUser->actionPermissions()->get(['page_name', 'action']) as $row) {
+                $userActions[] = $row->page_name.':'.$row->action;
+            }
+        }
+
+        return view('admin.permissions.actions', [
+            'users' => $users,
+            'selectedUser' => $selectedUser,
+            'pages' => $pages,
+            'userActions' => $userActions,
+        ]);
+    }
+
+    public function updateActions(ActionPermissionRequest $request, User $user): RedirectResponse
+    {
+        $old = $user->actionPermissions()
+            ->get(['page_name', 'action'])
+            ->map(fn (ActionPermission $row) => $row->page_name.':'.$row->action)
+            ->sort()
+            ->values()
+            ->all();
+
+        $actions = collect($request->input('actions', []))
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        if ($actions === $old) {
+            return back()->with('login_status', 'No change — the action permissions were already in that state.');
+        }
+
+        DB::transaction(function () use ($request, $user, $old, $actions) {
+            ActionPermission::query()->where('user_id', $user->id)->delete();
+
+            foreach ($actions as $composite) {
+                [$pageName, $action] = explode(':', $composite, 2);
+                ActionPermission::query()->create([
+                    'user_id' => $user->id,
+                    'page_name' => $pageName,
+                    'action' => $action,
+                ]);
+            }
+
+            $this->audit()->log(
+                $request->user()->id,
+                'MANAGE_ACTION_PERMISSIONS',
+                'tbl_action_permissions',
+                $user->id,
+                json_encode(['username' => $user->username, 'actions' => $old]),
+                json_encode(['username' => $user->username, 'actions' => $actions])
+            );
+        });
+
+        return back()->with('login_status', 'Action permissions updated successfully!');
+    }
+
+    /**
+     * P12 municipality-scope screen. Real municipality rows are checkboxes;
+     * "ALL" is a separate switch that writes the reserved 0 marker — it can
+     * never be chosen from the municipality list, mirroring how '*' has its own
+     * toggle on the page-permissions screen.
+     */
+    public function scopes(Request $request): View
+    {
+        $users = User::query()->orderBy('username')->get(['id', 'username']);
+
+        $selectedUserId = $request->integer('user_id');
+        $selectedUser = $users->firstWhere('id', $selectedUserId);
+
+        $municipalities = Municipality::query()->orderBy('name')->get(['id', 'name']);
+
+        $scope = $selectedUser?->municipalityScope()->pluck('municipality_id')->all() ?? [];
+
+        return view('admin.permissions.scopes', [
+            'users' => $users,
+            'selectedUser' => $selectedUser,
+            'municipalities' => $municipalities,
+            'userScope' => array_map('intval', $scope),
+            'hasAll' => in_array(AccessControlService::ALL_MUNICIPALITY_MARKER, $scope, true),
+        ]);
+    }
+
+    public function updateScopes(MunicipalityScopeRequest $request, User $user): RedirectResponse
+    {
+        $old = $user->municipalityScope()
+            ->pluck('municipality_id')
+            ->map(fn (int $id) => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+
+        $ids = collect($request->input('municipalities', []))
+            ->map(fn (mixed $id) => (int) $id)
+            ->filter(fn (int $id) => $id > AccessControlService::ALL_MUNICIPALITY_MARKER)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        if ($request->boolean('all')) {
+            $ids[] = AccessControlService::ALL_MUNICIPALITY_MARKER;
+        }
+
+        sort($ids);
+
+        if ($ids === $old) {
+            return back()->with('login_status', 'No change — the municipality scope was already in that state.');
+        }
+
+        DB::transaction(function () use ($request, $user, $old, $ids) {
+            UserMunicipality::query()->where('user_id', $user->id)->delete();
+
+            foreach ($ids as $municipalityId) {
+                UserMunicipality::query()->create([
+                    'user_id' => $user->id,
+                    'municipality_id' => $municipalityId,
+                ]);
+            }
+
+            $this->audit()->log(
+                $request->user()->id,
+                'MANAGE_SCOPE_ASSIGNMENTS',
+                'tbl_user_municipalities',
+                $user->id,
+                json_encode(['username' => $user->username, 'municipalities' => $old]),
+                json_encode(['username' => $user->username, 'municipalities' => $ids])
+            );
+        });
+
+        return back()->with('login_status', 'Municipality scope updated successfully!');
     }
 
     public function exemptions(Request $request): View

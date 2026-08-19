@@ -6,7 +6,9 @@ use App\Http\Requests\ClientRequest;
 use App\Models\Barangay;
 use App\Models\Client;
 use App\Models\Municipality;
+use App\Services\AccessControlService;
 use App\Services\ClientService;
+use App\Support\RecordMunicipality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,7 +18,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class ClientController extends Controller
 {
-    public function __construct(private readonly ClientService $clientService) {}
+    public function __construct(
+        private readonly ClientService $clientService,
+        private readonly AccessControlService $acl,
+    ) {}
 
     public function index(): View
     {
@@ -34,6 +39,12 @@ class ClientController extends Controller
 
     public function store(ClientRequest $request): RedirectResponse
     {
+        $this->acl->canAccessRecord(
+            $request->user(),
+            (int) $request->validated('city_municipality'),
+            'clients.php',
+        ) || abort(403, 'Access denied.');
+
         $client = $this->clientService->create($request->validated(), $request->user()->id);
 
         return redirect()
@@ -41,8 +52,11 @@ class ClientController extends Controller
             ->with('success', "Client {$client->full_name} added successfully.");
     }
 
-    public function edit(Client $client): View
+    public function edit(Request $request, Client $client): View
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'clients.php')
+            || abort(403, 'Access denied.');
+
         return view('clients.edit', [
             'client' => $client,
             'affOrgs' => $client->affOrgs()->orderBy('id')->pluck('organization')->all(),
@@ -56,6 +70,9 @@ class ClientController extends Controller
 
     public function update(ClientRequest $request, Client $client): RedirectResponse
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'clients.php')
+            || abort(403, 'Access denied.');
+
         $client = $this->clientService->update($client, $request->validated(), $request->user()->id);
 
         return redirect()
@@ -66,6 +83,9 @@ class ClientController extends Controller
     public function destroy(Request $request, Client $client): RedirectResponse
     {
         $this->authorize('delete', $client);
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'clients.php')
+            || abort(403, 'Access denied.');
 
         try {
             $this->clientService->destroy($client, $request->user());
@@ -82,6 +102,9 @@ class ClientController extends Controller
 
     public function show(Request $request, Client $client): View|Response
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'clients.php')
+            || abort(403, 'Access denied.');
+
         $client->load([
             'municipality',
             'barangayInfo',
@@ -150,6 +173,10 @@ class ClientController extends Controller
             ->leftJoin('tbl_municipalities as m', 'c.city_municipality', '=', 'm.id')
             ->leftJoin('tbl_barangays as b', 'c.barangay', '=', 'b.id');
 
+        $this->acl->applyMunicipalityScope($base, $request->user(), 'c.city_municipality', 'clients.php');
+
+        $totalRecords = (clone $base)->count();
+
         if ($municipality !== '') {
             $base->where('c.city_municipality', $municipality);
         }
@@ -180,7 +207,7 @@ class ClientController extends Controller
             }
         }
 
-        $totalRecords = DB::table('tbl_clients')->count();
+        $totalRecords = (clone $base)->count();
 
         $totalFiltered = (clone $base)->count();
 

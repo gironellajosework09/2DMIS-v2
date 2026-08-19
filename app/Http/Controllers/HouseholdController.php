@@ -7,14 +7,19 @@ use App\Models\Client;
 use App\Models\ClientAffOrg;
 use App\Models\Household;
 use App\Models\Municipality;
+use App\Services\AccessControlService;
 use App\Services\HouseholdService;
+use App\Support\RecordMunicipality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class HouseholdController extends Controller
 {
-    public function __construct(private readonly HouseholdService $households) {}
+    public function __construct(
+        private readonly HouseholdService $households,
+        private readonly AccessControlService $acl,
+    ) {}
 
     public function index()
     {
@@ -30,8 +35,13 @@ class HouseholdController extends Controller
 
     public function store(HouseholdStoreRequest $request)
     {
+        $headId = $request->integer('head_household');
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($headId), 'household.php')
+            || abort(403, 'Access denied.');
+
         try {
-            $this->households->create($request->integer('head_household'), $request->user());
+            $this->households->create($headId, $request->user());
         } catch (\InvalidArgumentException $e) {
             return redirect()->back()->withErrors(['head_household' => $e->getMessage()])->withInput();
         }
@@ -39,8 +49,11 @@ class HouseholdController extends Controller
         return redirect()->route('households.index')->with('success', 'Household added successfully!');
     }
 
-    public function show(Household $household)
+    public function show(Request $request, Household $household)
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofHousehold($household->id), 'household.php')
+            || abort(403, 'Access denied.');
+
         $household->load(['headClient.municipality', 'headClient.barangayInfo']);
 
         $members = Client::query()
@@ -54,6 +67,9 @@ class HouseholdController extends Controller
 
     public function destroy(Request $request, Household $household): JsonResponse
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofHousehold($household->id), 'household.php')
+            || abort(403, 'Access denied.');
+
         try {
             $this->households->destroy($household, $request->user());
 
@@ -99,6 +115,8 @@ class HouseholdController extends Controller
                 'b.name as barangay_name',
                 DB::raw('(SELECT COUNT(*) FROM tbl_clients mc WHERE mc.household_id = h.id) + CASE WHEN c.household_id IS NULL OR c.household_id <> h.id THEN 1 ELSE 0 END AS member_count'),
             ]);
+
+        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'household.php');
 
         $totalCount = (clone $query)->count();
 
@@ -162,6 +180,8 @@ class HouseholdController extends Controller
             ->leftJoin('tbl_barangays as b', 'c.barangay', '=', 'b.id')
             ->select(['h.id', 'h.household_id', 'h.head_household', 'c.full_name as head_name', 'c.firstname', 'c.lastname', 'm.name as municipality_name', 'b.name as barangay_name']);
 
+        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'household.php');
+
         foreach ($words as $word) {
             $like = "%{$word}%";
             $query->where(function ($q) use ($like) {
@@ -184,8 +204,11 @@ class HouseholdController extends Controller
         return response()->json($rows);
     }
 
-    public function clientOptions(Client $client): JsonResponse
+    public function clientOptions(Request $request, Client $client): JsonResponse
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'household.php')
+            || abort(403, 'Access denied.');
+
         $client->load(['municipality', 'barangayInfo']);
 
         $orgs = ClientAffOrg::query()->where('client_id', $client->id)->pluck('organization');
@@ -209,6 +232,8 @@ class HouseholdController extends Controller
             ->leftJoin('tbl_household as h', 'h.head_household', '=', 'c.id')
             ->select(['c.id', 'c.full_name', 'm.name as municipality_name', 'b.name as barangay_name'])
             ->whereNull('h.head_household');
+
+        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'household.php');
 
         foreach ($words as $word) {
             $like = "%{$word}%";

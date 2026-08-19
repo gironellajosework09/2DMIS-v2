@@ -29,6 +29,7 @@
 | P6 — Scholars / GIP | | Scholar registry v1-parity (Phase 2 cleanup 2026-08-07) + relink (2026-08-12) + scholarship reports (2026-08-12) + GIP details (2026-08-13) + QR viewer (2026-08-13) + grantee updates (2026-08-13) + client picker for standalone create form (2026-08-13) done — P6 complete; SCHOLAR_ANALYSIS §6 step 9 implemented |
 | P7 — Administration | | **Done** 2026-08-15 (user creation, page/program permission management, multi-device exemptions, audit viewer + leaderboard; 26 tests green — see entry below) |
 | P8 — Hardening + cutover | | Not started |
+| P12 (approved contract) — Action authorization + municipality scope | 2 additive tables, 5 pilot pages, admin screens | **Done** 2026-08-16 (37 new tests; full suite 195 tests / 887 assertions green — see entry below) |
 
 ---
 
@@ -1266,6 +1267,80 @@ assertions** on `main_system_test`; `vendor\bin\pint` clean on all changed
 files; production `main_system` untouched; no schema work. Notes:
 `AccessControlService` is a request-lifecycle singleton — tests reset it via
 `forgetInstance()` after writes that flip exemption/permission state.
+
+---
+
+### 2026-08-16 — P12 action authorization + municipality scope (implemented)
+
+Owner-approved Pass 12 contract (bind-points §22 of `docs/ADMIN_ANALYSIS.md`)
+shipped. Adds the **action** dimension (which mutation/export a user may run on
+a page) and the **municipality** dimension (which records a user may see/write)
+on top of P1's PAGE + PROGRAM ACL, behind the S2 `enforcement` flag that is
+**off for every pilot page** — behavior is byte-identical to pre-P12 until a
+page's flag flips in `config/authorization.php`.
+
+**Schema (additive only, local `main_system`):**
+
+- `database/migrations/2026_08_15_000001_create_tbl_action_permissions_table.php`
+  — `(user_id, page_name, action)` with `uniq_action_permission_user_page_action`
+  (approved DDL verbatim; InnoDB / utf8mb4_unicode_ci, no FKs).
+- `database/migrations/2026_08_15_000002_create_tbl_user_municipalities_table.php`
+  — `(user_id, municipality_id)` with `uniq_user_municipality`; the reserved
+  `0` value is the ALL-municipalities marker (distinct from `'*'`).
+- `database/schema/mysql-schema.sql` regenerated via `schema:dump`
+  (sentinel-free, migration rows renumbered to 10/11). Backup before the
+  migrations: `C:\Users\J\AppData\Local\Temp\opencode\main_system_before_p12.sql`.
+
+**New files:**
+
+- `config/authorization.php` — `catalog` + 5 pilot pages (clients.php,
+  household.php, all_transactions.php, scholars.php, register.php) each with
+  `actions` and `enforcement => false`.
+- `app/Models/{ActionPermission,UserMunicipality}.php` + `User` relations
+  (`actionPermissions()`, `municipalityScope()`).
+- `app/Http/Middleware/AuthorizeAction.php` (alias `action`, mirror of
+  AuthorizePage: JSON → 403, else dashboard flash `login_status=denied`).
+- `app/Support/RecordMunicipality.php` — data-only resolvers
+  (`ofClient/ofTransaction/ofHousehold/ofScholar/ofGip/ofUnpaidVerification`;
+  `tbl_household` joins on `head_household`).
+- `app/Http/Requests/{ActionPermissionRequest,MunicipalityScopeRequest}.php`.
+- `resources/views/admin/permissions/{actions,scopes}.blade.php` + sidebar links.
+- `tests/Feature/{ActionPermissionTest,ScopeTest,AuthorizationAdminTest}.php`
+  and `tests/Feature/AccessControlServiceTest.php` (37 tests / 118 assertions).
+
+**Edited:**
+
+- `app/Services/AccessControlService.php` — `canAccessAction` (with canonical
+  uppercase action normalization), `permittedActions`, `hasAllMunicipalities`,
+  `effectiveMunicipalityIds`, `canAccessRecord`, `applyMunicipalityScope`
+  (Builder `whereIn`), all inert until `enforcement`. Page settings are read as
+  a literal `config('authorization.pages')` index (dot-notation would split the
+  `clients.php` key).
+- `routes/web.php` — `action:<page>,<action>` on the §11 route map (18
+  instances) + 4 admin routes under `page:manage_permissions.php`; comma (not
+  colon) separates page and action because Laravel middleware params split on
+  `,` after the first `:`.
+- `app/Http/Controllers/*` (Client, Duplicate, Household, Transaction, Scholar,
+  Gip, FamilyMember, Photo, AdminPermission) — scope seams on feeds/searches
+  and record-level checks on single-ID/write endpoints; admin `actions`/
+  `updateActions`/`scopes`/`updateScopes` full-replace saves with
+  `MANAGE_ACTION_PERMISSIONS` / `MANAGE_SCOPE_ASSIGNMENTS` audits and no-op
+  detection (no write/audit when unchanged).
+- `bootstrap/app.php` (`action` alias), `AppServiceProvider.php`
+  (`Gate::define('action', ...)`), `app/Models/User.php`.
+
+**Verification.** New suites cover: action gate truth table (inert default,
+enforced deny/allow, `'*'` bypass, VIEW = page row, unknown action fails
+closed, flip-off restores behavior, Gate registration, export block/grant),
+scope behavior (unscoped feeds off, scoped recordsTotal/data on, fail-closed
+empty scope, ALL marker, `'*'`, record checks on client show/destroy/store and
+household destroy, transaction + scholar subquery feeds), admin screens
+(render, full-replace + audit strings, unknown composite/municipality
+rejected, no-op silence, manage_permissions gate). Full suite green: **195
+tests / 887 assertions** on `main_system_test`; `vendor\bin\pint` clean on all
+changed files; production `main_system` untouched (only the 2 additive tables
+added locally); v1 untouched. The only cutover step remaining per S2 (§13) is
+flipping `enforcement` in `config/authorization.php` when the owner is ready.
 
 ---
 

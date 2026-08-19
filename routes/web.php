@@ -86,24 +86,24 @@ Route::middleware(['auth', 'single-device'])->group(function () {
     Route::middleware('page:clients.php')->group(function () {
         Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/create', [ClientController::class, 'create'])->name('clients.create');
-        Route::post('clients', [ClientController::class, 'store'])->name('clients.store');
+        Route::post('clients', [ClientController::class, 'store'])->name('clients.store')->middleware('action:clients.php,create');
         Route::get('clients/verify-mobile', [ClientController::class, 'verifyMobile'])->name('clients.verify-mobile');
         Route::get('clients/duplicates', [DuplicateController::class, 'index'])->name('duplicates.index');
         Route::post('clients/duplicates/data', [DuplicateController::class, 'data'])->name('duplicates.data');
-        Route::post('clients/duplicates/delete', [DuplicateController::class, 'destroy'])->name('duplicates.destroy');
-        Route::post('clients/photo', [PhotoController::class, 'store'])->name('clients.photo.store');
-        Route::post('clients/{client}/gip', [GipController::class, 'store'])->name('gip.store');
+        Route::post('clients/duplicates/delete', [DuplicateController::class, 'destroy'])->name('duplicates.destroy')->middleware('action:clients.php,delete');
+        Route::post('clients/photo', [PhotoController::class, 'store'])->name('clients.photo.store')->middleware('action:clients.php,edit');
+        Route::post('clients/{client}/gip', [GipController::class, 'store'])->name('gip.store')->middleware('action:clients.php,create');
         Route::post('clients/data', [ClientController::class, 'data'])->name('clients.data');
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
-        Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update');
-        Route::post('clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy');
+        Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update')->middleware('action:clients.php,edit');
+        Route::post('clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy')->middleware('action:clients.php,delete');
         Route::get('clients/{client}', [ClientController::class, 'show'])->name('clients.show');
     });
 
     Route::middleware('page:household.php')->group(function () {
         Route::get('households', [HouseholdController::class, 'index'])->name('households.index');
         Route::get('households/create', [HouseholdController::class, 'create'])->name('households.create');
-        Route::post('households', [HouseholdController::class, 'store'])->name('households.store');
+        Route::post('households', [HouseholdController::class, 'store'])->name('households.store')->middleware('action:household.php,create');
         Route::post('households/data', [HouseholdController::class, 'data'])->name('households.data');
         Route::get('households/search', [HouseholdController::class, 'search'])->name('households.search');
         Route::get('households/clients/search', [HouseholdController::class, 'searchClientsForHousehold'])
@@ -111,7 +111,7 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('households/clients/{client}', [HouseholdController::class, 'clientOptions'])
             ->name('households.clients.options');
         Route::get('households/{household}', [HouseholdController::class, 'show'])->name('households.show');
-        Route::post('households/{household}', [HouseholdController::class, 'destroy'])->name('households.destroy');
+        Route::post('households/{household}', [HouseholdController::class, 'destroy'])->name('households.destroy')->middleware('action:household.php,delete');
     });
 
     Route::middleware('page:clients.php')->group(function () {
@@ -120,21 +120,21 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('family-members/{client}', [FamilyMemberController::class, 'create'])
             ->name('family-members.create');
         Route::post('family-members/{client}', [FamilyMemberController::class, 'store'])
-            ->name('family-members.store');
+            ->name('family-members.store')->middleware('action:clients.php,create');
     });
 
     Route::middleware('page:all_transactions.php')->group(function () {
         Route::get('transactions', [TransactionController::class, 'index'])->name('transactions.index');
         Route::get('transactions/create/{client}', [TransactionController::class, 'create'])->name('transactions.create');
-        Route::post('transactions', [TransactionController::class, 'store'])->name('transactions.store');
-        Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export');
+        Route::post('transactions', [TransactionController::class, 'store'])->name('transactions.store')->middleware('action:all_transactions.php,create');
+        Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export')->middleware('action:all_transactions.php,export');
         Route::post('transactions/data', [TransactionController::class, 'data'])->name('transactions.data');
-        Route::post('transactions/inline-update', [TransactionController::class, 'inlineUpdate'])->name('transactions.inline-update');
+        Route::post('transactions/inline-update', [TransactionController::class, 'inlineUpdate'])->name('transactions.inline-update')->middleware('action:all_transactions.php,edit');
         Route::get('transactions/clients-search', [TransactionController::class, 'searchClients'])->name('transactions.clients-search');
         Route::get('transactions/{transaction}/edit', [TransactionController::class, 'edit'])->name('transactions.edit');
-        Route::put('transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update');
+        Route::put('transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update')->middleware('action:all_transactions.php,edit');
         Route::get('transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
-        Route::post('transactions/{transaction}', [TransactionController::class, 'destroy'])->name('transactions.destroy');
+        Route::post('transactions/{transaction}', [TransactionController::class, 'destroy'])->name('transactions.destroy')->middleware('action:all_transactions.php,delete');
     });
 
     Route::middleware('page:scholars.php')->group(function () {
@@ -142,10 +142,10 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::post('scholars/data', [ScholarController::class, 'data'])->name('scholars.data');
         Route::get('scholars/create', [ScholarController::class, 'create'])->name('scholars.create');
         Route::get('scholars/clients-search', [TransactionController::class, 'searchClients'])->name('scholars.clients-search');
-        Route::post('scholars', [ScholarController::class, 'store'])->name('scholars.store');
+        Route::post('scholars', [ScholarController::class, 'store'])->name('scholars.store')->middleware('action:scholars.php,create');
         Route::get('scholars/{scholar}/edit', [ScholarController::class, 'edit'])->name('scholars.edit');
-        Route::put('scholars/{scholar}', [ScholarController::class, 'update'])->name('scholars.update');
-        Route::post('scholars/update-client-id', [ScholarController::class, 'updateClientId'])->name('scholars.update-client-id');
+        Route::put('scholars/{scholar}', [ScholarController::class, 'update'])->name('scholars.update')->middleware('action:scholars.php,edit');
+        Route::post('scholars/update-client-id', [ScholarController::class, 'updateClientId'])->name('scholars.update-client-id')->middleware('action:scholars.php,edit');
     });
 
     Route::middleware('page:scholarship_reports.php')->group(function () {
@@ -205,12 +205,16 @@ Route::middleware(['auth', 'single-device'])->group(function () {
     // gate; the audit feeds nest inside the audit_logs.php group.
     Route::middleware('page:register.php')->group(function () {
         Route::get('admin/users/create', [UserController::class, 'create'])->name('admin.users.create');
-        Route::post('admin/users', [UserController::class, 'store'])->name('admin.users.store');
+        Route::post('admin/users', [UserController::class, 'store'])->name('admin.users.store')->middleware('action:register.php,create');
     });
 
     Route::middleware('page:manage_permissions.php')->group(function () {
         Route::get('admin/permissions', [AdminPermissionController::class, 'pages'])->name('admin.permissions.pages');
         Route::post('admin/permissions/{user}', [AdminPermissionController::class, 'updatePages'])->name('admin.permissions.update-pages');
+        Route::get('admin/action-permissions', [AdminPermissionController::class, 'actions'])->name('admin.permissions.actions');
+        Route::post('admin/action-permissions/{user}', [AdminPermissionController::class, 'updateActions'])->name('admin.permissions.update-actions');
+        Route::get('admin/municipality-scope', [AdminPermissionController::class, 'scopes'])->name('admin.permissions.scopes');
+        Route::post('admin/municipality-scope/{user}', [AdminPermissionController::class, 'updateScopes'])->name('admin.permissions.update-scopes');
     });
 
     Route::middleware('page:manage_program_permissions.php')->group(function () {

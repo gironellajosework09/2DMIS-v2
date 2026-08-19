@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AccessControlService;
 use App\Services\PhotoService;
+use App\Support\RecordMunicipality;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class PhotoController extends Controller
 {
-    public function __construct(private readonly PhotoService $photos) {}
+    public function __construct(
+        private readonly PhotoService $photos,
+        private readonly AccessControlService $acl,
+    ) {}
 
     public function store(Request $request): RedirectResponse
     {
@@ -17,6 +22,9 @@ class PhotoController extends Controller
             'photo' => ['nullable', 'file', 'image', 'max:5120'],
             'camera_image' => ['nullable', 'string'],
         ]);
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient((int) $validated['client_id']), 'clients.php')
+            || abort(403, 'Access denied.');
 
         try {
             $this->photos->store(

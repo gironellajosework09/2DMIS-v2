@@ -80,8 +80,14 @@
     @endif
 
     @if ($acl->canAccessPage($user, 'manage_permissions.php'))
-        <a href="{{ route('admin.permissions.pages') }}" @class(['active' => request()->routeIs('admin.permissions.*')])>
+        <a href="{{ route('admin.permissions.pages') }}" @class(['active' => request()->routeIs('admin.permissions.pages') || request()->routeIs('admin.permissions.update-pages')])>
             Manage Permissions
+        </a>
+        <a href="{{ route('admin.permissions.actions') }}" @class(['active' => request()->routeIs('admin.permissions.actions') || request()->routeIs('admin.permissions.update-actions')])>
+            Action Permissions
+        </a>
+        <a href="{{ route('admin.permissions.scopes') }}" @class(['active' => request()->routeIs('admin.permissions.scopes') || request()->routeIs('admin.permissions.update-scopes')])>
+            Municipality Scope
         </a>
     @endif
 

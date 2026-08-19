@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\AccessControlService;
 use App\Services\DuplicateService;
+use App\Support\RecordMunicipality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -11,7 +13,10 @@ use Illuminate\View\View;
 
 class DuplicateController extends Controller
 {
-    public function __construct(private readonly DuplicateService $duplicates) {}
+    public function __construct(
+        private readonly DuplicateService $duplicates,
+        private readonly AccessControlService $acl,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -39,6 +44,8 @@ class DuplicateController extends Controller
 
         $query = $this->duplicates->baseQuery();
 
+        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'clients.php');
+
         if ($municipality !== '') {
             $query->where('c.city_municipality', $municipality);
         }
@@ -60,7 +67,10 @@ class DuplicateController extends Controller
         }
 
         $recordsFiltered = (clone $query)->count();
-        $recordsTotal = $this->duplicates->countTotal();
+
+        $totalQuery = $this->duplicates->baseQuery();
+        $this->acl->applyMunicipalityScope($totalQuery, $request->user(), 'c.city_municipality', 'clients.php');
+        $recordsTotal = $totalQuery->count();
 
         $columns = [
             'c.id', 'c.id', 'c.lastname', 'c.firstname', 'c.middlename',
@@ -107,6 +117,17 @@ class DuplicateController extends Controller
     {
         $ids = array_map('intval', (array) $request->input('delete_ids', []));
         $ids = array_filter($ids, fn ($id) => $id > 0);
+
+        // Fail closed: only records inside the actor's municipality scope are
+        // eligible for batch deletion; out-of-scope ids are dropped silently.
+        $ids = array_values(array_filter(
+            $ids,
+            fn (int $id) => $this->acl->canAccessRecord(
+                $request->user(),
+                RecordMunicipality::ofClient($id),
+                'clients.php',
+            )
+        ));
 
         $filters = array_filter([
             'municipality' => (string) $request->input('municipality', ''),

@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ScholarRequest;
 use App\Models\Client;
 use App\Models\ScholarInfo;
+use App\Services\AccessControlService;
 use App\Services\ScholarService;
+use App\Support\RecordMunicipality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,7 +27,10 @@ class ScholarController extends Controller
         'year_started', 'landbank_no', 'created_at', 'updated_at',
     ];
 
-    public function __construct(private readonly ScholarService $scholarService) {}
+    public function __construct(
+        private readonly ScholarService $scholarService,
+        private readonly AccessControlService $acl,
+    ) {}
 
     public function index(): View
     {
@@ -48,6 +53,13 @@ class ScholarController extends Controller
         $orderBy = self::COLUMNS[$orderIndex] ?? 'client_id';
 
         $query = ScholarInfo::query();
+
+        // The one Eloquent-based feed: scope through a client-id subquery so
+        // the decision stays entirely inside AccessControlService. Inert when
+        // the page is not enforcing.
+        $clientIds = DB::table('tbl_clients')->select('id');
+        $this->acl->applyMunicipalityScope($clientIds, $request->user(), 'city_municipality', 'scholars.php');
+        $query->whereIn('client_id', $clientIds);
 
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -106,6 +118,12 @@ class ScholarController extends Controller
 
     public function store(ScholarRequest $request): RedirectResponse
     {
+        $this->acl->canAccessRecord(
+            $request->user(),
+            RecordMunicipality::ofClient((int) $request->validated('client_id')),
+            'scholars.php',
+        ) || abort(403, 'Access denied.');
+
         $this->scholarService->save($request->validated());
 
         return redirect()
@@ -113,8 +131,11 @@ class ScholarController extends Controller
             ->with('success', 'Scholar record added successfully.');
     }
 
-    public function edit(ScholarInfo $scholar): View
+    public function edit(Request $request, ScholarInfo $scholar): View
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofScholar($scholar->id), 'scholars.php')
+            || abort(403, 'Access denied.');
+
         return view('scholars.edit', [
             'scholar' => $scholar,
         ]);
@@ -122,6 +143,12 @@ class ScholarController extends Controller
 
     public function update(ScholarRequest $request): RedirectResponse
     {
+        $this->acl->canAccessRecord(
+            $request->user(),
+            RecordMunicipality::ofClient((int) $request->validated('client_id')),
+            'scholars.php',
+        ) || abort(403, 'Access denied.');
+
         $this->scholarService->save($request->validated());
 
         return redirect()
@@ -149,6 +176,11 @@ class ScholarController extends Controller
         if (! $scholar || ! $client) {
             return response()->json(['message' => 'Invalid input'], 400);
         }
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofScholar((int) $id), 'scholars.php')
+            || abort(403, 'Access denied.');
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient((int) $clientId), 'scholars.php')
+            || abort(403, 'Access denied.');
 
         $scholar->update(['client_id' => (int) $clientId]);
 

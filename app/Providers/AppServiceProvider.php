@@ -28,5 +28,6 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::define('page', fn (User $user, string $pageName) => app(AccessControlService::class)->canAccessPage($user, $pageName));
         Gate::define('program', fn (User $user, string $programName) => app(AccessControlService::class)->canAccessProgram($user, $programName));
+        Gate::define('action', fn (User $user, string $pageName, string $action) => app(AccessControlService::class)->canAccessAction($user, $pageName, $action));
     }
 }

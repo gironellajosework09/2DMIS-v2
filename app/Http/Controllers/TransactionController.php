@@ -7,6 +7,7 @@ use App\Models\Municipality;
 use App\Models\Transaction;
 use App\Services\AccessControlService;
 use App\Services\TransactionService;
+use App\Support\RecordMunicipality;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,8 +29,11 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function create(Client $client): View
+    public function create(Request $request, Client $client): View
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'all_transactions.php')
+            || abort(403, 'Access denied.');
+
         return view('transactions.create', [
             'client' => $client,
             'programs' => $this->programsForUser(auth()->user()),
@@ -56,6 +60,9 @@ class TransactionController extends Controller
         ]);
 
         $client = Client::query()->findOrFail($request->integer('client_id'));
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'all_transactions.php')
+            || abort(403, 'Access denied.');
 
         $this->authorizeProgram($request->user(), $validated['program']);
 
@@ -96,8 +103,11 @@ class TransactionController extends Controller
             ->with('success', 'Transaction added successfully!');
     }
 
-    public function show(int $id): View
+    public function show(Request $request, int $id): View
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofTransaction($id), 'all_transactions.php')
+            || abort(403, 'Access denied.');
+
         $transaction = Transaction::query()
             ->with('client')
             ->findOrFail($id);
@@ -105,8 +115,11 @@ class TransactionController extends Controller
         return view('transactions.show', compact('transaction'));
     }
 
-    public function edit(int $id): View
+    public function edit(Request $request, int $id): View
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofTransaction($id), 'all_transactions.php')
+            || abort(403, 'Access denied.');
+
         $transaction = Transaction::query()->findOrFail($id);
 
         return view('transactions.edit', [
@@ -131,6 +144,9 @@ class TransactionController extends Controller
         ]);
 
         $transaction = Transaction::query()->findOrFail($id);
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofTransaction($id), 'all_transactions.php')
+            || abort(403, 'Access denied.');
 
         $this->authorizeProgram($request->user(), $validated['program']);
 
@@ -161,6 +177,9 @@ class TransactionController extends Controller
 
     public function destroy(Request $request, int $id): JsonResponse
     {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofTransaction($id), 'all_transactions.php')
+            || abort(403, 'Access denied.');
+
         try {
             $this->transactions->destroy($id, $request->user());
 
@@ -177,6 +196,10 @@ class TransactionController extends Controller
     public function inlineUpdate(Request $request): JsonResponse
     {
         $id = $request->integer('id');
+
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofTransaction($id), 'all_transactions.php')
+            || abort(403, 'Access denied.');
+
         $normalizeAmount = function ($v) {
             if ($v === null || $v === '') {
                 return null;
@@ -230,6 +253,8 @@ class TransactionController extends Controller
             ->leftJoin('tbl_barangays as b', 'c.barangay', '=', 'b.id')
             ->select(['c.id', 'c.lastname', 'c.firstname', 'c.middlename', 'c.extensionname', 'm.name as municipality_name', 'b.name as barangay_name']);
 
+        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'all_transactions.php');
+
         foreach ($words as $word) {
             $like = "%{$word}%";
             $query->where(function ($q) use ($like) {
@@ -275,6 +300,8 @@ class TransactionController extends Controller
             ->leftJoin('tbl_clients as c', 't.client_id', '=', 'c.id')
             ->leftJoin('tbl_barangays as b', 'c.barangay', '=', 'b.id')
             ->leftJoin('tbl_municipalities as m', 'c.city_municipality', '=', 'm.id');
+
+        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'all_transactions.php');
 
         $whereForbidden = false;
 
@@ -325,7 +352,11 @@ class TransactionController extends Controller
             });
         }
 
-        $totalCount = $whereForbidden ? 0 : DB::table('tbl_transactions')->count();
+        $scopedCountQuery = DB::table('tbl_transactions as t')
+            ->leftJoin('tbl_clients as c', 't.client_id', '=', 'c.id');
+        $this->acl->applyMunicipalityScope($scopedCountQuery, $request->user(), 'c.city_municipality', 'all_transactions.php');
+
+        $totalCount = $whereForbidden ? 0 : $scopedCountQuery->count();
         $filteredCount = $whereForbidden ? 0 : (clone $query)->count();
 
         $columnsMap = [
@@ -448,6 +479,8 @@ class TransactionController extends Controller
 
     private function applyExportFilters($query, Request $request, $user): void
     {
+        $this->acl->applyMunicipalityScope($query, $user, 'c.city_municipality', 'all_transactions.php');
+
         $programFilter = trim((string) $request->query('program', ''));
         $statusFilter = trim((string) $request->query('status', ''));
         $municipalityFilter = $request->integer('municipality', 0);

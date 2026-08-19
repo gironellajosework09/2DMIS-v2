@@ -1,6 +1,6 @@
 # 2DMIS v2 — Session Handoff
 
-**Last Updated:** 2026-08-15 (P7 Administration implementation complete)
+**Last Updated:** 2026-08-16 (P12 action authorization + municipality scope implemented)
 
 ---
 
@@ -12,15 +12,17 @@
 - Architecture: Complete
 - Migration Planning: Complete
 - Engineering Blueprint: Complete
-- Implementation: **P0 → P7 complete; P8 (Hardening + cutover) next**
+- Implementation: **P0 → P7 + P12 (action/municipality authz) complete; P8 (Hardening + cutover) next**
 
 ### Current Milestone
 
 **P8 — Hardening + cutover** (blueprint §1.12) — not yet started. Includes the
 production admin-bootstrap runbook (grant a nominated existing user a
-`tbl_permissions` row with `page_name = '*'` via reviewed cutover SQL) and the
+`tbl_permissions` row with `page_name = '*'` via reviewed cutover SQL), the
 deferred P7 audit enhancements (server-side date-range filter, leaderboard
-date-window, IP metadata) if the owner opts in.
+date-window, IP metadata) if the owner opts in, and the **P12 S2 cutover** —
+flipping `enforcement` in `config/authorization.php` for the 5 pilot pages once
+the owner approves (S2 §13).
 
 ---
 
@@ -36,11 +38,20 @@ date-window, IP metadata) if the owner opts in.
 | P5 | Payout attendance (3 variants), unpaid verification admin + public self-service + search/verify/delete, BOM CSV | Complete |
 | P6 | Scholars module: registry CRUD + feed + relink + client picker, GIP (with audit), grantee self-update + update-log viewer, scholarship reports + BOM CSV, QR viewer (decision C) | Complete |
 | P7 | Administration: user creation (`register.php`/`add_user.php`), page/program permission management, multi-device exemptions, audit viewer + leaderboard, five `page:` route groups, sidebar links | Complete |
+| P12 (approved contract) | Action authorization (`tbl_action_permissions`) + municipality scope (`tbl_user_municipalities`) on 5 pilot pages, admin screens under `manage_permissions.php`, all S2 `enforcement` off | Complete |
 
 **Final P7 verification (2026-08-15):** full suite **158 tests / 769
-assertions** green on `main_system_test` (incl. new `AdministrationTest` — 26
+assertions** green on `main_system_test` (incl. new `AdministrationTest` - 26
 tests / 101 assertions); `vendor\bin\pint` clean on all changed files;
 production `main_system` untouched (tests force `DB_DATABASE=main_system_test`).
+
+**Final P12 verification (2026-08-16):** full suite **195 tests / 887
+assertions** green on `main_system_test` (37 new tests in `ActionPermissionTest`,
+`ScopeTest`, `AuthorizationAdminTest`, `AccessControlServiceTest`);
+`vendor\bin\pint` clean; `tbl_action_permissions` + `tbl_user_municipalities`
+created additively on local `main_system` (backup
+`...\Temp\opencode\main_system_before_p12.sql`); committed baseline regenerated
+sentinel-free; v1 untouched.
 
 ---
 
@@ -74,6 +85,40 @@ authz, no action-level CRUD.
 exemption toggle returns a message instead of an audit row (contract §11.5).
 
 **Next:** P8 — Hardening + cutover (see below).
+
+---
+
+## Last Session Summary (P12 action authorization + municipality scope)
+
+The owner-approved Pass 12 contract (`docs/ADMIN_ANALYSIS.md` §§22-23) was
+implemented end-to-end. It layers the **action** and **municipality**
+dimensions on P1's ACL behind a per-page `enforcement` flag that is **off** for
+all five pilot pages (`config/authorization.php`) — pre-P12 behavior is
+byte-identical until the flag flips (S2 §13 rollback = flip it back).
+
+**Completed:**
+
+- Two additive migrations + regenerated sentinel-free baseline
+  (`schema:dump`); local `main_system` backup before migration.
+- `AccessControlService`: `canAccessAction` (uppercase-normalized, VIEW = page
+  row, `'*'` bypass, fail-closed unknowns), `permittedActions`,
+  `hasAllMunicipalities` (reserved `0` marker), `effectiveMunicipalityIds`,
+  `canAccessRecord`, `applyMunicipalityScope` (Builder `whereIn`); page config
+  read as literal array index (dot-notation would split `clients.php`).
+- `action` middleware alias + `Gate::define('action', ...)`; §11 route map (18
+  `action:<page>,<action>` instances); `RecordMunicipality` data resolvers.
+- Scope seams on feeds/searches + record-level checks on single-ID/write
+  endpoints across the 5 pilot controllers.
+- Two admin screens under `page:manage_permissions.php` (actions grid with
+  composite `page:ACTION` checkboxes, VIEW excluded; scope screen with the ALL
+  toggle + check-all) — full-replace saves, `MANAGE_ACTION_PERMISSIONS` /
+  `MANAGE_SCOPE_ASSIGNMENTS` audits, no-op silence.
+- 37 new tests (`ActionPermissionTest`, `ScopeTest`, `AuthorizationAdminTest`,
+  `AccessControlServiceTest`); full suite **195 tests / 887 assertions** green;
+  pint clean.
+
+**Open items:** S2 cutover (flip `enforcement` per page, owner decision);
+enforcement-aware UI hiding (uses `permittedActions`) if the owner wants it.
 
 ---
 
@@ -117,11 +162,19 @@ Reference: `docs/MIGRATION_PLAN.md` / `docs/MIGRATION_PLANNING.md` →
 - **P8:** whether to ship the deferred P7 audit enhancements (server-side
   date-range filter, leaderboard date-window, IP metadata) and the exact
   hardening scope.
+- **P12 S2 cutover:** when (and for which of the 5 pilot pages) to flip
+  `enforcement` in `config/authorization.php`; who gets which action/scope rows
+  first. Do not decide silently.
 
 ---
 
 ## Current Risks
 
+- **P12 S2 rollout** — enforcement is off for all 5 pilot pages, so the action
+  and municipality rows have **no effect yet** by design. Enabling a page
+  without first granting its users action/scope rows would immediately deny
+  those users (fail closed). Roll out per page: grant rows via the admin
+  screens, then flip `enforcement`. Rollback = flip back.
 - **P7 admin bootstrapping (carry-over, now P8-runbook)** — production
   `tbl_permissions` may lack rows for the four admin page keys, so no one can
   reach the P7 screens until a `'*'` (or those keys) is granted to a nominated
@@ -142,13 +195,15 @@ Reference: `docs/MIGRATION_PLAN.md` / `docs/MIGRATION_PLANNING.md` →
 
 ## Before Next Session
 
-1. Read `docs/implementation/P7_ADMINISTRATION.md` (contract, header **COMPLETE**)
-   and `docs/ADMIN_ANALYSIS.md` (canonical) for the deferred items.
+1. Read `docs/ADMIN_ANALYSIS.md` (P12 contract, now with a **BUILD RECORD**)
+   and `docs/IMPLEMENTATION_LOG.md` 2026-08-16 entry for the P12 build.
 2. Confirm P8 scope with the user (hardening items, deferred P7 audit
    enhancements, cutover rehearsal) — do not decide silently.
-3. Execute the P8 runbook items and the production `'*'` admin bootstrap grant
+3. Confirm the **P12 S2 cutover** decision (which pilot pages to flip, and the
+   action/scope grants to set up first) — do not decide silently.
+4. Execute the P8 runbook items and the production `'*'` admin bootstrap grant
    only with explicit owner sign-off.
-4. Verify the full suite on `main_system_test`; confirm production `main_system`
+5. Verify the full suite on `main_system_test`; confirm production `main_system`
    untouched; confirm no destructive schema operations.
 
 Do not redesign behavior. Parity comes before optimization.
@@ -159,12 +214,12 @@ Do not redesign behavior. Parity comes before optimization.
 
 | Document | Status |
 |---|---|
-| `README.md` | Up to date (P7 complete; P8 next) |
+| `README.md` | Up to date (P7 + P12 complete; P8 next) |
 | `ENGINEERING_BLUEPRINT.md` | P0–P7 rows done; P8 §1.12 pending build |
-| `IMPLEMENTATION_LOG.md` | P0–P7 + P7 entry recorded 2026-08-15 |
+| `IMPLEMENTATION_LOG.md` | P0–P7 + P12 entry recorded 2026-08-16 |
 | `implementation/P7_ADMINISTRATION.md` | Header **COMPLETE** (contract verified vs `ADMIN_ANALYSIS.md`; implemented) |
-| `ADMIN_ANALYSIS.md` | Canonical P7 analysis (unchanged) |
-| `MIGRATION_PLAN.md` / `MIGRATION_PLANNING.md` / `ARCHITECTURE_DECISION.md` | Unaffected by P7 so far |
+| `ADMIN_ANALYSIS.md` | Canonical P12 analysis; **BUILD RECORD** added 2026-08-16 |
+| `MIGRATION_PLAN.md` / `MIGRATION_PLANNING.md` / `ARCHITECTURE_DECISION.md` | Unaffected by P12 so far |
 
 ---
 

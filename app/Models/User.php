@@ -55,4 +55,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(MultiDeviceExemption::class, 'user_id');
     }
+
+    public function actionPermissions(): HasMany
+    {
+        return $this->hasMany(ActionPermission::class, 'user_id');
+    }
+
+    public function municipalityScope(): HasMany
+    {
+        return $this->hasMany(UserMunicipality::class, 'user_id');
+    }
 }
