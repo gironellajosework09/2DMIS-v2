@@ -46,10 +46,24 @@ class SessionController extends Controller
 
     /**
      * Port of v1 currently_logged_users.php (admin-only, page-gated).
+     * Online = a session_token is present and last_activity falls within
+     * v1's 20-minute activity window. The v1 username exclusion list
+     * ('jordi', 'super_admin') becomes data-driven: super-admin status is
+     * the '*' permission row, so its holders are excluded instead.
      */
     public function online(): View
     {
-        return view('sessions.online');
+        $onlineUsers = User::query()
+            ->whereNotNull('session_token')
+            ->where('last_activity', '>=', now()->subMinutes(20))
+            ->whereDoesntHave('permissions', function ($query) {
+                $query->where('page_name', AccessControlService::SUPER_ADMIN_PAGE)
+                    ->where('can_access', true);
+            })
+            ->orderBy('username')
+            ->get(['id', 'username', 'last_activity']);
+
+        return view('sessions.online', ['onlineUsers' => $onlineUsers]);
     }
 
     /**

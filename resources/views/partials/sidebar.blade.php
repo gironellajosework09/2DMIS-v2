@@ -74,8 +74,14 @@
     @endif
 
     @if ($acl->canAccessPage($user, 'register.php'))
-        <a href="{{ route('admin.users.create') }}" @class(['active' => request()->routeIs('admin.users.*')])>
+        <a href="{{ route('admin.users.create') }}" @class(['active' => request()->routeIs('admin.users.create') || request()->routeIs('admin.users.store')])>
             Create User
+        </a>
+    @endif
+
+    @if ($acl->canAccessPage($user, '*'))
+        <a href="{{ route('admin.users.index') }}" @class(['active' => request()->routeIs('admin.users.index') || request()->routeIs('admin.users.reset-password')])>
+            User Management
         </a>
     @endif
 

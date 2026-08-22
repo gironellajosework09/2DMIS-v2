@@ -1344,4 +1344,184 @@ flipping `enforcement` in `config/authorization.php` when the owner is ready.
 
 ---
 
+### 2026-08-24 — P8 decision package prepared (hardening scope + P12 S2 cutover readiness)
+
+- **Decision-preparation pass only — no application code, schema, grants, or
+  enforcement flags changed.** Deliverable:
+  `docs/implementation/P8_DECISION_PACKAGE.md` (sections A–I: hardening scope,
+  pre-cutover requirements, five-page readiness matrix, rollout order, grant
+  plan, super-admin bootstrap runbook, ADR-001..010 review, owner decisions,
+  no-op confirmation).
+- **Key findings:**
+  - Local `main_system` is a schema-only copy (0 rows in all domain tables;
+    only local dev users `jordi`/`jiro`) → production user/permission/
+    municipality data is **not locally verifiable**; reconciliation queries
+    for the cutover window are provided in the package.
+  - **Contract deviation found:** P12 §20 required a test for "client update
+    moving a record to an out-of-scope municipality → denied"; neither test
+    nor server-side check exists (`ClientController@update` checks only the
+    current municipality). Proposed as hardening item A.1 [required].
+  - Login throttling (ADR-007 / v1 C2) still absent → item A.2 [required].
+  - Recommended-but-not-blocking: route-composition regression test (A.3),
+    config-shape guard test (A.4); optional public-endpoint throttling (A.5).
+  - Deferred P7 audit enhancements: no security/correctness necessity found →
+    stay deferred.
+  - ADR recommendations without status changes: ACCEPT 001/002/003/004/005/009;
+    REVISE→ACCEPT 008; KEEP PROPOSED 007/010 until their P8 items ship.
+- **Verification:** full suite re-run green (**195 tests / 887 assertions** on
+  `main_system_test`); DB inspected strictly read-only (`SHOW TABLES`,
+  `DESCRIBE`, `SELECT`); `config/authorization.php` untouched (all five flags
+  off); both P12 pivot tables confirmed empty; v1 untouched.
+
+---
+
+### 2026-08-24 — P8 hardening implemented (A.1–A.4 per approved decision package)
+
+Owner-approved scope (`docs/implementation/P8_DECISION_PACKAGE.md`): A.1 + A.2
+required, A.3 + A.4 recommended; everything else explicitly deferred (public
+self-service throttling, deferred P7 audit enhancements, denial auditing,
+non-pilot pages, program-gating redesign). No cutover actions in this pass.
+
+**Created:**
+
+- `tests/Feature/AuthorizationArchitectureTest.php` (A.3 + A.4):
+  - every `action:<page>,<action>` middleware instance must sit inside the
+    matching `page:` group (composition proven over the live route
+    collection), AND every non-VIEW action of every pilot page must be gated
+    by at least one route — action authorization cannot silently become a
+    standalone layer;
+  - config-shape guard: exact five pilot keys, exact catalogs, all
+    `enforcement` flags false at rest, catalog membership validated.
+
+**Edited:**
+
+- `app/Http/Controllers/ClientController.php` (A.1) — `update()` now also
+  checks the **destination** municipality: a scoped user can no longer move a
+  client into a municipality outside their `tbl_user_municipalities` scope.
+  The current-record check is unchanged and runs first.
+- `app/Http/Controllers/AuthController.php` (A.2) — Laravel-native login
+  throttling via `RateLimiter`: key = lowercase username + IP; 5 attempts /
+  60 s lockout; counter cleared on success; lockout raises
+  `ValidationException` ("Too many login attempts…", web → redirect with
+  error, JSON → 422). Username/bcrypt/session-token contract untouched;
+  v1-parity invalid-credential response unchanged below the threshold.
+- `tests/Feature/ScopeTest.php` (A.1) — the missing P12 §20 regression pair:
+  enforced scope user + EDIT grant cannot move an in-scope client to an
+  out-of-scope municipality (403, row unchanged); can move it to an
+  in-scope municipality (redirect, row updated).
+- `tests/Feature/AuthTest.php` (A.2) — 3 new tests: 5 failed attempts lock
+  out even valid credentials (guest + throttle message); locked account stays
+  locked with wrong password and writes no session token; successful login
+  still works below the threshold (token written).
+
+**Verification.** Targeted suites green (24 tests / 150 assertions); full
+suite green: **202 tests / 984 assertions** on `main_system_test` (+7 tests /
++97 assertions vs pre-P8); `vendor\bin\pint` passed on all changed files;
+route registry re-verified via tinker — exactly **18** `action:` instances,
+unchanged from P12, all composed under their page groups (A.3 test enforces
+this permanently); `config:show authorization.pages` confirms all five
+enforcement flags remain **false**; `tbl_action_permissions` and
+`tbl_user_municipalities` confirmed **0 rows**; local `main_system` touched
+only by read-only queries; production never connected; v1 untouched.
+
+**ADR status changes (owner-approved, evidence-verified):** 001, 002, 003,
+004, 005, 009 → **Accepted**; 008 → **Accepted (revised)** — trigger
+mechanism amended to direct `AuditService` calls as shipped; 007 stays
+**Proposed** (rotation + HTTPS pending) with P8 throttling recorded in its
+Implementation line; 010 stays **Proposed** (backups/restore drill pending);
+006 remains **Superseded**.
+
+---
+
+## 2026-08-22 — Functional-completeness fixes (audit items 1–7)
+
+Seven approved functional-completeness gaps from the delegated audit were
+implemented with minimal, targeted changes. No schema changes, no destructive
+commands, v1 untouched, `main_system` untouched (tests run on
+`main_system_test` only).
+
+**1. Admin password reset restored (v1 `manage_php.php`).** The earlier
+"PHP-editor concept removed" reading was wrong about the file's primary
+function: it is a super-admin user-management/password-reset screen. The
+runtime-PHP-editing concept remains excluded; the reset workflow is restored:
+
+- `UserController@index` + `@resetPassword` (+ `admin/users/index` view,
+  `page:*` route group, sidebar "User Management" link for `'*'` holders) —
+  the v1 hardcoded `super_admin` username gate becomes the data-driven `'*'`
+  permission row via the existing ACL service.
+- `PasswordResetRequest` — required / string / **min:8** / confirmed (v1 rule).
+- Protected targets: resetting any `'*'` holder is rejected ("You cannot
+  change the password of a super admin.") — the data-driven translation of
+  v1's `super_admin` target guard.
+- Persistence: bcrypt via the model's `hashed` cast; a `password_resets`
+  log row (`changed_by`/`changed_for`, v1 parity) **plus** a `PASSWORD_RESET`
+  `tbl_audit_logs` entry through `AuditService` (single writer; payload holds
+  only the target username, never the password). The legacy reset-log viewer/
+  CSV-export/delete UI was deliberately not reproduced (smallest maintainable
+  implementation; rows remain queryable in `password_resets`).
+
+**2. Transaction full-page edit fields restored.**
+`TransactionController@update` now validates and persists `comments`,
+`gwa`, `units` exactly like v1 `edit_transaction.php` (comments uppercased;
+nullable numerics); `transactions/edit.blade.php` gained the three fields.
+Program authorization, municipality scope, and `EDIT_TRANSACTION` auditing
+are unchanged (the service already audited these fields).
+
+**3. Online-users filtering restored.** `sessions/online.blade.php` no longer
+lists every user: `SessionController@online` applies the v1 semantics —
+`session_token IS NOT NULL`, `last_activity >= now()-20min`, exclusion list —
+with the v1 `'jordi'/'super_admin'` name exclusion expressed as "no `'*'`
+permission row" (the established data-driven translation). The v1 green
+"Online" badge is rendered. (`last_activity` was already refreshed per
+request by `EnsureSingleDevice`.)
+
+**4. User-create password minimum.** `UserCreateRequest` password now
+`required|string|min:8|confirmed`. Correction: the 2026-08-15 entry above
+claimed "password min 8 + confirmed" but the shipped code lacked `min:8`;
+that statement is accurate as of this date.
+
+**5. RBAC consolidation recorded (no behavior change).** Verified against v1:
+the six granular catalog keys (`add/edit/view_client.php`,
+`add/edit/view_transaction.php`) were grantable-but-inert in v1 itself (their
+files never include `restriction.php`), so v2's enforcement under
+`clients.php`/`all_transactions.php` is enforcement parity, not a deviation.
+Recorded explicitly in ADR-003; P8 reconciliation query 7 added so ALL
+distinct production `tbl_permissions.page_name` values are detected before
+cutover grants/flips.
+
+**6. Scholars client-search scope governance (S-1).**
+`scholars.clients-search` now passes `scopePage=scholars.php` to
+`TransactionController@searchClients` via route defaults
+(`transactions.clients-search` passes `all_transactions.php`), so the search
+is governed by its own page's scope context instead of a hardcoded key. No
+authorization logic duplicated; transaction behavior unchanged.
+
+**7. Login throttle username normalization.** `AuthController@login` trims
+the username once and uses the same normalized value for both the throttle
+key and the credentials (v1 `login.php` parity: `$username =
+trim($_POST['username'])`). Padded input can no longer mint fresh attempt
+buckets or diverge from what is authenticated.
+
+**Created:** `app/Http/Requests/PasswordResetRequest.php`,
+`resources/views/admin/users/index.blade.php`.
+
+**Modified:** `UserController`, `AuthController`, `SessionController`,
+`TransactionController`, `UserCreateRequest`, `routes/web.php`,
+`sessions/online.blade.php`, `transactions/edit.blade.php`,
+`partials/sidebar.blade.php`; tests `AuthTest`, `AccessControlTest`,
+`AdministrationTest`, `TransactionTest`, `ScopeTest`.
+
+**Verification.** Full suite green: **213 tests / 1056 assertions** on
+`main_system_test` (+11 tests vs pre-fix 202/984): new regressions cover
+padded-username login + shared throttle bucket, online-filter semantics,
+short-password rejection, all five password-reset behaviors (screen access,
+hash+both logs, min/confirm, protected target, non-super-admin blocked),
+full-page comments/gwa/units persistence + audit, and scholars-governed
+client search. `vendor\bin\pint` passed on all changed PHP files; affected
+routes re-verified via `route:list`; Blade compiles (`view:cache`);
+`main_system` migrations table re-read unchanged (sentinel + batches 1–2);
+production never connected.
+
+---
+
 *End of current implementation log. Append new dated entries above this line.*

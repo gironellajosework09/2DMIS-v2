@@ -98,6 +98,10 @@
                 <label>Remarks</label>
                 <input type="text" name="remarks" class="form-control uppercase" value="{{ old('remarks', $transaction->remarks) }}">
             </div>
+            <div class="mb-3">
+                <label>Comments</label>
+                <input type="text" name="comments" class="form-control uppercase" value="{{ old('comments', $transaction->comments) }}">
+            </div>
 
             <div class="row">
                 <div class="col-md-4 mb-3">
@@ -115,6 +119,14 @@
                 <div class="col-md-4 mb-3">
                     <label>Date Paid</label>
                     <input type="date" name="date_paid" class="form-control" value="{{ old('date_paid', $transaction->date_paid) }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label>GWA</label>
+                    <input type="number" step="0.0001" name="gwa" class="form-control" value="{{ old('gwa', $transaction->gwa) }}">
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label>Units</label>
+                    <input type="number" step="0.0001" name="units" class="form-control" value="{{ old('units', $transaction->units) }}">
                 </div>
             </div>
 

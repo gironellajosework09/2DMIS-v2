@@ -73,6 +73,9 @@ class ClientController extends Controller
         $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($client->id), 'clients.php')
             || abort(403, 'Access denied.');
 
+        $this->acl->canAccessRecord($request->user(), (int) $request->validated('city_municipality'), 'clients.php')
+            || abort(403, 'Access denied.');
+
         $client = $this->clientService->update($client, $request->validated(), $request->user()->id);
 
         return redirect()

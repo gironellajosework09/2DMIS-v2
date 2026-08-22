@@ -1,6 +1,7 @@
 # 2DMIS v2 — Session Handoff
 
-**Last Updated:** 2026-08-16 (P12 action authorization + municipality scope implemented)
+**Last Updated:** 2026-08-22 (functional-completeness fixes 1–7 implemented;
+cutover still pending owner-approved pass)
 
 ---
 
@@ -12,17 +13,30 @@
 - Architecture: Complete
 - Migration Planning: Complete
 - Engineering Blueprint: Complete
-- Implementation: **P0 → P7 + P12 (action/municipality authz) complete; P8 (Hardening + cutover) next**
+- Implementation: **P0 → P7 + P12 (action/municipality authz) + P8 hardening
+  (A.1–A.4) complete; P8 cutover execution next (owner-approved pass required)**
 
 ### Current Milestone
 
-**P8 — Hardening + cutover** (blueprint §1.12) — not yet started. Includes the
-production admin-bootstrap runbook (grant a nominated existing user a
-`tbl_permissions` row with `page_name = '*'` via reviewed cutover SQL), the
-deferred P7 audit enhancements (server-side date-range filter, leaderboard
-date-window, IP metadata) if the owner opts in, and the **P12 S2 cutover** —
-flipping `enforcement` in `config/authorization.php` for the 5 pilot pages once
-the owner approves (S2 §13).
+**P8 — Hardening + cutover** (blueprint §1.12) — **hardening half complete
+2026-08-24** per the approved decision package
+(`docs/implementation/P8_DECISION_PACKAGE.md`): A.1 destination-municipality
+check on `clients.update` (+ the missing P12 §20 regression pair),
+A.2 login throttling (5/60 s `RateLimiter`), A.3 route-composition guard,
+A.4 config-shape guard. On 2026-08-22 the seven approved
+functional-completeness fixes landed on top (see the session summary below):
+admin password reset restored, transaction edit fields restored, online-users
+filtering restored, user-create `min:8`, RBAC consolidation documented,
+scholars client-search scope governance, login throttle normalization.
+Suite now **213 tests / 1056 assertions** green;
+pint clean; all five enforcement flags still **false**; both pivot tables
+still empty. **Remaining:** the cutover execution pass — backup → grants →
+read-back verify → single flag flip (order: clients → household →
+all_transactions → scholars → register) → smoke tests → audit monitoring —
+requires a separate owner-approved pass. Production data must be verified at
+cutover via the package's reconciliation queries (local DB is schema-only).
+ADR-001/002/003/004/005/009 Accepted, 008 Accepted (revised), 007/010 stay
+Proposed pending rotation/backups.
 
 ---
 
@@ -52,6 +66,34 @@ assertions** green on `main_system_test` (37 new tests in `ActionPermissionTest`
 created additively on local `main_system` (backup
 `...\Temp\opencode\main_system_before_p12.sql`); committed baseline regenerated
 sentinel-free; v1 untouched.
+
+---
+
+## Last Session Summary (2026-08-22 — functional-completeness fixes)
+
+Seven approved audit fixes, minimal-change policy:
+
+1. **Admin password reset restored** (v1 `manage_php.php` is a super-admin
+   user-management/password-reset screen, not a PHP editor): `page:*` route
+   group + sidebar link, `UserController@index/resetPassword`, min-8/confirmed
+   rule, `'*'`-holder targets protected (data-driven), `password_resets` log
+   row + `PASSWORD_RESET` audit via `AuditService`. Reset-log viewer/CSV UI
+   deliberately not reproduced.
+2. **Transaction full-page edit** now persists `comments`/`gwa`/`units`
+   (v1 `edit_transaction.php` parity) + edit-view fields.
+3. **Online users**: v1 filtering semantics restored (token + 20-min window +
+   `'*'`-holder exclusion), Online badge; no longer lists every user.
+4. **UserCreateRequest** password gained the missing `min:8` (log corrected).
+5. **RBAC consolidation documented**: the six granular v1 keys were
+   grantable-but-inert in v1 itself → v2 parity confirmed, recorded in
+   ADR-003; P8 reconciliation query 7 inventories ALL production page keys.
+6. **Scholars client-search** governed by `scholars.php` scope via route
+   defaults (`scopePage`); transactions picker unchanged (S-1 closed).
+7. **Login throttle** uses the trimmed username for both credentials and
+   throttle key (v1 parity).
+
+Suite **213 tests / 1056 assertions** green on `main_system_test`; pint clean;
+`main_system` untouched. Details: `docs/IMPLEMENTATION_LOG.md` 2026-08-22.
 
 ---
 

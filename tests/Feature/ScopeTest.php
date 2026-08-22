@@ -228,6 +228,62 @@ class ScopeTest extends TestCase
         $this->assertDatabaseCount('tbl_clients', 0);
     }
 
+    public function test_update_blocks_moving_client_to_out_of_scope_municipality(): void
+    {
+        $this->enforce('clients.php');
+
+        [$muniA, $barA] = $this->place('VIGAN');
+        [$muniB, $barB] = $this->place('CANDON');
+        $user = $this->scopeUser('clients.php', [$muniA->id]);
+        $this->grantAction($user, 'clients.php', 'EDIT');
+        $client = $this->client($muniA->id, $barA->id);
+
+        $this->put(route('clients.update', $client), [
+            'lastname' => 'DELA CRUZ',
+            'firstname' => 'JUAN',
+            'city_municipality' => $muniB->id,
+            'barangay' => $barB->id,
+            'birthdate' => '1990-05-15',
+            'sex' => 'MALE',
+            'civil_status' => 'SINGLE',
+            'pwd' => 'NO',
+            'ip' => 'NO',
+        ])->assertForbidden();
+
+        $this->assertDatabaseHas('tbl_clients', [
+            'id' => $client->id,
+            'city_municipality' => $muniA->id,
+        ]);
+    }
+
+    public function test_update_allows_moving_client_within_scope(): void
+    {
+        $this->enforce('clients.php');
+
+        [$muniA, $barA] = $this->place('VIGAN');
+        [$muniB, $barB] = $this->place('CANDON');
+        $user = $this->scopeUser('clients.php', [$muniA->id, $muniB->id]);
+        $this->grantAction($user, 'clients.php', 'EDIT');
+        $client = $this->client($muniA->id, $barA->id);
+
+        $this->put(route('clients.update', $client), [
+            'lastname' => 'DELA CRUZ',
+            'firstname' => 'JUAN',
+            'city_municipality' => $muniB->id,
+            'barangay' => $barB->id,
+            'birthdate' => '1990-05-15',
+            'sex' => 'MALE',
+            'civil_status' => 'SINGLE',
+            'pwd' => 'NO',
+            'ip' => 'NO',
+        ])->assertRedirect(route('clients.index'));
+
+        $this->assertDatabaseHas('tbl_clients', [
+            'id' => $client->id,
+            'city_municipality' => $muniB->id,
+        ]);
+    }
+
     public function test_transaction_feed_scopes_by_client_municipality(): void
     {
         $this->enforce('all_transactions.php');
@@ -307,5 +363,36 @@ class ScopeTest extends TestCase
 
         $this->assertSame(1, $json['recordsTotal']);
         $this->assertCount(1, $json['data']);
+    }
+
+    /**
+     * S-1 regression: scholars/clients-search must be governed by the
+     * scholars page's scope context, not implicitly by all_transactions.php.
+     */
+    public function test_scholars_clients_search_is_governed_by_the_scholars_page(): void
+    {
+        $this->enforce('scholars.php');
+
+        [$muniA, $barA] = $this->place('VIGAN');
+        [$muniB, $barB] = $this->place('CANDON');
+        $this->scopeUser('scholars.php', [$muniA->id]);
+        $clientA = $this->client($muniA->id, $barA->id);
+        $this->client($muniB->id, $barB->id);
+
+        // The scholars picker is scoped to the user's granted municipalities…
+        $scoped = $this->getJson(route('scholars.clients-search', ['q' => 'DELA']))
+            ->assertOk()
+            ->json();
+        $this->assertCount(1, $scoped);
+        $this->assertSame($clientA->id, (int) $scoped[0]['id']);
+
+        // …while the transactions picker keeps its own page's (unenforced) scope.
+        $txClerk = User::factory()->create(['username' => 'tx-clerk']);
+        $this->grantPage($txClerk, 'all_transactions.php');
+        $this->logInAs($txClerk);
+        $unscoped = $this->getJson(route('transactions.clients-search', ['q' => 'DELA']))
+            ->assertOk()
+            ->json();
+        $this->assertCount(2, $unscoped);
     }
 }

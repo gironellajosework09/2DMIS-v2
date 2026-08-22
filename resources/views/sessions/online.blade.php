@@ -14,14 +14,16 @@
                     <tr>
                         <th>Username</th>
                         <th>Last Activity</th>
+                        <th class="text-center">Status</th>
                         <th class="text-center">Force Logout</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (\App\Models\User::query()->orderBy('username')->get() as $loggedInUser)
+                    @forelse ($onlineUsers as $loggedInUser)
                         <tr>
                             <td>{{ $loggedInUser->username }}</td>
                             <td>{{ $loggedInUser->last_activity ? $loggedInUser->last_activity : '—' }}</td>
+                            <td class="text-center"><span class="badge bg-success">Online</span></td>
                             <td class="text-center">
                                 @if ($loggedInUser->id !== auth()->id())
                                     <form method="POST" action="{{ route('session.force-logout') }}" onsubmit="return confirm('Force logout {{ $loggedInUser->username }}?')">
@@ -32,7 +34,11 @@
                                 @endif
                             </td>
                         </tr>
-                    @endforeach
+                    @empty
+                        <tr>
+                            <td colspan="4" class="text-center text-muted">No users are currently online.</td>
+                        </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

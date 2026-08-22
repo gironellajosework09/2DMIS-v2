@@ -31,7 +31,7 @@
 
 ## ADR-001 — Framework selection
 
-**Status:** Proposed (recommended: Laravel).
+**Status:** **Accepted** (owner sign-off 2026-08-24).
 
 **Implementation:** ✅ Laravel 12 scaffold in use (P0); auth/ACL/shell built on
 it (P1). Hosting PHP 8.3+ confirmed by owner (see `ENGINEERING_BLUEPRINT.md`
@@ -69,7 +69,7 @@ instead (it can run on older PHP and keeps the same guardrails).
 
 ## ADR-002 — Authentication & sessions
 
-**Status:** Proposed.
+**Status:** **Accepted** (owner sign-off 2026-08-24).
 
 **Implementation:** ✅ Built in P1: username provider on `tbl_users`
 (`User::getAuthIdentifierName()` returns `username`), `EnsureSingleDevice`
@@ -104,7 +104,7 @@ status JSON ported. 6 auth tests green.
 
 ## ADR-003 — Access control (single ACL service)
 
-**Status:** Proposed.
+**Status:** **Accepted** (owner sign-off 2026-08-24).
 
 **Implementation:** ✅ Built in P1: single `AccessControlService` (per-user
 cached permissions) + `AuthorizePage` middleware (`page:<v1_page_name>`) +
@@ -143,11 +143,27 @@ auth; ADR-003 only covers app-authenticated surfaces).
 - (+) Changing a username no longer changes who can do what (v1 A2 fixed).
 - (−) `manage_permissions` screen needs rebuilding on the new model.
 
+**Granular-key consolidation record (added 2026-08-22).** The v1 permission
+catalog (`manage_permissions.php` `$pages`) offers six granular keys —
+`add_client.php`, `edit_client.php`, `view_client.php`, `add_transaction.php`,
+`edit_transaction.php`, `view_transaction.php` — but in v1 those six files
+never include `restriction.php`; they check only login + program permissions,
+so the keys were **grantable-but-inert in v1 itself**. Enforcement for both
+domains happens on `clients.php` and `all_transactions.php`, which is exactly
+where v2 routes its gates. This is therefore **v1 enforcement parity, not an
+undocumented behavior change**: no key that granted access in production loses
+or gains effect at cutover. The keys remain ordinary catalog rows (still
+grantable via the P7 screen); they simply gate nothing, same as v1.
+Cutover safeguard: P8 reconciliation query 7
+(`docs/implementation/P8_DECISION_PACKAGE.md` §C.9) now inventories **all**
+distinct production `tbl_permissions.page_name` values so holders of any
+legacy key with no v2 consumer are detected and reviewed before grants/flips.
+
 ---
 
 ## ADR-004 — Scanner engine (one engine, programs as config)
 
-**Status:** Proposed.
+**Status:** **Accepted** (owner sign-off 2026-08-24).
 
 **Implementation:** ✅ Built in P4 (2026-08-07): `config/scanner.php` drives one
 `ScanService` (8 modes), a thin `ScannerController` (`show`/`lookup`/`save`),
@@ -184,7 +200,7 @@ route loop, per-key `page:` gates).
 
 ## ADR-005 — Data layer & migrations
 
-**Status:** Proposed (non-negotiable guardrails).
+**Status:** **Accepted** (owner sign-off 2026-08-24). Non-negotiable guardrails.
 
 **Implementation:** ✅ Baseline generated (`database/schema/mysql-schema.sql`)
 and verified on a fresh DB (P0). Six additive fix-migrations applied to the
@@ -261,6 +277,14 @@ same Bootstrap stack.
 
 **Status:** Proposed (must close v1 C1–C5).
 
+**Implementation:** ✅ CSRF global (Laravel web middleware), secrets via
+`.env`, generic error responses, httponly/`SameSite=Lax` sessions + the
+single-device token check (P1). ✅ **Login throttling added in P8
+(2026-08-24):** `AuthController::login` enforces 5 attempts / 60 s lockout per
+username+IP via the framework `RateLimiter`; covered by `AuthTest`. ⏳
+Remaining before Accepted: DB credential rotation at cutover and HTTPS
+`secure` session cookies on the production host.
+
 **Context**
 - v1 gaps: no CSRF, no login throttling, hard-coded DB credentials, error
   disclosure (`../v1/SYSTEM_DESIGN.md` §8; GAP_ANALYSIS §1).
@@ -284,7 +308,15 @@ same Bootstrap stack.
 
 ## ADR-008 — Audit & logging
 
-**Status:** Proposed.
+**Status:** **Accepted** (owner sign-off 2026-08-24, revised — see Revision
+below).
+
+**Revision (2026-08-24, owner-approved):** the trigger mechanism is amended
+from "framework events/observers" to **direct `AuditService::log()` calls on
+every write path**, with `AuditService` remaining the single audit writer.
+This is how P1–P12 actually shipped; the outcome the ADR requires — every v1
+mutation carries its audit with the same field contract — is met and tested.
+Events/observers remain a possible future refactor, not a requirement.
 
 **Implementation:** ✅ `AuditService::log()` (v1 `tbl_audit_logs` field
 contract) built in P1 and called from auth/session flows
@@ -294,8 +326,9 @@ contract) built in P1 and called from auth/session flows
 `EDIT_TRANSACTION`/`DELETE_TRANSACTION` with `old_value`/`new_value` JSON.
 ✅ P2 completion: `DELETE_CLIENT` audits per deleted row (single-client delete
 and each row of a duplicate-batch delete), `old_value` = the client row as
-JSON.
-Framework events/observers remain deferred until P7.
+JSON. ✅ P7/P12: all seven `MANAGE_*` permission events plus
+`MANAGE_ACTION_PERMISSIONS` / `MANAGE_SCOPE_ASSIGNMENTS`, no-op saves silent,
+payloads carry no secrets.
 
 **Context**
 - v1 audits every mutation to `tbl_audit_logs` (+ `tbl_update_logs`,
@@ -317,7 +350,7 @@ Framework events/observers remain deferred until P7.
 
 ## ADR-009 — Reporting & exports
 
-**Status:** Proposed.
+**Status:** **Accepted** (owner sign-off 2026-08-24).
 
 **Implementation:** ✅ P3 transaction CSV exports ported with the v1
 contract: UTF-8 BOM + `number_format(…,2)` amounts + `m/d/Y` dates; four

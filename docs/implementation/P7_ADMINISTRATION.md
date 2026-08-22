@@ -1,5 +1,15 @@
 # P7 — Administration Subsystem (Build Contract)
 
+> **AMENDMENT (2026-08-22):** the functional-completeness audit determined
+> that v1 `manage_php.php` is a super-admin **password-reset / user-management**
+> screen, not a runtime PHP editor. Its legitimate workflow is now restored in
+> v2 (`UserController@index/resetPassword`, `page:*` gate, `password_resets`
+> log row + `PASSWORD_RESET` audit, min-8/confirmed rule, protected
+> super-admin targets). Everything this contract says about excluding
+> `manage_php.php` refers to the PHP-editor concept only; see blueprint file-map
+> row 101 and `docs/IMPLEMENTATION_LOG.md` (2026-08-22 entry). The rest of this
+> document is unchanged history.
+>
 > **STATUS: COMPLETE — implemented 2026-08-15.** (This document was the
 > authoritative build contract; the P7 build delivered against it — see
 > `docs/IMPLEMENTATION_LOG.md` entry dated 2026-08-15.)

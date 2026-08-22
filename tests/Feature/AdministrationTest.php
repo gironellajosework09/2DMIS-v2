@@ -75,6 +75,7 @@ class AdministrationTest extends TestCase
         $this->grantPage($admin, '*');
 
         $this->get(route('admin.users.create'))->assertOk();
+        $this->get(route('admin.users.index'))->assertOk();
         $this->get(route('admin.permissions.pages'))->assertOk();
         $this->get(route('admin.program-permissions.pages'))->assertOk();
         $this->get(route('admin.exemptions.pages'))->assertOk();
@@ -168,6 +169,132 @@ class AdministrationTest extends TestCase
 
         $this->assertDatabaseMissing('tbl_users', ['username' => 'newbie']);
         $this->assertDatabaseMissing('tbl_audit_logs', ['action' => 'MANAGE_USER_CREATE']);
+    }
+
+    public function test_user_creation_rejects_short_password(): void
+    {
+        $this->manager('register.php');
+
+        $this->post(route('admin.users.store'), [
+            'username' => 'newbie',
+            'password' => 'short',
+            'password_confirmation' => 'short',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('tbl_users', ['username' => 'newbie']);
+        $this->assertDatabaseMissing('tbl_audit_logs', ['action' => 'MANAGE_USER_CREATE']);
+    }
+
+    private function superAdmin(): User
+    {
+        $user = User::factory()->create(['username' => 'root_boss']);
+        $this->grantPage($user, '*');
+        $this->logInAs($user);
+
+        return $user;
+    }
+
+    public function test_super_admin_can_reach_the_user_management_screen(): void
+    {
+        $target = User::factory()->create(['username' => 'clerk']);
+
+        $this->superAdmin();
+
+        $this->get(route('admin.users.index'))
+            ->assertOk()
+            ->assertSee('clerk')
+            ->assertSee('Reset Password');
+    }
+
+    public function test_non_super_admin_cannot_use_password_reset(): void
+    {
+        $this->logInAs(User::factory()->create(['username' => 'clerk']));
+
+        $this->get(route('admin.users.index'))
+            ->assertRedirect(route('dashboard'))
+            ->assertSessionHas('login_status', 'denied');
+    }
+
+    /**
+     * v1 manage_php.php parity: bcrypt update + a password_resets log row.
+     * The v2 addition is the tbl_audit_logs entry via AuditService; the
+     * payload never contains the new password.
+     */
+    public function test_super_admin_reset_writes_hash_and_both_logs(): void
+    {
+        $admin = $this->superAdmin();
+        $target = User::factory()->create(['username' => 'clerk']);
+
+        $this->put(route('admin.users.reset-password', $target), [
+            'password' => 'brand-new-pass',
+            'password_confirmation' => 'brand-new-pass',
+        ])->assertRedirect();
+
+        $fresh = $target->fresh();
+        $this->assertTrue(Hash::check('brand-new-pass', $fresh->password));
+
+        $this->assertDatabaseHas('password_resets', [
+            'changed_by' => $admin->username,
+            'changed_for' => 'clerk',
+        ]);
+
+        $audit = DB::table('tbl_audit_logs')
+            ->where('action', 'PASSWORD_RESET')
+            ->where('target_id', $target->id)
+            ->first();
+
+        $this->assertNotNull($audit);
+        $this->assertSame($admin->id, $audit->user_id);
+        $this->assertStringNotContainsString('brand-new-pass', (string) $audit->new_value);
+    }
+
+    public function test_password_reset_enforces_minimum_length_and_confirmation(): void
+    {
+        $this->superAdmin();
+        $target = User::factory()->create(['username' => 'clerk']);
+        $original = $target->password;
+
+        $this->from(route('admin.users.index'))
+            ->put(route('admin.users.reset-password', $target), [
+                'password' => 'short',
+                'password_confirmation' => 'short',
+            ])
+            ->assertRedirect(route('admin.users.index'))
+            ->assertSessionHasErrors('password');
+
+        $this->put(route('admin.users.reset-password', $target), [
+            'password' => 'long-enough-pass',
+            'password_confirmation' => 'different',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertSame($original, $target->fresh()->password);
+        $this->assertDatabaseMissing('password_resets', ['changed_for' => 'clerk']);
+        $this->assertDatabaseMissing('tbl_audit_logs', ['action' => 'PASSWORD_RESET']);
+    }
+
+    /**
+     * v1 rule: "You cannot change the password of super_admin." The v2
+     * translation is data-driven — any holder of the '*' permission row is
+     * protected.
+     */
+    public function test_password_reset_cannot_target_a_super_admin(): void
+    {
+        $admin = $this->superAdmin();
+        $otherSuperAdmin = User::factory()->create(['username' => 'second_root']);
+        $this->grantPage($otherSuperAdmin, '*');
+        $original = $otherSuperAdmin->password;
+
+        $this->from(route('admin.users.index'))
+            ->put(route('admin.users.reset-password', $otherSuperAdmin), [
+                'password' => 'brand-new-pass',
+                'password_confirmation' => 'brand-new-pass',
+            ])
+            ->assertRedirect(route('admin.users.index'))
+            ->assertSessionHas('login_status', 'You cannot change the password of a super admin.');
+
+        $this->assertSame($original, $otherSuperAdmin->fresh()->password);
+        $this->assertDatabaseMissing('password_resets', ['changed_for' => 'second_root']);
+        $this->assertDatabaseMissing('tbl_audit_logs', ['action' => 'PASSWORD_RESET']);
     }
 
     public function test_page_permissions_full_replace(): void

@@ -130,7 +130,9 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('transactions/export', [TransactionController::class, 'export'])->name('transactions.export')->middleware('action:all_transactions.php,export');
         Route::post('transactions/data', [TransactionController::class, 'data'])->name('transactions.data');
         Route::post('transactions/inline-update', [TransactionController::class, 'inlineUpdate'])->name('transactions.inline-update')->middleware('action:all_transactions.php,edit');
-        Route::get('transactions/clients-search', [TransactionController::class, 'searchClients'])->name('transactions.clients-search');
+        Route::get('transactions/clients-search', [TransactionController::class, 'searchClients'])
+            ->defaults('scopePage', 'all_transactions.php')
+            ->name('transactions.clients-search');
         Route::get('transactions/{transaction}/edit', [TransactionController::class, 'edit'])->name('transactions.edit');
         Route::put('transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update')->middleware('action:all_transactions.php,edit');
         Route::get('transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
@@ -141,7 +143,9 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('scholars', [ScholarController::class, 'index'])->name('scholars.index');
         Route::post('scholars/data', [ScholarController::class, 'data'])->name('scholars.data');
         Route::get('scholars/create', [ScholarController::class, 'create'])->name('scholars.create');
-        Route::get('scholars/clients-search', [TransactionController::class, 'searchClients'])->name('scholars.clients-search');
+        Route::get('scholars/clients-search', [TransactionController::class, 'searchClients'])
+            ->defaults('scopePage', 'scholars.php')
+            ->name('scholars.clients-search');
         Route::post('scholars', [ScholarController::class, 'store'])->name('scholars.store')->middleware('action:scholars.php,create');
         Route::get('scholars/{scholar}/edit', [ScholarController::class, 'edit'])->name('scholars.edit');
         Route::put('scholars/{scholar}', [ScholarController::class, 'update'])->name('scholars.update')->middleware('action:scholars.php,edit');
@@ -206,6 +210,14 @@ Route::middleware(['auth', 'single-device'])->group(function () {
     Route::middleware('page:register.php')->group(function () {
         Route::get('admin/users/create', [UserController::class, 'create'])->name('admin.users.create');
         Route::post('admin/users', [UserController::class, 'store'])->name('admin.users.store')->middleware('action:register.php,create');
+    });
+
+    // v1 manage_php.php — administrator password reset was gated to the
+    // hardcoded super_admin username; the v2 gate is the same rule expressed
+    // through the ACL service ('*' page row = super admin).
+    Route::middleware('page:*')->group(function () {
+        Route::get('admin/users', [UserController::class, 'index'])->name('admin.users.index');
+        Route::put('admin/users/{user}/password', [UserController::class, 'resetPassword'])->name('admin.users.reset-password');
     });
 
     Route::middleware('page:manage_permissions.php')->group(function () {

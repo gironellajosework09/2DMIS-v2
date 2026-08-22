@@ -32,7 +32,7 @@
 | [implementation/P4_SCANNER_ENGINE.md](implementation/P4_SCANNER_ENGINE.md) | P4 delivered — config-driven 14-key/8-mode scanner engine, one shared scan view, per-key routes + gates, 14 tests |
 | [implementation/P5_PAYOUT.md](implementation/P5_PAYOUT.md) | P5 delivered — payout attendance lists (3 variants, one shared view/feeds), unpaid verification admin + public self-service + search/verify/delete, BOM CSV export; 15 tests |
 | [implementation/P6_SCHOLARS.md](implementation/P6_SCHOLARS.md) | P6 delivered (2026-08-13) — scholars module: enrollment + client picker, GIP, grantee updates, reports, QR viewer (blueprint §1.7) |
-| [implementation/P7_ADMINISTRATION.md](implementation/P7_ADMINISTRATION.md) | P7 delivered (2026-08-15) — user creation, page/program permission management, multi-device exemptions, audit viewer + leaderboard (blueprint §1.11); `manage_php.php` excluded |
+| [implementation/P7_ADMINISTRATION.md](implementation/P7_ADMINISTRATION.md) | P7 delivered (2026-08-15) — user creation, page/program permission management, multi-device exemptions, audit viewer + leaderboard (blueprint §1.11); `manage_php.php`'s runtime-PHP-editing concept excluded, its super-admin password-reset workflow restored 2026-08-22 under `page:*` |
 | [ADMIN_ANALYSIS.md](ADMIN_ANALYSIS.md) | P7 canonical analysis — verified v1 admin ground truth (user create, permission/exemption screens, audit viewer + leaderboard), parity requirements, open decisions (disable/enable, admin bootstrapping) |
 
 ## Phase status

@@ -215,7 +215,7 @@ Every major table of `main_system` → proposed Eloquent model. All models set
 - Auth user provider: `username` key, not `email`.
 - Timestamps: off per legacy model; `ScholarInfo`/`GipInfo` keep theirs.
 - Enum values: keep as string casts; never introduce PHP enums that rename values.
-- Password reset: disabled (v1 has no email-based reset; reset is admin-driven).
+- Password reset: framework email reset disabled (v1 has none); the v1 admin-driven reset (`manage_php.php`) is ported behind the `'*'` super-admin gate (2026-08-22).
 
 ---
 
@@ -302,7 +302,7 @@ completion criteria. Gates build on `MIGRATION_PLANNING.md` §6.
 - **Status:** **Done** 2026-08-13 — scholar registry v1-parity CRUD + feed + client picker (2026-08-07/13), relink (2026-08-12), scholarship reports + CSV export (2026-08-12), GIP details with `ADD_GIP`/`UPDATE_GIP` audit (2026-08-13), grantee self-update + update-log viewer (2026-08-13), QR viewer (decision C payload, 2026-08-13). Full suite green (`132 passed / 668 assertions`). See `docs/IMPLEMENTATION_LOG.md` P6 entries.
 
 ### P7 — Administration
-- **Deliverables:** permission management (pages + programs + exemptions) on the single ACL service; audit viewer + leaderboard (permission-based); **remove `manage_php.php`** concept (version control replaces runtime PHP editing).
+- **Deliverables:** permission management (pages + programs + exemptions) on the single ACL service; audit viewer + leaderboard (permission-based); **remove `manage_php.php`'s runtime-PHP-editing concept** (version control replaces it). Note: the 2026-08-22 functional-completeness audit identified the file's legitimate password-reset workflow, which was restored under P8 (see file-map row 101) — only the PHP-editor idea remains excluded.
 - **Acceptance criteria:** admins grant/revoke permissions identically to v1; audit viewer reads v1 history unchanged.
 - **Dependencies:** P1 (ACL), all modules.
 - **Risks:** permission-screen UX change (mitigate: pilot with admin).
@@ -489,7 +489,8 @@ Dead files (`default.php`, `client_photo.php`) are deliberately excluded.
 | 97 | `audit_logs.php` | `AuditController@index` + view | P7 | **Done** (2026-08-15) — viewer + client-side DataTables + date filters |
 | 98 | `fetch_logs.php` | DataTables route (audit) | P7 | **Done** (2026-08-15) — `admin.audit-logs.data`, v1 `{data,users,actions}` contract |
 | 99 | `fetch_leaderboard.php` | DataTables route (leaderboard) | P7 | **Done** (2026-08-15) — `admin.audit-logs.leaderboard`, per-table, now session-gated |
-| 100 | `register.php`, `add_user.php`, `manage_php.php` | `UserController` (admin) | P7 | **Done** (2026-08-15) — create-only; `manage_php.php` concept removed |
+| 100 | `register.php`, `add_user.php` | `UserController@store` + view | P7 | **Done** (2026-08-15) — create-only port |
+| 101 | `manage_php.php` | `UserController@index` / `@resetPassword` (super-admin password reset) | P8 | **Done** (2026-08-22) — the file is a super-admin user-management/password-reset screen, not a PHP editor: the runtime-PHP-editing concept stays excluded, but its legitimate reset workflow was restored (`page:*` gate, `password_resets` log row, `PASSWORD_RESET` audit) |
 
 ---
 

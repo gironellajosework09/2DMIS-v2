@@ -221,6 +221,56 @@ class TransactionTest extends TestCase
         $this->assertNotNull($deleteAudit);
     }
 
+    /**
+     * v1 edit_transaction.php also updates comments, gwa and units on the
+     * full-page form (the inline editor already had them).
+     */
+    public function test_full_page_update_persists_comments_gwa_and_units(): void
+    {
+        $client = $this->client();
+        $transaction = Transaction::query()->create([
+            'client_id' => $client->id,
+            'program' => 'AICS',
+            'patient_name' => 'DELA CRUZ, JUAN R',
+            'date_applied' => '2026-08-01',
+            'type' => 'SCHOLARSHIP',
+            'remarks' => 'OLD REMARK',
+            'status' => 'PENDING PAYOUT',
+        ]);
+
+        $this->logInAs($this->transactionsUser());
+
+        $this->put(route('transactions.update', $transaction->id), [
+            'program' => 'AICS',
+            'patient_option' => 'self',
+            'date_applied' => '2026-08-01',
+            'type' => 'SCHOLARSHIP',
+            'remarks' => 'UPDATED REMARK',
+            'comments' => 'for enrollment',
+            'suggested_amount' => 6000,
+            'status' => 'PAID',
+            'amount_paid' => 6000,
+            'date_paid' => '2026-08-05',
+            'gwa' => '88.25',
+            'units' => '21.5',
+        ])->assertRedirect(route('transactions.show', $transaction->id));
+
+        $fresh = $transaction->fresh();
+        $this->assertSame('FOR ENROLLMENT', $fresh->comments);
+        $this->assertEqualsWithDelta(88.25, (float) $fresh->gwa, 0.0001);
+        $this->assertEqualsWithDelta(21.5, (float) $fresh->units, 0.0001);
+
+        $editAudit = DB::table('tbl_audit_logs')
+            ->where('action', 'EDIT_TRANSACTION')
+            ->where('target_id', $transaction->id)
+            ->first();
+
+        $this->assertNotNull($editAudit);
+        $this->assertStringContainsString('FOR ENROLLMENT', (string) $editAudit->new_value);
+        $this->assertStringContainsString('88.25', (string) $editAudit->new_value);
+        $this->assertStringContainsString('21.5', (string) $editAudit->new_value);
+    }
+
     public function test_data_feed_returns_transactions_and_honors_filters(): void
     {
         $client = $this->client();

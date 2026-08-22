@@ -136,11 +136,14 @@ class TransactionController extends Controller
             'date_applied' => ['required', 'date'],
             'type' => ['required', 'string'],
             'remarks' => ['nullable', 'string'],
+            'comments' => ['nullable', 'string'],
             'suggested_amount' => ['nullable', 'numeric'],
             'status' => ['required', 'in:'.implode(',', TransactionService::STATUSES)],
             'amount_paid' => ['nullable', 'numeric'],
             'payout_date' => ['nullable', 'date'],
             'date_paid' => ['nullable', 'date'],
+            'gwa' => ['nullable', 'numeric'],
+            'units' => ['nullable', 'numeric'],
         ]);
 
         $transaction = Transaction::query()->findOrFail($id);
@@ -161,11 +164,14 @@ class TransactionController extends Controller
             'date_applied' => $validated['date_applied'],
             'type' => strtoupper($validated['type']),
             'remarks' => strtoupper(trim((string) ($validated['remarks'] ?? ''))) ?: null,
+            'comments' => strtoupper(trim((string) ($validated['comments'] ?? ''))) ?: null,
             'suggested_amount' => $request->filled('suggested_amount') ? (float) $validated['suggested_amount'] : null,
             'status' => $validated['status'],
             'amount_paid' => $request->filled('amount_paid') ? (float) $validated['amount_paid'] : null,
             'payout_date' => $request->filled('payout_date') ? $validated['payout_date'] : null,
             'date_paid' => $request->filled('date_paid') ? $validated['date_paid'] : null,
+            'gwa' => $request->filled('gwa') ? (float) $validated['gwa'] : null,
+            'units' => $request->filled('units') ? (float) $validated['units'] : null,
         ];
 
         $this->transactions->update($id, $data, $request->user());
@@ -236,10 +242,15 @@ class TransactionController extends Controller
 
     /**
      * Live search for the beneficiary picker (v1 search_clients.php). Scans
-     * all clients, gated by the transactions page rather than clients.php.
+     * all clients, scoped to the GOVERNING page's municipality context — the
+     * route sets it via ->defaults('scopePage', ...) so the transactions
+     * picker and the scholars picker are each governed by their own page
+     * key instead of one hard-coded scope.
      */
     public function searchClients(Request $request): JsonResponse
     {
+        $scopePage = (string) ($request->route('scopePage') ?? 'all_transactions.php');
+
         $q = trim((string) $request->query('q', ''));
 
         if ($q === '' || strlen($q) < 2) {
@@ -253,7 +264,7 @@ class TransactionController extends Controller
             ->leftJoin('tbl_barangays as b', 'c.barangay', '=', 'b.id')
             ->select(['c.id', 'c.lastname', 'c.firstname', 'c.middlename', 'c.extensionname', 'm.name as municipality_name', 'b.name as barangay_name']);
 
-        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'all_transactions.php');
+        $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', $scopePage);
 
         foreach ($words as $word) {
             $like = "%{$word}%";
