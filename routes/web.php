@@ -83,6 +83,15 @@ Route::middleware(['auth', 'single-device'])->group(function () {
     Route::get('geography/barangays', [GeographyController::class, 'barangays'])
         ->name('geography.barangays');
 
+    Route::get('global-search', [ClientController::class, 'globalSearch'])
+        ->name('global-search');
+
+    // P4.5/P5.5 hub pages. NOT page-gated (there is no universal scanner /
+    // payout page key); the controllers render only permitted destinations
+    // and the views fall back to an empty state — access is never widened.
+    Route::get('scanners', [ScannerController::class, 'index'])->name('scanners.index');
+    Route::get('payouts', [PayoutAttendanceController::class, 'landing'])->name('payouts.index');
+
     Route::middleware('page:clients.php')->group(function () {
         Route::get('clients', [ClientController::class, 'index'])->name('clients.index');
         Route::get('clients/create', [ClientController::class, 'create'])->name('clients.create');
@@ -94,6 +103,7 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::post('clients/photo', [PhotoController::class, 'store'])->name('clients.photo.store')->middleware('action:clients.php,edit');
         Route::post('clients/{client}/gip', [GipController::class, 'store'])->name('gip.store')->middleware('action:clients.php,create');
         Route::post('clients/data', [ClientController::class, 'data'])->name('clients.data');
+        Route::get('clients/export', [ClientController::class, 'export'])->name('clients.export');
         Route::get('clients/{client}/edit', [ClientController::class, 'edit'])->name('clients.edit');
         Route::put('clients/{client}', [ClientController::class, 'update'])->name('clients.update')->middleware('action:clients.php,edit');
         Route::post('clients/{client}', [ClientController::class, 'destroy'])->name('clients.destroy')->middleware('action:clients.php,delete');
@@ -111,6 +121,8 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('households/clients/{client}', [HouseholdController::class, 'clientOptions'])
             ->name('households.clients.options');
         Route::get('households/{household}', [HouseholdController::class, 'show'])->name('households.show');
+        Route::get('households/{household}/edit', [HouseholdController::class, 'edit'])->name('households.edit');
+        Route::get('households/{household}/show', [HouseholdController::class, 'show'])->name('households.show-panel')->where('panel', '1');
         Route::post('households/{household}', [HouseholdController::class, 'destroy'])->name('households.destroy')->middleware('action:household.php,delete');
     });
 
@@ -136,6 +148,7 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('transactions/{transaction}/edit', [TransactionController::class, 'edit'])->name('transactions.edit');
         Route::put('transactions/{transaction}', [TransactionController::class, 'update'])->name('transactions.update')->middleware('action:all_transactions.php,edit');
         Route::get('transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
+        Route::get('transactions/{transaction}/show', [TransactionController::class, 'show'])->name('transactions.show-panel')->where('panel', '1');
         Route::post('transactions/{transaction}', [TransactionController::class, 'destroy'])->name('transactions.destroy')->middleware('action:all_transactions.php,delete');
     });
 
@@ -150,6 +163,9 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('scholars/{scholar}/edit', [ScholarController::class, 'edit'])->name('scholars.edit');
         Route::put('scholars/{scholar}', [ScholarController::class, 'update'])->name('scholars.update')->middleware('action:scholars.php,edit');
         Route::post('scholars/update-client-id', [ScholarController::class, 'updateClientId'])->name('scholars.update-client-id')->middleware('action:scholars.php,edit');
+        Route::get('scholars/{scholar}', [ScholarController::class, 'show'])->name('scholars.show');
+        Route::get('scholars/gip/data', [ScholarController::class, 'gipData'])->name('scholars.gip-data');
+        Route::get('scholars/gip/{gip}', [ScholarController::class, 'gipShow'])->name('scholars.gip-show');
     });
 
     Route::middleware('page:scholarship_reports.php')->group(function () {
@@ -191,6 +207,12 @@ Route::middleware(['auth', 'single-device'])->group(function () {
             Route::post('payout-attendance/'.$variant.'/data', [PayoutAttendanceController::class, 'data'])
                 ->defaults('variant', $variant)
                 ->name('payout-attendance.'.$variant.'.data');
+            Route::get('payout-attendance/'.$variant.'/{payout}', [PayoutAttendanceController::class, 'show'])
+                ->defaults('variant', $variant)
+                ->name('payout-attendance.'.$variant.'.show');
+            Route::get('payout-attendance/'.$variant.'/{payout}/show', [PayoutAttendanceController::class, 'show'])
+                ->defaults('variant', $variant)
+                ->name('payout-attendance.'.$variant.'.show-panel')->where('panel', '1');
         });
     }
 
@@ -201,6 +223,10 @@ Route::middleware(['auth', 'single-device'])->group(function () {
             ->name('unpaid-verifications.data');
         Route::get('unpaid-verifications/export', [UnpaidVerificationController::class, 'export'])
             ->name('unpaid-verifications.export');
+        Route::get('unpaid-verifications/{unpaid}', [UnpaidVerificationController::class, 'show'])
+            ->name('unpaid-verifications.show');
+        Route::get('unpaid-verifications/{unpaid}/show', [UnpaidVerificationController::class, 'show'])
+            ->name('unpaid-verifications.show-panel')->where('panel', '1');
     });
 
     // P7 administration — one page group per v1 page key (register.php,
@@ -217,6 +243,8 @@ Route::middleware(['auth', 'single-device'])->group(function () {
     // through the ACL service ('*' page row = super admin).
     Route::middleware('page:*')->group(function () {
         Route::get('admin/users', [UserController::class, 'index'])->name('admin.users.index');
+        Route::post('admin/users/data', [UserController::class, 'data'])->name('admin.users.data');
+        Route::get('admin/users/{user}', [UserController::class, 'show'])->name('admin.users.show');
         Route::put('admin/users/{user}/password', [UserController::class, 'resetPassword'])->name('admin.users.reset-password');
     });
 
@@ -243,5 +271,7 @@ Route::middleware(['auth', 'single-device'])->group(function () {
         Route::get('admin/audit-logs', [AuditController::class, 'index'])->name('admin.audit-logs.index');
         Route::post('admin/audit-logs/data', [AuditController::class, 'data'])->name('admin.audit-logs.data');
         Route::post('admin/audit-logs/leaderboard', [AuditController::class, 'leaderboard'])->name('admin.audit-logs.leaderboard');
+        Route::get('admin/audit-logs/{log}', [AuditController::class, 'show'])->name('admin.audit-logs.show');
+        Route::get('admin/audit-logs/{log}/show', [AuditController::class, 'show'])->name('admin.audit-logs.show-panel')->where('panel', '1');
     });
 });

@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Municipality;
 use App\Services\UnpaidService;
+use App\Support\FilterConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,13 +27,31 @@ use Illuminate\View\View;
  */
 class UnpaidVerificationController extends Controller
 {
-    public function __construct(private readonly UnpaidService $unpaidService) {}
+    public function __construct(
+        private readonly UnpaidService $unpaidService,
+    ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        $municipalities = DB::table('tbl_municipalities')->orderBy('name')->get(['id', 'name']);
+        // This feed is NOT municipality-scoped (matches v1), so the option
+        // list stays unscoped — restricted users see all municipalities,
+        // consistent with the rows their feed actually returns.
+        $municipalities = Municipality::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        return view('unpaid_verifications.index', ['municipalities' => $municipalities]);
+        return view('unpaid_verifications.index', [
+            'municipalities' => $municipalities,
+            'filterChips' => [
+                'id' => 'unpaid-filters',
+                'categories' => [
+                    FilterConfig::municipalityCategory($municipalities, $request, 'unpaid_verifications.php'),
+                ],
+                'dateRanges' => [
+                    FilterConfig::dateRange('Date', 'date_start', 'date_end', $request),
+                ],
+            ],
+        ]);
     }
 
     public function selfService(): View
@@ -184,7 +204,7 @@ class UnpaidVerificationController extends Controller
             ->leftJoin('tbl_municipalities as m', 'uv.municipality_id', '=', 'm.id');
 
         if ($municipality !== '') {
-            $query->where('uv.municipality_id', $municipality);
+            FilterConfig::applyMultiValue($query, 'uv.municipality_id', $municipality);
         }
 
         if ($dateStart !== '' && $dateEnd !== '') {
@@ -223,6 +243,20 @@ class UnpaidVerificationController extends Controller
             'uv.proxy_occupation',
             'uv.proxy_monthlyincome',
             'uv.created_at',
+        ]);
+    }
+
+    public function show(Request $request, int $id): View
+    {
+        $single = $this->buildFeedQuery($request)
+            ->where('uv.id', $id)
+            ->first();
+
+        abort_unless($single !== null, 404);
+
+        return view('unpaid_verifications.show', [
+            'single' => $single,
+            'panel' => $request->boolean('panel'),
         ]);
     }
 }

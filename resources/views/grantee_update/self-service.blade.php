@@ -5,25 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Scholarship Grantee Update — 2D MIS</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    {{-- Batch G migration: standalone public head shares the built app
+         stylesheet + ui.css (see auth/login). The grantee search / mobile
+         verify / update-save fetch contracts and the JS-built QR result
+         are unchanged — the script below is byte-preserved; JS-injected
+         markup keeps its Bootstrap classes via the ui.css parity layer
+         (Phase 27: the CDN stylesheet link is removed; §4.8–4.10 own the
+         leftovers). --}}
+    @vite(['resources/css/app.css'])
+    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background: #f7f9fb;
-            font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial;
+            background: var(--color-bg);
+            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
             padding: 24px;
-        }
-
-        .card {
-            max-width: 1000px;
-            margin: 0 auto;
         }
 
         .suggestions-list {
             position: absolute;
             z-index: 2000;
             width: 100%;
-            background: #fff;
-            border: 1px solid #ccc;
+            background: var(--color-surface);
+            border: 1px solid var(--color-line);
             max-height: 220px;
             overflow: auto;
         }
@@ -36,18 +40,18 @@
             text-align: left;
         }
 
-        .uppercase {
-            text-transform: uppercase;
+        .suggestions-list button:hover {
+            background: var(--color-surface-hover);
         }
     </style>
 </head>
 <body>
 
-<div class="card shadow-sm p-4">
-    <h3 class="mb-3 text-center">Scholarship Grantee Self-Update</h3>
+<div class="data-card mx-auto !p-[1.75rem] max-w-[1000px]">
+    <h1 class="mb-3 text-center text-lg font-semibold text-ink">Scholarship Grantee Self-Update</h1>
 
     <div class="mb-3">
-        <label class="form-label">Search your name</label>
+        <label for="nameInput" class="field-label">Search your name</label>
         <div class="position-relative">
             <input id="nameInput" class="form-control uppercase" placeholder="TYPE YOUR FULL NAME..." autocomplete="off">
             <div id="suggestList" class="suggestions-list d-none"></div>
@@ -55,26 +59,26 @@
     </div>
 
     <div class="mb-3 d-none" id="mobileVerifyWrap">
-        <label class="form-label">Enter your registered Mobile Number (first verification)</label>
+        <label for="mobileVerifyInput" class="field-label">Enter your registered Mobile Number (first verification)</label>
         <div class="input-group">
             <input id="mobileVerifyInput" class="form-control" placeholder="e.g. 09XXXXXXXXX" maxlength="11" disabled>
-            <button id="mobileVerifyBtn" class="btn btn-outline-primary" type="button" disabled>Verify Mobile No.</button>
+            <button id="mobileVerifyBtn" class="btn-subtle" type="button" disabled>Verify Mobile No.</button>
         </div>
-        <div id="mobileVerifyMsg" class="mt-2 small"></div>
-        <a href="#" id="forgotMobileLink" class="text-decoration-none small text-danger">
+        <div id="mobileVerifyMsg" class="mt-2 text-dense"></div>
+        <a href="#" id="forgotMobileLink" class="text-dense no-underline" style="color: var(--color-red);">
             Forgot your registered mobile number?
         </a>
     </div>
 
     <div class="row g-2 mb-3">
         <div class="col-md-6">
-            <label class="form-label">Municipality (for verification)</label>
+            <label for="municipalitySelect" class="field-label">Municipality (for verification)</label>
             <select id="municipalitySelect" class="form-select" required>
                 <option value="">-- Select Municipality --</option>
             </select>
         </div>
         <div class="col-md-6 d-flex align-items-end">
-            <button id="verifyBtn" class="btn btn-primary w-100" disabled>Verify &amp; Load My Details</button>
+            <button id="verifyBtn" class="btn-navy w-full" disabled>Verify &amp; Load My Details</button>
         </div>
     </div>
 
@@ -82,66 +86,66 @@
 
     <div id="updateFormWrap" class="d-none">
         <hr>
-        <h5>Personal Details <span style="font-size: 15px; color: red;">(Leave it BLANK if not applicable)</span></h5>
+        <h2 class="text-base font-semibold text-ink">Personal Details <span class="text-dense" style="font-size: 15px; color: var(--color-red);">(Leave it BLANK if not applicable)</span></h2>
         <form id="updateForm">
             <input type="hidden" name="client_id" id="client_id">
 
             <div class="row">
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Last name</label>
+                    <label for="lastname" class="form-label">Last name</label>
                     <input name="lastname" id="lastname" class="form-control uppercase" readonly>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">First name</label>
+                    <label for="firstname" class="form-label">First name</label>
                     <input name="firstname" id="firstname" class="form-control uppercase" readonly>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Middle name</label>
+                    <label for="middlename" class="form-label">Middle name</label>
                     <input name="middlename" id="middlename" class="form-control uppercase" readonly>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Extension name</label>
+                    <label for="extensionname" class="form-label">Extension name</label>
                     <input name="extensionname" id="extensionname" class="form-control uppercase" readonly>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Municipality</label>
+                    <label for="city_municipality" class="form-label">Municipality</label>
                     <select name="city_municipality" id="city_municipality" class="form-select" disabled></select>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Barangay</label>
+                    <label for="barangay" class="form-label">Barangay</label>
                     <select name="barangay" id="barangay" class="form-select" disabled></select>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">House No.</label>
+                    <label for="house_no" class="form-label">House No.</label>
                     <input name="house_no" id="house_no" class="form-control uppercase">
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Mobile No. <span class="text-danger">*</span></label>
+                    <label for="mobile_no" class="form-label">Mobile No. <span class="text-danger">*</span></label>
                     <input name="mobile_no" id="mobile_no" class="form-control" required>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                    <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
                     <input name="email" id="email" class="form-control" required>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Birthdate <span class="text-danger">*</span></label>
+                    <label for="birthdate" class="form-label">Birthdate <span class="text-danger">*</span></label>
                     <input type="date" name="birthdate" id="birthdate" class="form-control" required>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Age</label>
+                    <label for="age" class="form-label">Age</label>
                     <input type="number" name="age" id="age" readonly class="form-control">
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Sex <span class="text-danger">*</span></label>
+                    <label for="sex" class="form-label">Sex <span class="text-danger">*</span></label>
                     <select name="sex" id="sex" class="form-select" required>
                         <option value="">--Select--</option>
                         <option value="MALE">MALE</option>
@@ -149,7 +153,7 @@
                     </select>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">Civil Status <span class="text-danger">*</span></label>
+                    <label for="civil_status" class="form-label">Civil Status <span class="text-danger">*</span></label>
                     <select name="civil_status" id="civil_status" class="form-select" required>
                         <option value="">--Select--</option>
                         <option value="SINGLE">SINGLE</option>
@@ -158,7 +162,7 @@
                     </select>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">PWD <span class="text-danger">*</span></label>
+                    <label for="pwd" class="form-label">PWD <span class="text-danger">*</span></label>
                     <select name="pwd" id="pwd" class="form-select" required>
                         <option value="">--Select--</option>
                         <option value="NO">NO</option>
@@ -166,47 +170,47 @@
                     </select>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label class="form-label">IP</label>
+                    <label for="ip" class="form-label">IP</label>
                     <input name="ip" id="ip" class="form-control uppercase">
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-6 mb-2">
-                    <label class="form-label">IP Group</label>
+                    <label for="ip_group" class="form-label">IP Group</label>
                     <input name="ip_group" id="ip_group" class="form-control uppercase">
                 </div>
                 <div class="col-md-6 mb-2">
-                    <label class="form-label">Occupation</label>
+                    <label for="occupation" class="form-label">Occupation</label>
                     <input name="occupation" id="occupation" class="form-control uppercase">
                 </div>
             </div>
 
             <hr>
-            <h5>Scholarship Details</h5>
+            <h2 class="text-base font-semibold text-ink">Scholarship Details</h2>
 
             <div class="row">
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Program</label>
+                    <label for="sch_program" class="form-label">Program</label>
                     <input name="sch_program" id="sch_program" class="form-control" readonly>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">School <span class="text-danger">*</span></label>
+                    <label for="school" class="form-label">School <span class="text-danger">*</span></label>
                     <input name="school" id="school" class="form-control uppercase" required>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">College Department <span class="text-danger">*</span></label>
+                    <label for="college_department" class="form-label">College Department <span class="text-danger">*</span></label>
                     <input name="college_department" id="college_department" class="form-control uppercase" required>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Course <span class="text-danger">*</span></label>
+                    <label for="course" class="form-label">Course <span class="text-danger">*</span></label>
                     <input name="course" id="course" class="form-control uppercase" required>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Year Level <span class="text-danger">*</span></label>
+                    <label for="year_level" class="form-label">Year Level <span class="text-danger">*</span></label>
                     <select name="year_level" id="year_level" class="form-select" required>
                         <option value="">-- Select Year Level --</option>
                         <option value="1ST YEAR">1ST YEAR</option>
@@ -217,7 +221,7 @@
                     </select>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label class="form-label">Is Regular <span class="text-danger">*</span></label>
+                    <label for="is_regular" class="form-label">Is Regular <span class="text-danger">*</span></label>
                     <select name="is_regular" id="is_regular" class="form-select" required>
                         <option value="0">NO</option>
                         <option value="1">YES</option>
@@ -226,15 +230,14 @@
             </div>
 
             <div class="mt-3 d-flex gap-2">
-                <button id="saveBtn" class="btn btn-success">Save Updates</button>
-                <button id="cancelBtn" type="button" class="btn btn-secondary">Cancel</button>
+                <button id="saveBtn" class="btn-navy">Save Updates</button>
+                <button id="cancelBtn" type="button" class="btn-subtle">Cancel</button>
             </div>
             <div id="saveMsg" class="mt-3"></div>
         </form>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     const searchUrl = '{{ route('grantee-search', ['kind' => 'grantee']) }}';
     const verifyUrl = '{{ route('grantee-search.verify', ['kind' => 'grantee']) }}';

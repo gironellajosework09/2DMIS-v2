@@ -7,6 +7,7 @@ use App\Models\ClientAffOrg;
 use App\Models\FamilyMember;
 use App\Models\User;
 use DateTimeImmutable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -21,6 +22,20 @@ class ClientService
     public const REGION = 'Region I';
 
     public const PROVINCE = 'Ilocos Sur';
+
+    /**
+     * Authoritative client categories (v1 derive_client_category semantics).
+     * The clients Category filter and the category badge both derive from this
+     * single list; values are persisted verbatim in tbl_clients.category.
+     *
+     * @var list<string>
+     */
+    public const CATEGORIES = [
+        'MINOR (0-17)',
+        'YOUTH (18-29)',
+        'ADULT (30-59)',
+        'SENIOR CITIZEN (60 AND ABOVE)',
+    ];
 
     public function normalizeText(?string $value): string
     {
@@ -167,6 +182,37 @@ class ClientService
 
             return $client->fresh();
         });
+    }
+
+    /**
+     * High-confidence duplicate lookup run before creating a client: an
+     * existing record whose derived match_name (the no-space uppercase
+     * concatenation v1 used for dedupe) AND exact birthdate both match.
+     *
+     * Application-level only — a race between two identical submissions can
+     * still create a duplicate. Making this concurrency-proof needs a
+     * DB-level uniqueness decision (owner scope; see IMPLEMENTATION_LOG).
+     *
+     * @return Collection<int, Client>
+     */
+    public function findPotentialDuplicates(
+        string $lastname,
+        string $firstname,
+        ?string $middlename,
+        string $birthdate,
+    ): Collection {
+        if (trim($lastname) === '' || trim($firstname) === '') {
+            return new Collection;
+        }
+
+        return Client::query()
+            ->where('match_name', $this->deriveMatchName($lastname, $firstname, $middlename))
+            ->where('birthdate', $birthdate)
+            ->with(['municipality', 'barangayInfo', 'household'])
+            ->orderBy('lastname')
+            ->orderBy('firstname')
+            ->limit(10)
+            ->get();
     }
 
     /**

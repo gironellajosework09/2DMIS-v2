@@ -3,30 +3,44 @@
 @section('title', 'Create User — 2D MIS')
 
 @section('content')
-    <div class="card shadow-lg border-0 p-4" style="max-width: 520px;">
-        <div class="mb-3">
-            <h3 class="mb-0">Create User</h3>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'User Management', 'url' => route('admin.users.index')],
+            ['label' => 'Create User'],
+        ],
+    ])
+
+    @include('partials.page-header', [
+        'title' => 'Create User',
+        'subtitle' => 'Add a new system account.',
+    ])
+
+    <section class="data-card max-w-[520px]" aria-label="Create user form">
+        <div class="data-card-body">
+            <form method="POST" action="{{ route('admin.users.store') }}" class="flex flex-col gap-[12px]">
+                @csrf
+
+                <div>
+                    <label for="username" class="field-label">Username</label>
+                    <input type="text" name="username" id="username" class="form-control" value="{{ old('username') }}" required autofocus>
+                </div>
+
+                <div>
+                    <label for="password" class="field-label">Password</label>
+                    <input type="password" name="password" id="password" class="form-control" required>
+                </div>
+
+                <div>
+                    <label for="password_confirmation" class="field-label">Confirm Password</label>
+                    <input type="password" name="password_confirmation" id="password_confirmation" class="form-control" required>
+                </div>
+
+                <div class="mt-[4px] flex items-center justify-end gap-2 border-t border-line-light pt-[16px]">
+                    <a href="{{ route('admin.users.index') }}" class="btn-subtle no-underline">Cancel / Return</a>
+                    <button type="submit" class="btn-navy">Create User</button>
+                </div>
+            </form>
         </div>
-
-        <form method="POST" action="{{ route('admin.users.store') }}">
-            @csrf
-
-            <div class="mb-3">
-                <label class="form-label">Username</label>
-                <input type="text" name="username" class="form-control" value="{{ old('username') }}" required autofocus>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Password</label>
-                <input type="password" name="password" class="form-control" required>
-            </div>
-
-            <div class="mb-3">
-                <label class="form-label">Confirm Password</label>
-                <input type="password" name="password_confirmation" class="form-control" required>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Create User</button>
-        </form>
-    </div>
+    </section>
 @endsection

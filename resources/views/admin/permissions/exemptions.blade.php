@@ -2,36 +2,54 @@
 
 @section('title', 'Manage Multiple Device Exemptions — 2D MIS')
 
+{{-- Batch G migration (UI_UX_ANALYSIS §8.9 Group 4): single-device
+     exemption toggle. GET select + POST toggle contract unchanged. --}}
 @section('content')
-    <div class="card shadow-lg border-0 p-4" style="max-width: 640px;">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="mb-0">Manage Multiple Device Exemptions</h3>
-        </div>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Multiple Device Exemptions'],
+        ],
+    ])
 
-        <form method="GET" action="{{ route('admin.exemptions.pages') }}" class="mb-4">
-            <label class="form-label">Select User</label>
-            <select name="user_id" class="form-select" onchange="this.form.submit()">
-                <option value="">-- Select User --</option>
-                @foreach ($users as $user)
-                    <option value="{{ $user->id }}" @selected($selectedUser?->id === $user->id)>{{ $user->username }}</option>
-                @endforeach
-            </select>
-        </form>
+    @include('partials.page-header', [
+        'title' => 'Manage Multiple Device Exemptions',
+        'subtitle' => 'Exempt a user from the single-device login rule.',
+    ])
+
+    <div class="flex flex-col gap-[16px]">
+        <section class="data-card" aria-label="Select user">
+            <div class="data-card-body max-w-[420px]">
+                <form method="GET" action="{{ route('admin.exemptions.pages') }}">
+                    <label class="field-label" for="user_select">Select User</label>
+                    <select name="user_id" id="user_select" class="form-select" onchange="this.form.submit()">
+                        <option value="">-- Select User --</option>
+                        @foreach ($users as $user)
+                            <option value="{{ $user->id }}" @selected($selectedUser?->id === $user->id)>{{ $user->username }}</option>
+                        @endforeach
+                    </select>
+                </form>
+            </div>
+        </section>
 
         @if ($selectedUser)
-            <form method="POST" action="{{ route('admin.exemptions.toggle', $selectedUser->id) }}">
-                @csrf
+            <section class="data-card max-w-[640px]" aria-label="Exemption toggle">
+                <div class="data-card-body">
+                    <form method="POST" action="{{ route('admin.exemptions.toggle', $selectedUser->id) }}">
+                        @csrf
 
-                <div class="form-check mb-4">
-                    <input class="form-check-input" type="checkbox" name="grant" value="1" id="grant"
-                           @checked($isExempt)>
-                    <label class="form-check-label" for="grant">
-                        Allow this user to login on multiple devices
-                    </label>
+                        <div class="mb-[16px] form-check">
+                            <input class="form-check-input" type="checkbox" name="grant" value="1" id="grant"
+                                   @checked($isExempt)>
+                            <label class="form-check-label" for="grant">
+                                Allow this user to login on multiple devices
+                            </label>
+                        </div>
+
+                        <button type="submit" class="btn-navy">Save Changes</button>
+                    </form>
                 </div>
-
-                <button type="submit" class="btn btn-primary">Save Changes</button>
-            </form>
+            </section>
         @endif
     </div>
 @endsection

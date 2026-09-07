@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Barangay;
 use App\Models\Client;
 use App\Models\Municipality;
 use App\Models\Transaction;
 use App\Services\AccessControlService;
 use App\Services\TransactionService;
+use App\Support\FilterConfig;
 use App\Support\RecordMunicipality;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -21,11 +23,41 @@ class TransactionController extends Controller
         private readonly AccessControlService $acl,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $user = $request->user();
+        $municipalities = $this->acl->accessibleMunicipalities($user);
+        $barangays = Barangay::query()
+            ->whereIn('municipality_id', $municipalities->pluck('id'))
+            ->orderBy('name')
+            ->get(['id', 'name', 'municipality_id']);
+
         return view('transactions.index', [
-            'municipalities' => Municipality::query()->orderBy('name')->get(),
-            'programs' => $this->programsForUser(auth()->user()),
+            'municipalities' => $municipalities,
+            'programs' => $this->programsForUser($user),
+            'filterChips' => [
+                'id' => 'transactions-filters',
+                'categories' => [
+                    FilterConfig::programCategory($request, $this->programsForUser($user)),
+                    [
+                        'key' => 'status',
+                        'label' => 'Status',
+                        'searchable' => false,
+                        'feedParam' => 'status',
+                        'options' => [
+                            ['value' => 'PAID', 'label' => 'PAID'],
+                            ['value' => 'PENDING PAYOUT', 'label' => 'PENDING PAYOUT'],
+                        ],
+                        'selected' => FilterConfig::selectedValues($request, 'status'),
+                    ],
+                    FilterConfig::municipalityCategory($municipalities, $request, 'all_transactions.php'),
+                    FilterConfig::barangayCategory($barangays, $request),
+                ],
+                'dateRanges' => [
+                    FilterConfig::dateRange('Applied', 'date_applied_start', 'date_applied_end', $request),
+                    FilterConfig::dateRange('Paid', 'date_paid_start', 'date_paid_end', $request),
+                ],
+            ],
         ]);
     }
 
@@ -112,7 +144,10 @@ class TransactionController extends Controller
             ->with('client')
             ->findOrFail($id);
 
-        return view('transactions.show', compact('transaction'));
+        return view('transactions.show', [
+            'transaction' => $transaction,
+            'panel' => $request->boolean('panel'),
+        ]);
     }
 
     public function edit(Request $request, int $id): View
@@ -298,8 +333,8 @@ class TransactionController extends Controller
 
         $programFilter = trim((string) $request->input('program', ''));
         $statusFilter = trim((string) $request->input('status', ''));
-        $municipalityFilter = $request->integer('municipality', 0);
-        $barangayFilter = $request->integer('barangay', 0);
+        $municipalityFilter = trim((string) $request->input('municipality', ''));
+        $barangayFilter = trim((string) $request->input('barangay', ''));
         $dateAppliedStart = trim((string) $request->input('date_applied_start', ''));
         $dateAppliedEnd = trim((string) $request->input('date_applied_end', ''));
         $datePaidStart = trim((string) $request->input('date_paid_start', ''));
@@ -315,29 +350,32 @@ class TransactionController extends Controller
         $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'all_transactions.php');
 
         $whereForbidden = false;
+        $requestedPrograms = $programFilter === ''
+            ? []
+            : array_values(array_filter(array_map('trim', explode(',', $programFilter)), 'strlen'));
 
         if (! empty($allowedPrograms)) {
-            if ($programFilter !== '') {
-                if (! in_array($programFilter, $allowedPrograms, true)) {
+            if ($requestedPrograms !== []) {
+                if (array_diff($requestedPrograms, $allowedPrograms) !== []) {
                     $whereForbidden = true;
                 } else {
-                    $query->where('t.program', $programFilter);
+                    FilterConfig::applyMultiValue($query, 't.program', $requestedPrograms);
                 }
             } else {
                 $query->whereIn('t.program', $allowedPrograms);
             }
-        } elseif ($programFilter !== '') {
-            $query->where('t.program', $programFilter);
+        } elseif ($requestedPrograms !== []) {
+            FilterConfig::applyMultiValue($query, 't.program', $requestedPrograms);
         }
 
         if ($statusFilter !== '') {
-            $query->where('t.status', $statusFilter);
+            FilterConfig::applyMultiValue($query, 't.status', $statusFilter);
         }
-        if ($municipalityFilter > 0) {
-            $query->where('c.city_municipality', $municipalityFilter);
+        if ($municipalityFilter !== '') {
+            FilterConfig::applyMultiValue($query, 'c.city_municipality', $municipalityFilter);
         }
-        if ($barangayFilter > 0) {
-            $query->where('c.barangay', $barangayFilter);
+        if ($barangayFilter !== '') {
+            FilterConfig::applyMultiValue($query, 'c.barangay', $barangayFilter);
         }
         if ($dateAppliedStart !== '' && $dateAppliedEnd !== '') {
             $query->whereBetween('t.date_applied', [$dateAppliedStart, $dateAppliedEnd]);

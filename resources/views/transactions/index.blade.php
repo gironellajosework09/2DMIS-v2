@@ -2,128 +2,134 @@
 
 @section('title', 'All Transactions — 2D MIS')
 
+{{-- Phase 1: Prototype-aligned Transactions with shared details panel --}}
 @push('styles')
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="{{ asset('css/datatables.css') }}">
     <style>
-        table.dataTable td {
+        /* ── Transactions screen scope: token skin over the DataTables
+           Bootstrap integration. Selectors are prefixed with
+           #transactions-screen — nothing here can leak to other screens. ── */
+        #transactions-screen table.dataTable td {
             font-size: 0.8rem;
         }
 
-        table.dataTable th {
+        #transactions-screen table.dataTable th {
             font-size: 0.85rem;
+            background-color: var(--color-navy);
+            color: #fff;
+            border-bottom: 0;
+            white-space: nowrap;
         }
 
-        .actions-col {
-            width: 120px !important;
-            max-width: 120px !important;
+        #transactions-screen table.dataTable tbody tr {
+            cursor: pointer;
+        }
+
+        #transactions-screen table.dataTable tbody tr:nth-child(odd) td {
+            background-color: rgb(15 27 45 / 0.02);
+        }
+
+        #transactions-screen table.dataTable tbody tr:hover td {
+            background-color: rgb(37 99 235 / 0.06);
+        }
+
+        #transactions-screen table.dataTable td.num-cell {
+            font-variant-numeric: tabular-nums;
+        }
+
+        #transactions-screen .actions-col {
+            width: 120px;
+            max-width: 120px;
             text-align: center;
             white-space: nowrap;
         }
 
-        .actions-col .btn {
+        #transactions-screen .actions-col .btn {
             padding: 2px 6px;
             font-size: 11px;
         }
 
-        .form-label-sm {
-            font-size: 0.8rem;
-            margin-bottom: 0.2rem;
+        /* DataTables chrome (length/info/pagination) aligned to tokens. */
+        #transactions-screen .dataTables_wrapper .dataTables_length select,
+        #transactions-screen .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius-control);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        #transactions-screen .dataTables_wrapper .dataTables_paginate .page-item.active .page-link {
+            background-color: var(--color-navy);
+            border-color: var(--color-navy);
+        }
+
+        #transactions-screen .page-link {
+            color: var(--color-navy);
+        }
+
+        #transactions-screen .dataTables_wrapper .dataTables_processing {
+            background-color: var(--color-surface, #fff);
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius-panel);
+            box-shadow: var(--shadow-pop);
+            color: var(--color-ink-muted);
+            font-size: 0.85rem;
+            padding: 0.5rem 1rem;
         }
     </style>
 @endpush
 
 @section('content')
-    <div class="card shadow-lg border-0 p-4">
-        <h3 class="mb-3">All Transactions</h3>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Transactions'],
+        ],
+    ])
 
-        @if (session('success'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                {{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    @include('partials.page-header', [
+        'title' => 'All Transactions',
+        'subtitle' => 'Assistance transactions across programs, with filtering and CSV exports.',
+        'actions' => '
+            <div class="btn-group" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
+                <button type="button" class="btn-subtle dropdown-toggle" @click="open = !open" :aria-expanded="open.toString()">
+                    Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" :class="{ \'show\': open }">
+                    <li><button type="button" class="dropdown-item export-link" data-mode="csv">Export CSV</button></li>
+                    <li><button type="button" class="dropdown-item export-link" data-mode="custom">Export Custom CSV</button></li>
+                    <li><button type="button" class="dropdown-item export-link" data-mode="custom2">Export CSV 2</button></li>
+                    <li><button type="button" class="dropdown-item export-link" data-mode="gip">Export GIP Report</button></li>
+                </ul>
+            </div>',
+    ])
+
+    @if (session('success'))
+        {{-- Same persistent toast pattern as the layout flash channel:
+             manual dismiss, live-region semantics, no silent expiry.
+             Phase 20: Alpine state owns visibility + dismissal (was
+             bootstrap.Toast via the layout init loop); server flash
+             contract unchanged. --}}
+        <div class="pointer-events-none fixed inset-x-0 top-[76px] z-[1100] flex flex-col items-end gap-2 px-[1rem] sm:px-[1.75rem]" aria-live="polite">
+            <div x-data="{ open: true }"
+                 x-show="open"
+                 class="pointer-events-auto flex w-full max-w-[420px] items-start gap-[12px] rounded-panel bg-surface p-[1rem] shadow-pop ring-1 ring-line"
+                 role="status">
+                <span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-teal/[0.12] text-teal" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <span class="text-dense leading-snug text-ink">{{ session('success') }}</span>
+                <button type="button" class="btn-close shrink-0" @click="open = false" aria-label="Close"></button>
             </div>
-        @endif
+        </div>
+    @endif
 
-        <form method="get" action="{{ route('transactions.index') }}" id="filtersForm" class="row g-3 mb-3">
-            <div class="col">
-                <label class="form-label-sm">Program</label>
-                <select name="program" id="filterProgram" class="form-select form-select-sm">
-                    <option value="">-- All --</option>
-                    @foreach ($programs as $program)
-                        <option value="{{ $program }}" @selected(request('program') === $program)>{{ $program }}</option>
-                    @endforeach
-                </select>
-            </div>
+    <div id="transactions-screen" class="data-card p-[1.25rem]">
+        @include('partials.filter-chips', ['filterChips' => $filterChips])
 
-            <div class="col">
-                <label class="form-label-sm">Status</label>
-                <select name="status" id="filterStatus" class="form-select form-select-sm">
-                    <option value="">-- All --</option>
-                    <option value="PAID" @selected(request('status') === 'PAID')>PAID</option>
-                    <option value="PENDING PAYOUT" @selected(request('status') === 'PENDING PAYOUT')>PENDING PAYOUT</option>
-                </select>
-            </div>
-
-            <div class="col">
-                <label class="form-label-sm">Municipality</label>
-                <select id="filterMunicipality" name="municipality" class="form-select form-select-sm">
-                    <option value="">-- All --</option>
-                    @foreach ($municipalities as $municipality)
-                        <option value="{{ $municipality->id }}" @selected((string) request('municipality') === (string) $municipality->id)>
-                            {{ $municipality->name }}
-                        </option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div class="col">
-                <label class="form-label-sm">Barangay</label>
-                <select id="filterBarangay" name="barangay" class="form-select form-select-sm">
-                    <option value="">-- All --</option>
-                </select>
-            </div>
-
-            <div class="w-100"></div>
-
-            <div class="col">
-                <label class="form-label-sm">Date Applied (Start)</label>
-                <input type="date" name="date_applied_start" class="form-control form-control-sm" value="{{ request('date_applied_start') }}">
-            </div>
-
-            <div class="col">
-                <label class="form-label-sm">Date Applied (End)</label>
-                <input type="date" name="date_applied_end" class="form-control form-control-sm" value="{{ request('date_applied_end') }}">
-            </div>
-
-            <div class="col">
-                <label class="form-label-sm">Date Paid (Start)</label>
-                <input type="date" name="date_paid_start" class="form-control form-control-sm" value="{{ request('date_paid_start') }}">
-            </div>
-
-            <div class="col">
-                <label class="form-label-sm">Date Paid (End)</label>
-                <input type="date" name="date_paid_end" class="form-control form-control-sm" value="{{ request('date_paid_end') }}">
-            </div>
-
-            <div class="col d-flex gap-2 align-items-end justify-content-end">
-                <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-                <a href="{{ route('transactions.index') }}" class="btn btn-secondary btn-sm">Reset</a>
-                <div class="btn-group">
-                    <button type="button" class="btn btn-success btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        Export
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><button type="button" class="dropdown-item export-link" data-mode="csv">Export CSV</button></li>
-                        <li><button type="button" class="dropdown-item export-link" data-mode="custom">Export Custom CSV</button></li>
-                        <li><button type="button" class="dropdown-item export-link" data-mode="custom2">Export CSV 2</button></li>
-                        <li><button type="button" class="dropdown-item export-link" data-mode="gip">Export GIP Report</button></li>
-                    </ul>
-                </div>
-            </div>
-        </form>
-
-        <div class="table-responsive">
-            <table id="transactionsTable" class="table table-striped table-bordered table-sm w-100" style="font-size:12px;">
-                <thead class="table-dark">
+        <div class="table-responsive" tabindex="0" aria-label="All transactions table, scrollable horizontally">
+            <table id="transactionsTable" class="table table-sm" style="width:100%;">
+                <thead>
                     <tr>
                         <th>ID</th>
                         <th>Client ID</th>
@@ -152,29 +158,38 @@
             </table>
         </div>
     </div>
+
+    @include('partials.confirm-modal')
 @endsection
 
 @push('scripts')
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="{{ asset('js/components/DetailsPanel.js') }}"></script>
+    <script src="{{ asset('js/components/FilterChips.js') }}"></script>
     <script>
         $(document).ready(function() {
             var table = $('#transactionsTable').DataTable({
                 processing: true,
                 serverSide: true,
+                autoWidth: false,
+                scrollX: true,
                 ajax: {
                     url: '{{ route('transactions.data') }}',
                     type: 'POST',
                     data: function(d) {
-                        d.program = $('#filterProgram').val();
-                        d.status = $('#filterStatus').val();
-                        d.municipality = $('#filterMunicipality').val();
-                        d.barangay = $('#filterBarangay').val();
-                        d.date_applied_start = $('input[name="date_applied_start"]').val();
-                        d.date_applied_end = $('input[name="date_applied_end"]').val();
-                        d.date_paid_start = $('input[name="date_paid_start"]').val();
-                        d.date_paid_end = $('input[name="date_paid_end"]').val();
+                        var p = (window.transactionFilters && window.transactionFilters.getParams)
+                            ? window.transactionFilters.getParams()
+                            : {};
+                        d.program = p.program || '';
+                        d.status = p.status || '';
+                        d.municipality = p.municipality || '';
+                        d.barangay = p.barangay || '';
+                        d.date_applied_start = p.date_applied_start || '';
+                        d.date_applied_end = p.date_applied_end || '';
+                        d.date_paid_start = p.date_paid_start || '';
+                        d.date_paid_end = p.date_paid_end || '';
                     }
                 },
                 columns: [
@@ -190,9 +205,14 @@
                     { data: "type" },
                     { data: "remarks" },
                     { data: "comments" },
-                    { data: "suggested_amount" },
-                    { data: "status" },
-                    { data: "amount_paid" },
+                    { data: "suggested_amount", className: "num-cell" },
+                    { data: "status", render: function(data) {
+                        if (!data) return '';
+                        var cls = data === 'PAID' ? 'is-paid'
+                            : (String(data).indexOf('PENDING') === 0 ? 'is-pending' : 'is-neutral');
+                        return '<span class="status-badge ' + cls + '">' + data + '</span>';
+                    } },
+                    { data: "amount_paid", className: "num-cell" },
                     { data: "payout_date" },
                     { data: "date_paid" },
                     { data: "gwa" },
@@ -200,10 +220,30 @@
                     { data: "created_at" },
                     { data: "actions" }
                 ],
-                columnDefs: [{ targets: 20, orderable: false, searchable: false }],
+                language: {
+                    emptyTable: 'No transactions found.'
+                },
+                columnDefs: [
+                    // UX-3 column consolidation: keep the transaction table
+                    // readable (~13 visible). The hidden columns below remain
+                    // fully searchable + sortable (server-side feed unchanged) so
+                    // V1 sort/filter/search parity is preserved; they surface in
+                    // the DetailsPanel and the full-page edit. Inline-edit cell
+                    // columns (remarks/comments/suggested/status/amount/gwa/
+                    // units) all stay VISIBLE so the td-click protocol is intact.
+                    { targets: [2, 5, 6, 7, 8, 9, 15, 19], visible: false, searchable: true },
+                    { targets: 20, orderable: false, searchable: false }
+                ],
                 order: [[4, 'asc']],
                 pageLength: 10,
-                lengthMenu: [10, 25, 50, 100]
+                lengthMenu: [10, 25, 50, 100],
+                createdRow: function(row, data) {
+                    $(row).attr({
+                        'data-id': data.id,
+                        'tabindex': 0,
+                        'aria-label': 'Transaction ' + data.id + ', open details'
+                    });
+                }
             });
 
             function displayToIso(display) {
@@ -313,64 +353,84 @@
                 table.ajax.reload(null, false);
             });
 
-            $('#filtersForm').on('submit', function(e) {
-                e.preventDefault();
-                table.draw();
-            });
-
-            $('#filterMunicipality').on('change', function() {
-                var municipalityId = $(this).val();
-                var barangaySelect = $('#filterBarangay');
-                barangaySelect.html('<option value="">-- All --</option>');
-                if (municipalityId) {
-                    fetch('{{ route('geography.barangays') }}?municipality_id=' + municipalityId)
-                        .then(r => r.json())
-                        .then(data => {
-                            data.forEach(function(b) {
-                                var safeName = $('<div/>').text(b.name).html();
-                                barangaySelect.append('<option value="' + b.id + '">' + safeName + '</option>');
-                            });
-                        })
-                        .catch(err => console.error('Failed to load barangays', err));
-                }
-            });
-
-            @if (request('municipality'))
-                $('#filterMunicipality').trigger('change');
-            @endif
+            // FilterChips — shared Phase 2C component (server-side DataTables feed).
+            if (window.FilterChips) {
+                window.transactionFilters = FilterChips.init({
+                    id: 'transactions-filters',
+                    host: document.querySelector('[data-filter-host="transactions-filters"]'),
+                    onApply: function() {
+                        table.draw();
+                    }
+                });
+            }
 
             $('.export-link').on('click', function() {
                 var mode = $(this).data('mode');
+                var p = (window.transactionFilters && window.transactionFilters.getParams)
+                    ? window.transactionFilters.getParams()
+                    : {};
                 var query = new URLSearchParams({
                     export_mode: mode,
-                    program: $('#filterProgram').val(),
-                    status: $('#filterStatus').val(),
-                    municipality: $('#filterMunicipality').val(),
-                    barangay: $('#filterBarangay').val(),
-                    date_applied_start: $('input[name="date_applied_start"]').val(),
-                    date_applied_end: $('input[name="date_applied_end"]').val(),
-                    date_paid_start: $('input[name="date_paid_start"]').val(),
-                    date_paid_end: $('input[name="date_paid_end"]').val()
+                    program: p.program || '',
+                    status: p.status || '',
+                    municipality: p.municipality || '',
+                    barangay: p.barangay || '',
+                    date_applied_start: p.date_applied_start || '',
+                    date_applied_end: p.date_applied_end || '',
+                    date_paid_start: p.date_paid_start || '',
+                    date_paid_end: p.date_paid_end || ''
                 }).toString();
                 window.location.href = '{{ route('transactions.export') }}?' + query;
             });
 
             $('#transactionsTable').on('click', '.delete-transaction', function() {
-                if (!confirm('Are you sure you want to delete this transaction?')) return;
                 var id = $(this).data('id');
-                fetch('{{ route('transactions.index') }}/' + id, {
-                        method: 'POST',
-                        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
-                    })
-                    .then(r => r.json())
-                    .then(res => {
-                        if (res.success) {
-                            table.draw();
-                        } else {
-                            alert(res.message || 'Failed to delete transaction.');
-                        }
-                    })
-                    .catch(() => alert('Error deleting transaction.'));
+                window.uiConfirm({
+                    title: 'Delete transaction',
+                    message: 'Are you sure you want to delete this transaction? This cannot be undone.',
+                    confirmLabel: 'Delete'
+                }).then(function(ok) {
+                    if (!ok) return;
+                    fetch('{{ route('transactions.index') }}/' + id, {
+                            method: 'POST',
+                            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' }
+                        })
+                        .then(r => r.json())
+                        .then(res => {
+                            if (res.success) {
+                                table.draw();
+                            } else {
+                                alert(res.message || 'Failed to delete transaction.');
+                            }
+                        })
+                        .catch(() => alert('Error deleting transaction.'));
+                });
+            });
+
+            // Row click -> shared details panel
+            $('#transactionsTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).closest('.actions-col').length) {
+                    return;
+                }
+                var id = $(this).data('id');
+                if (id) {
+                    window.DetailsPanel.load('transactions', id, {
+                        url: '{{ route('transactions.show', '__ID__') }}'.replace('__ID__', id) + '?panel=1'
+                    });
+                }
+            });
+
+            // Keyboard twin (Enter / Space)
+            $('#transactionsTable tbody').on('keydown', 'tr[tabindex]', function(e) {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                if ($(e.target).closest('.actions-col').length) return;
+                e.preventDefault();
+                var id = $(this).data('id');
+                if (id) {
+                    window.DetailsPanel.load('transactions', id, {
+                        url: '{{ route('transactions.show', '__ID__') }}'.replace('__ID__', id) + '?panel=1'
+                    });
+                }
             });
         });
     </script>

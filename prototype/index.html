@@ -90,7 +90,7 @@
 
       <div class="sidebar-section">
         <div class="sidebar-section-label">Assistance</div>
-        <button type="button" class="sidebar-link" data-page="scholars" style="display:none;">
+        <button type="button" class="sidebar-link" data-page="scholars">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
           Scholars
           <span class="badge" id="sidebarScholarsBadge">8</span>
@@ -100,17 +100,18 @@
           Transactions
           <span class="badge" id="sidebarTxBadge">20</span>
         </button>
-        <button type="button" class="sidebar-link" data-page="scanner" style="display:none;">
+        <button type="button" class="sidebar-link" data-page="scanner" >
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><polyline points="17 6 23 6 23 12"/></svg>
           Scanner Engine
         </button>
-        <button type="button" class="sidebar-link" data-page="payouts" style="display:none;">
+        <button type="button" class="sidebar-link" data-page="payouts">
           <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
           Payouts
+          <span class="badge" id="sidebarPayoutsBadge">14</span>
         </button>
       </div>
 
-      <div class="sidebar-section">
+      <div class="sidebar-section" style="display: none;">
         <div class="sidebar-section-label">Administration</div>
         <button type="button" class="sidebar-link" data-page="users">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -161,7 +162,7 @@
             <button type="button" id="notifMarkAll">Mark all read</button>
           </div>
           <div id="notifList"></div>
-          <div class="notif-menu-footer">View all notifications</div>
+          <div class="notif-menu-footer"><button type="button" data-sim="Opening the full notification center (mock)">View all notifications</button></div>
         </div>
         <div class="topbar-indicator">
           <span class="dot"></span>
@@ -239,13 +240,9 @@
             <span class="qa-icon gold"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
             New Transaction
           </button>
-          <button type="button" class="quick-action" data-add-hh>
+          <button type="button" class="quick-action" data-add-hh style="display: none;">
             <span class="qa-icon teal"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
             Register Household
-          </button>
-          <button type="button" class="quick-action" data-sim="Launching scanner" onclick="showPage('scanner')" style="display: none;">
-            <span class="qa-icon red"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 6l-9.5 9.5-5-5L1 18"/><polyline points="17 6 23 6 23 12"/></svg></span>
-            Scan QR
           </button>
         </div>
 
@@ -413,10 +410,10 @@
             <table class="data-table" data-table="clients">
               <thead>
                 <tr>
-                  <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
                   <th>Precinct No.</th>
-                  <th class="sortable" data-sort="municipality">Municipality <span class="sort-ind" aria-hidden="true">↕</span></th>
-                  <th class="sortable" data-sort="barangay">Barangay <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="municipality">Municipality <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="barangay">Barangay <span class="sort-ind" aria-hidden="true">↕</span></th>
                   <th>Category</th>
                   <th>Status</th>
                   <th class="chevron-cell" aria-hidden="true"></th>
@@ -500,11 +497,11 @@
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="name">Client <span class="sort-ind" aria-hidden="true">↕</span></th>
                   <th>Program</th>
                   <th>Type</th>
-                  <th class="sortable" data-sort="date">Date Applied <span class="sort-ind" aria-hidden="true">↕</span></th>
-                  <th class="sortable" data-sort="amount">Amount <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="date">Date Applied <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="amount">Amount <span class="sort-ind" aria-hidden="true">↕</span></th>
                   <th>Status</th>
                   <th class="actions-col">Actions</th>
                   <th class="chevron-cell" aria-hidden="true"></th>
@@ -541,7 +538,7 @@
 
         <div class="p6-notice" role="status">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span><strong>In progress (P6):</strong> scholar profiles, GIP records, exam results, grantee self-update and scholarship reports are being built for the live system. Screens shown here are simulations only.</span>
+          <span><strong>Prototype simulation:</strong> every screen in this demo runs entirely on in-browser mock data. Scholar profiles, GIP records, exams, grantee self-update and scholarship reports mirror the planned production workflows.</span>
         </div>
 
         <div class="page-tabs" role="tablist" aria-label="Scholars sections">
@@ -781,33 +778,214 @@
         </div>
       </div>
 
-      <!-- ════════ PAYOUTS (Placeholder) ════════ -->
+      <!-- ════════ PAYOUTS ════════ -->
       <div class="page" id="page-payouts">
-        <div class="page-header"><div><h1>Payouts</h1><p>Payout attendance and unpaid grantee tracking (P5)</p></div></div>
-        <div class="data-card" style="padding:48px;text-align:center;">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" aria-hidden="true" style="margin:0 auto 16px;display:block;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <h3 style="color:var(--text-secondary);margin-bottom:4px;">Coming Soon — P5 Milestone</h3>
-          <p style="color:var(--text-muted);font-size:0.85rem;">Payout attendance tracking and unpaid grantee management will be implemented next.</p>
+        <div class="page-header">
+          <div>
+            <h1>Payouts</h1>
+            <p>Payout attendance and unpaid grantee tracking</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" class="btn btn-outline btn-sm" data-payout-export>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export CSV
+            </button>
+            <button type="button" class="btn btn-gold btn-sm" data-add-payout>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Record Payout
+            </button>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card navy">
+            <div class="metric-top">
+              <div class="metric-icon navy"><svg viewBox="0 0 24 24" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+            </div>
+            <div class="metric-value" id="payoutMetricReleased">₱0</div>
+            <div class="metric-label">Total Released</div>
+          </div>
+          <div class="metric-card teal">
+            <div class="metric-top">
+              <div class="metric-icon teal"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></div>
+            </div>
+            <div class="metric-value" id="payoutMetricPaid">0</div>
+            <div class="metric-label">Claimed &amp; Verified</div>
+          </div>
+          <div class="metric-card red">
+            <div class="metric-top">
+              <div class="metric-icon red"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+            </div>
+            <div class="metric-value" id="payoutMetricUnclaimed">0</div>
+            <div class="metric-label">Unclaimed</div>
+          </div>
+          <div class="metric-card gold">
+            <div class="metric-top">
+              <div class="metric-icon gold"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+            </div>
+            <div class="metric-value" id="payoutMetricScheduled">0</div>
+            <div class="metric-label">Scheduled</div>
+          </div>
+        </div>
+
+        <div class="data-card">
+          <div class="table-toolbar" data-filter-group="payouts">
+            <div class="filter-group" data-filter-host="payouts"></div>
+            <div class="table-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="payoutsSearch" placeholder="Search beneficiary, payout ID, venue..." aria-label="Search payouts">
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table" data-table="payouts">
+              <thead>
+                <tr>
+                  <th>Payout ID</th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="name">Beneficiary <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th>Program</th>
+                  <th>Reference Tx</th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="date">Date <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="amount">Amount <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th>Status</th>
+                  <th class="actions-col">Actions</th>
+                  <th class="chevron-cell" aria-hidden="true"></th>
+                </tr>
+              </thead>
+              <tbody id="payoutsBody"></tbody>
+            </table>
+          </div>
+          <div class="data-card-footer">
+            <span id="payoutsCount">Showing 0 of 0 payouts</span>
+            <div class="pagination" id="payoutsPager"></div>
+          </div>
         </div>
       </div>
 
-      <!-- ════════ ACCESS CONTROL (Placeholder) ════════ -->
+      <!-- ════════ ACCESS CONTROL ════════ -->
       <div class="page" id="page-users">
-        <div class="page-header"><div><h1>Access Control</h1><p>User management, page permissions, and program access</p></div></div>
-        <div class="data-card" style="padding:48px;text-align:center;">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" aria-hidden="true" style="margin:0 auto 16px;display:block;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          <h3 style="color:var(--text-secondary);margin-bottom:4px;">Administration — P7 Milestone</h3>
-          <p style="color:var(--text-muted);font-size:0.85rem;">User registration, permission grants, and multi-device exemptions.</p>
+        <div class="page-header">
+          <div>
+            <h1>Access Control</h1>
+            <p>User management, page permissions, and program access</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" class="btn btn-gold btn-sm" data-add-user>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+              Add User
+            </button>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-card navy">
+            <div class="metric-top">
+              <div class="metric-icon navy"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+            </div>
+            <div class="metric-value" id="userMetricTotal">0</div>
+            <div class="metric-label">Total Accounts</div>
+          </div>
+          <div class="metric-card teal">
+            <div class="metric-top">
+              <div class="metric-icon teal"><svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></div>
+            </div>
+            <div class="metric-value" id="userMetricActive">0</div>
+            <div class="metric-label">Active</div>
+          </div>
+          <div class="metric-card red">
+            <div class="metric-top">
+              <div class="metric-icon red"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 118 0v4"/></svg></div>
+            </div>
+            <div class="metric-value" id="userMetricInactive">0</div>
+            <div class="metric-label">Inactive</div>
+          </div>
+          <div class="metric-card gold">
+            <div class="metric-top">
+              <div class="metric-icon gold"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="22" x2="16" y2="22"/><line x1="12" y1="18" x2="12" y2="22"/></svg></div>
+            </div>
+            <div class="metric-value" id="userMetricMulti">0</div>
+            <div class="metric-label">Multi-device Exempt</div>
+          </div>
+        </div>
+
+        <div class="data-card">
+          <div class="table-toolbar" data-filter-group="users">
+            <div class="filter-group" data-filter-host="users"></div>
+            <div class="table-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="usersSearch" placeholder="Search name, username, role, office..." aria-label="Search users">
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table" data-table="users">
+              <thead>
+                <tr>
+                  <th tabindex="0" role="button" class="sortable" data-sort="name">User <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th>Role</th>
+                  <th>Page Access</th>
+                  <th tabindex="0" role="button" class="sortable" data-sort="lastLogin">Last Login <span class="sort-ind" aria-hidden="true">↕</span></th>
+                  <th>Status</th>
+                  <th class="actions-col">Actions</th>
+                  <th class="chevron-cell" aria-hidden="true"></th>
+                </tr>
+              </thead>
+              <tbody id="usersBody"></tbody>
+            </table>
+          </div>
+          <div class="data-card-footer">
+            <span id="usersCount">Showing 0 of 0 users</span>
+            <div class="pagination" id="usersPager"></div>
+          </div>
         </div>
       </div>
 
-      <!-- ════════ AUDIT LOGS (Placeholder) ════════ -->
+      <!-- ════════ AUDIT LOGS ════════ -->
       <div class="page" id="page-audit">
-        <div class="page-header"><div><h1>Audit Logs</h1><p>Activity log and system audit trail</p></div></div>
-        <div class="data-card" style="padding:48px;text-align:center;">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.5" aria-hidden="true" style="margin:0 auto 16px;display:block;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          <h3 style="color:var(--text-secondary);margin-bottom:4px;">Audit Trail — P7 Milestone</h3>
-          <p style="color:var(--text-muted);font-size:0.85rem;">Full audit log with user attribution and operation tracking.</p>
+        <div class="page-header">
+          <div>
+            <h1>Audit Logs</h1>
+            <p>Activity log and system audit trail</p>
+          </div>
+          <div class="page-actions">
+            <button type="button" class="btn btn-outline btn-sm" data-audit-export>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              Export CSV
+            </button>
+          </div>
+        </div>
+
+        <div class="data-card">
+          <div class="table-toolbar" data-filter-group="audit">
+            <div class="filter-group" data-filter-host="audit"></div>
+            <div class="date-range" role="group" aria-label="Filter by date range">
+              <input type="date" class="form-input" id="auditDateFrom" aria-label="From date">
+              <span aria-hidden="true">&ndash;</span>
+              <input type="date" class="form-input" id="auditDateTo" aria-label="To date">
+              <button type="button" class="btn btn-outline btn-xs" id="auditClearDates">Clear dates</button>
+            </div>
+            <div class="table-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="search" id="auditSearch" placeholder="Search actor, action, record..." aria-label="Search audit log">
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Actor</th>
+                  <th>Action</th>
+                  <th>Module</th>
+                  <th>Record / Description</th>
+                  <th class="chevron-cell" aria-hidden="true"></th>
+                </tr>
+              </thead>
+              <tbody id="auditBody"></tbody>
+            </table>
+          </div>
+          <div class="data-card-footer">
+            <span id="auditCount">Showing 0 of 0 entries</span>
+            <div class="pagination" id="auditPager"></div>
+          </div>
         </div>
       </div>
 

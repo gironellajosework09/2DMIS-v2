@@ -107,6 +107,53 @@ class PayoutTest extends TestCase
         }
     }
 
+    public function test_payouts_hub_lists_only_permitted_destinations(): void
+    {
+        $user = $this->pageUser('scanned_payouts2.php');
+        Permission::query()->create([
+            'user_id' => $user->id,
+            'page_name' => 'scanner_payout.php',
+            'can_access' => true,
+        ]);
+        $this->logInAs($user);
+
+        $this->get(route('payouts.index'))
+            ->assertOk()
+            ->assertSee('Attendance 2')
+            ->assertSee('Open Payout Scanner')
+            ->assertDontSee('Attendance Unpaid')
+            ->assertDontSee('Unpaid Grantees')
+            ->assertDontSee('Open Unpaid Scanner');
+    }
+
+    public function test_payouts_hub_links_all_destinations_for_super_admin(): void
+    {
+        $this->logInAs($this->superAdmin());
+
+        $this->get(route('payouts.index'))
+            ->assertOk()
+            ->assertSee('Attendance')
+            ->assertSee('Attendance 2')
+            ->assertSee('Attendance Unpaid')
+            ->assertSee('Unpaid Grantees')
+            ->assertSee('Open Payout Scanner')
+            ->assertSee('Open Unpaid Scanner');
+    }
+
+    public function test_payouts_hub_shows_empty_state_without_payout_permissions(): void
+    {
+        $this->logInAs($this->pageUser('clients.php'));
+
+        $this->get(route('payouts.index'))
+            ->assertOk()
+            ->assertSee('No payout screens');
+    }
+
+    public function test_payouts_hub_requires_login(): void
+    {
+        $this->get(route('payouts.index'))->assertRedirect(route('login'));
+    }
+
     public function test_payout_attendance_feed_returns_seats_and_filters(): void
     {
         $client = $this->client();

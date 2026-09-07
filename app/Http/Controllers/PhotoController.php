@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\AccessControlService;
 use App\Services\PhotoService;
 use App\Support\RecordMunicipality;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -15,11 +16,11 @@ class PhotoController extends Controller
         private readonly AccessControlService $acl,
     ) {}
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'client_id' => ['required', 'integer', 'exists:tbl_clients,id'],
-            'photo' => ['nullable', 'file', 'image', 'max:5120'],
+            'photo' => ['nullable', 'file', 'image', 'max:1024'],
             'camera_image' => ['nullable', 'string'],
         ]);
 
@@ -33,9 +34,24 @@ class PhotoController extends Controller
                 $request->input('camera_image'),
             );
         } catch (\InvalidArgumentException $e) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'errors' => ['photo' => [$e->getMessage()]],
+                ], 422);
+            }
+
             return redirect()
                 ->route('clients.show', (int) $validated['client_id'])
                 ->withErrors(['photo' => $e->getMessage()]);
+        }
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Client photo updated successfully.',
+                'client_id' => (int) $validated['client_id'],
+            ]);
         }
 
         return redirect()

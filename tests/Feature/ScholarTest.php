@@ -57,6 +57,39 @@ class ScholarTest extends TestCase
         ], $overrides);
     }
 
+    public function test_scholars_reports_and_logs_tabs_hidden_without_keys(): void
+    {
+        $this->scholarUser();
+
+        $this->get(route('scholars.index'))
+            ->assertOk()
+            ->assertSee('GIP Profiles')
+            ->assertDontSee('Scholarship Reports')
+            ->assertDontSee('Update Log');
+    }
+
+    public function test_scholars_reports_and_logs_tabs_render_when_keys_held(): void
+    {
+        $user = $this->scholarUser();
+
+        Permission::query()->create([
+            'user_id' => $user->id,
+            'page_name' => 'scholarship_reports.php',
+            'can_access' => true,
+        ]);
+        Permission::query()->create([
+            'user_id' => $user->id,
+            'page_name' => 'update_logs.php',
+            'can_access' => true,
+        ]);
+
+        $this->get(route('scholars.index'))
+            ->assertOk()
+            ->assertSee('Scholarship Reports')
+            ->assertSee('Update Log')
+            ->assertSee('GIP Profiles');
+    }
+
     public function test_scholar_can_be_created()
     {
         $this->scholarUser();

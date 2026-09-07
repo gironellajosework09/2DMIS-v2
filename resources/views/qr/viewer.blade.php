@@ -5,25 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Scholar QR Code Viewer — 2D MIS</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    {{-- Batch G migration: standalone public head shares the built app
+         stylesheet + ui.css (see auth/login). The grantee search/verify
+         fetch contracts and the persisted comma-form QR payload
+         (Decision C) are unchanged — the script below is byte-preserved;
+         JS-injected markup keeps its Bootstrap classes via the ui.css
+         parity layer (Phase 27: the CDN stylesheet link is removed;
+         §4.8–4.10 own form-label/accordion/list-group, utilities and
+         Reboot/type parity). --}}
+    @vite(['resources/css/app.css'])
+    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background: #f7f9fb;
-            font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial;
+            background: var(--color-bg);
+            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
             padding: 24px;
-        }
-
-        .card {
-            max-width: 600px;
-            margin: 0 auto;
         }
 
         .suggestions-list {
             position: absolute;
             z-index: 2000;
             width: 100%;
-            background: #fff;
-            border: 1px solid #ccc;
+            background: var(--color-surface);
+            border: 1px solid var(--color-line);
             max-height: 220px;
             overflow: auto;
         }
@@ -36,8 +41,8 @@
             text-align: left;
         }
 
-        .uppercase {
-            text-transform: uppercase;
+        .suggestions-list button:hover {
+            background: var(--color-surface-hover);
         }
 
         #qrContainer img {
@@ -48,18 +53,18 @@
 
         .note-text {
             font-size: 0.9rem;
-            color: #555;
+            color: var(--color-ink-secondary);
             margin-top: 10px;
         }
     </style>
 </head>
 <body>
 
-<div class="card shadow-sm p-4">
-    <h3 class="mb-3 text-center">Scholar QR Code Viewer</h3>
+<div class="data-card mx-auto !p-[1.75rem] max-w-[600px]">
+    <h1 class="mb-3 text-center text-lg font-semibold text-ink">Scholar QR Code Viewer</h1>
 
     <div class="mb-3">
-        <label class="form-label">Search your name</label>
+        <label for="nameInput" class="field-label">Search your name</label>
         <div class="position-relative">
             <input id="nameInput" class="form-control uppercase" placeholder="Type your full name (e.g., DELA CRUZ, JUAN PEDRO)" autocomplete="off">
             <div id="suggestList" class="suggestions-list d-none"></div>
@@ -68,13 +73,13 @@
 
     <div class="row g-2 mb-3">
         <div class="col-md-6">
-            <label class="form-label">Municipality (for verification)</label>
+            <label for="municipalitySelect" class="field-label">Municipality (for verification)</label>
             <select id="municipalitySelect" class="form-select" required>
                 <option value="">-- Select Municipality --</option>
             </select>
         </div>
         <div class="col-md-6 d-flex align-items-end">
-            <button id="verifyBtn" class="btn btn-primary w-100" disabled>Verify &amp; Load My QR Code</button>
+            <button id="verifyBtn" class="btn-navy w-full" disabled>Verify &amp; Load My QR Code</button>
         </div>
     </div>
 
@@ -82,19 +87,18 @@
 
     <div id="qrContainer" class="text-center d-none">
         <hr>
-        <h5 id="qrName" class="mb-3"></h5>
+        <h2 id="qrName" class="mb-3 text-base font-semibold text-ink"></h2>
         <div id="qrImage"></div>
 
         <p class="note-text">Take a screenshot or download this QR code</p>
 
         <div class="mt-3 d-flex justify-content-center gap-2">
-            <a id="downloadLink" class="btn btn-success" download>Download QR Code</a>
-            <button class="btn btn-secondary" id="resetBtn">Search Another</button>
+            <a id="downloadLink" class="btn-gold no-underline" download>Download QR Code</a>
+            <button class="btn-subtle" id="resetBtn">Search Another</button>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     const searchUrl = '{{ route('grantee-search', ['kind' => 'grantee']) }}';
     const verifyUrl = '{{ route('grantee-search.verify', ['kind' => 'grantee']) }}';

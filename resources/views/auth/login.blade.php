@@ -5,15 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" href="{{ asset('favicon.ico') }}">
     <title>Login — 2D MIS</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    {{-- Batch G migration (UI_UX_ANALYSIS §8.9 Group 6): standalone public
+         head pulls the same built stylesheet the authenticated shell uses
+         (@vite) plus the ui.css shared layer, so the button / card / label
+         vocabulary and the remaining Bootstrap-parity utilities are available
+         without converting this view to the layout. Phase 27: the Bootstrap
+         CDN stylesheet link was removed; ui.css §4.8–4.10 owns the leftovers.
+         The POST login.attempt contract and session-status messaging are
+         unchanged. --}}
+    @vite(['resources/css/app.css'])
+    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Roboto', sans-serif;
-            background-color: #f8f9fa;
-        }
-        .card {
-            border-radius: 1rem;
+            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            background-color: var(--color-bg);
         }
         .logo {
             display: block;
@@ -26,45 +32,44 @@
 </head>
 <body>
 
-<div class="container d-flex align-items-center justify-content-center min-vh-100">
-    <div class="col-12 col-sm-8 col-md-6 col-lg-4">
-        <div class="card shadow-lg border-0 p-4">
-            <div class="text-center">
+<div class="d-flex align-items-center justify-content-center min-vh-100 p-3">
+    <div class="w-full max-w-[420px]">
+        <div class="data-card !p-[1.75rem]">
+            <div class="mb-4 text-center">
                 <img src="{{ asset('seal_logo.png') }}" alt="Logo" class="logo">
-                <h3>2D MIS</h3>
-                <p>Welcome</p>
+                <h1 class="mb-1 text-xl font-bold text-ink">2D MIS</h1>
+                <p class="mb-0 text-dense text-ink-muted">Welcome</p>
             </div>
 
             @if (session('login_status') === 'expired')
-                <div class="alert alert-warning text-center">Session expired. Please login again.</div>
+                <div class="ui-notice mb-3">Session expired. Please login again.</div>
             @endif
 
             @if (session('login_status') === 'forced')
-                <div class="alert alert-warning text-center">You have been logged out by the system.</div>
+                <div class="ui-notice mb-3">You have been logged out by the system.</div>
             @endif
 
             @if ($errors->has('username'))
-                <div class="alert alert-danger text-center">{{ $errors->first('username') }}</div>
+                <div class="mb-3 rounded-[var(--radius-control)] border-l-[3px] border-[var(--color-red)] bg-[rgb(206_17_38_/_0.06)] p-[12px_16px] text-center text-dense text-ink">{{ $errors->first('username') }}</div>
             @endif
 
-            <form method="POST" action="{{ route('login.attempt') }}">
+            <form method="POST" action="{{ route('login.attempt') }}" class="flex flex-col gap-3">
                 @csrf
-                <div class="mb-3">
-                    <label class="form-label" for="username">Username</label>
+                <div>
+                    <label class="field-label" for="username">Username</label>
                     <input type="text" name="username" id="username" class="form-control" value="{{ old('username') }}" required autofocus>
                 </div>
 
-                <div class="mb-3">
-                    <label class="form-label" for="password">Password</label>
+                <div>
+                    <label class="field-label" for="password">Password</label>
                     <input type="password" name="password" id="password" class="form-control" required>
                 </div>
 
-                <button type="submit" class="btn btn-primary w-100">Login</button>
+                <button type="submit" class="btn-navy w-full">Login</button>
             </form>
         </div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

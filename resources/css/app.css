@@ -1,12 +1,1018 @@
-@import 'tailwindcss';
+/* ═══════════════════════════════════════════════════════════════════
+   2DMIS v2 — Tailwind v4 entry point (T1 controlled foundation)
+   ---------------------------------------------------------------------
+   CSS-first Tailwind v4 setup running in COEXISTENCE MODE while
+   Bootstrap 5.3.2 (CDN) still styles every live screen:
 
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source "../**/*.blade.php";
-@source "../**/*.js";
-@source "../**/*.vue";
+   * Preflight is NOT imported — its resets would fight Bootstrap
+     Reboot on every unmigrated screen (docs/UI_UX_ANALYSIS.md §9.7-2,
+     §9.8-1). Revisit only in the final pass once Bootstrap CSS
+     retires.
+   * Utilities are imported UNLAYERED (no layer()). The Bootstrap CDN
+     stylesheet is unlayered, and unlayered rules beat anything inside
+     a cascade layer at equal specificity — layered utilities would be
+     inert against Bootstrap component classes (§9.8-2). This sheet is
+     linked by layouts/app.blade.php immediately AFTER the Bootstrap
+     CDN <link>, so single-class utilities win source-order ties and
+     can restyle intentionally migrated markup without !important.
+   * SOURCE SCANNING IS AN EXPLICIT ALLOWLIST (owner decision, T1).
+     There are deliberately NO blanket globs over resources/views:
+     every unmigrated Blade view is full of Bootstrap class names
+     (p-4, gap-3, w-100, container, …) whose same-named Tailwind
+     utilities carry DIFFERENT values; scanning them would emit
+     wrong-valued twins that override Bootstrap site-wide. Nothing is
+     scanned until its screen is migrated.
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+     Migration contract — add one line per migrated group in the SAME
+     change that migrates the markup, never before. A source may name
+     a single file or a whole migrated directory (brace and recursive
+     globs are supported by Tailwind, but keep patterns scoped to
+     already-migrated directories):
+
+         @source "../views/dashboard.blade.php";      single screen
+         @source "../views/partials";                 shell partials dir
+         @source "../views/clients/index.blade.php";  one list screen
+         @source "../views/clients";                  whole module dir
+
+      Only ever narrow-to-wide; never point a source at all of
+      resources/views while Bootstrap CSS still loads. Inline page
+      scripts that emit class strings need their own line if they use
+      Tailwind classes (e.g., a dedicated resources/js/<screen>.js).
+
+      COEXISTENCE RULE (discovered Batch B): migrated markup must NOT
+      use stock spacing utilities at steps 3-5 (padding/margin, any
+      axis) — Bootstrap defines the same names with different values
+      (its step 3 = 1rem, 4 = 1.5rem, 5 = 3rem). Use arbitrary-value
+      forms instead, e.g. padding of 1.25rem as an explicit bracket
+      value rather than the stock step-5 name. Steps 1, 2 and >= 6 are
+      safe (equal values or no Bootstrap counterpart). The same rule
+      applies INSIDE this file: even @apply arguments and comments are
+      scanned, so never spell stock colliding utility names here —
+      write longhand CSS for those declarations.
+   * @theme below transplants the verified Batch A token VALUES from
+     public/css/ui.css :root verbatim (prototype §5.1-derived). ui.css
+     stays frozen as the active compatibility layer until the final
+     pass; from T1 on, @theme is the canonical token source (§9.6).
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Layer order declaration retained so the final-pass decision
+   (Preflight + utility layering) remains a one-line change. */
+@layer theme, base, components, utilities;
+
+@import 'tailwindcss/theme.css' layer(theme);
+/* source(none) disables Tailwind's automatic content detection: nothing
+   outside the @source allowlist below may feed candidate generation.
+   Without it, auto-scan silently picks up every unmigrated Blade view
+   and emits Bootstrap-lookalike utilities with different values. */
+@import 'tailwindcss/utilities.css' source(none);
+
+/* ───────────────────────────────────────────────────────────────────
+   Batch B — authenticated shell chrome (layout + navbar + sidebar).
+   Explicit FILE paths on purpose, NOT a directory glob: shared
+   partials that no screen includes yet (partials/page-header,
+   partials/breadcrumbs stubs) must not feed candidate generation
+   until the first consumer batch adds their @source line.
+   ─────────────────────────────────────────────────────────────────── */
+@source "../views/layouts/app.blade.php";
+@source "../views/partials/sidebar.blade.php";
+@source "../views/partials/navbar.blade.php";
+@source "../views/partials/filter-chips.blade.php";
+
+/* ───────────────────────────────────────────────────────────────────
+   Batch D — dashboard screen + first consumers of the shared header
+   partials (page-header, breadcrumbs). The two partials graduate from
+   "stub, unscanned" to scanned exactly now that dashboard includes
+   them; later screen batches reuse the same entries — no further
+   allowlist growth expected for these files.
+   ─────────────────────────────────────────────────────────────────── */
+@source "../views/dashboard.blade.php";
+@source "../views/partials/page-header.blade.php";
+@source "../views/partials/breadcrumbs.blade.php";
+
+/* ───────────────────────────────────────────────────────────────────
+   Batch E — clients registry. Part 1: index + create/edit wrappers.
+   Part 2: the CRUD partials (_form, _details, _gip) and the show
+   wrapper. DataTables chrome stays scoped CSS in the view itself;
+   functional Bootstrap (modals/accordion/d-none/form controls) is
+   preserved inside these files and NOT migrated.
+   ─────────────────────────────────────────────────────────────────── */
+@source "../views/clients/index.blade.php";
+@source "../views/clients/create.blade.php";
+@source "../views/clients/edit.blade.php";
+@source "../views/clients/show.blade.php";
+@source "../views/clients/_details.blade.php";
+@source "../views/clients/_gip.blade.php";
+@source "../views/clients/_form.blade.php";
+
+/* ───────────────────────────────────────────────────────────────────
+   Batch F — transactions module (index + create/edit/show) and the
+   shared confirm dialog partial (first consumers: the two transaction
+   delete flows). Inline-edit/export/feed contracts are JS-side in the
+   index view; Bootstrap stays where DataTables/modals need it.
+   ─────────────────────────────────────────────────────────────────── */
+@source "../views/transactions/index.blade.php";
+@source "../views/transactions/create.blade.php";
+@source "../views/transactions/edit.blade.php";
+@source "../views/transactions/show.blade.php";
+@source "../views/partials/confirm-modal.blade.php";
+@source "../views/partials/record-view-modal.blade.php";
+@source "../views/partials/client-form-modal.blade.php";
+@source "../views/partials/client-feedback-modal.blade.php";
+
+/* ───────────────────────────────────────────────────────────────────
+   Batch G — scanners / public / admin (+ the remaining registry
+   screens). Entries are appended per migrated file in the same change
+   that migrates it. Standalone public heads are Laravel-rendered and
+   pull the built CSS via @vite, so they scan like any other view.
+   ─────────────────────────────────────────────────────────────────── */
+@source "../views/scholars/index.blade.php";
+@source "../views/scholars/create.blade.php";
+@source "../views/scholars/edit.blade.php";
+@source "../views/scholars/_form.blade.php";
+@source "../views/scanners/scan.blade.php";
+@source "../views/scanners/index.blade.php";
+@source "../views/payouts/attendance.blade.php";
+@source "../views/payouts/index.blade.php";
+@source "../views/unpaid_verifications/index.blade.php";
+@source "../views/admin/users/index.blade.php";
+@source "../views/admin/users/create.blade.php";
+@source "../views/admin/permissions/pages.blade.php";
+@source "../views/admin/permissions/actions.blade.php";
+@source "../views/admin/permissions/scopes.blade.php";
+@source "../views/admin/permissions/programs.blade.php";
+@source "../views/admin/permissions/exemptions.blade.php";
+@source "../views/sessions/online.blade.php";
+@source "../views/admin/audit_logs/index.blade.php";
+@source "../views/scholarship_reports/index.blade.php";
+@source "../views/update_logs/index.blade.php";
+@source "../views/auth/login.blade.php";
+@source "../views/students/verify.blade.php";
+@source "../views/students/update-photo.blade.php";
+@source "../views/students/photo-upload.blade.php";
+@source "../views/qr/viewer.blade.php";
+@source "../views/unpaid_verifications/self-service.blade.php";
+@source "../views/grantee_update/self-service.blade.php";
+@source "../views/households/index.blade.php";
+@source "../views/households/create.blade.php";
+@source "../views/households/show.blade.php";
+@source "../views/family_members/create.blade.php";
+@source "../views/duplicates/index.blade.php";
+
+/* ───────────────────────────────────────────────────────────────────
+   Design tokens — values copied verbatim from public/css/ui.css :root
+   (the --ui-* Batch A set, prototype-derived). Names are ADDITIVE:
+   no Tailwind default scale key (--color-red-500, --radius-lg,
+   --shadow-md, --text-xs, …) is overridden. Spacing needs no tokens:
+   the prototype ladder (4–28 px steps) equals Tailwind's default
+   spacing scale (p-1…p-7), and the motion ramp maps onto stock
+   duration-* utilities (150/200/300).
+   ─────────────────────────────────────────────────────────────────── */
+@theme static {
+    /*
+     * Brand palette.
+     * ui.css: --ui-navy/-light/-hover, --ui-gold/-light/-dim,
+     *         --ui-teal/-light, --ui-red/-light, --ui-amber,
+     *         --ui-blue-accent.
+     */
+    --color-navy: #0038A8;
+    --color-navy-light: #164A9C;
+    --color-navy-hover: #002B7F;
+    --color-gold: #FCD116;
+    --color-gold-light: #FFF8D6;
+    --color-gold-dim: rgb(252 209 22 / 0.12);
+    --color-teal: #2D8B7A;
+    --color-teal-light: #34A08C;
+    --color-red: #CE1126;
+    --color-red-light: #E8463A;
+    --color-amber: #D4A900;
+    --color-blue-accent: #3B82F6;
+
+    /*
+     * Interaction & status derivatives.
+     * Button hover/active stops and darker status-badge text shades —
+     * extracted from hardcoded values that repeated across components.
+     */
+    --color-gold-hover: #EAC400;
+    --color-gold-active: #DBB800;
+    --color-red-hover: #A80F20;
+    --color-red-active: #900C1B;
+    --color-teal-dark: #1E6B5B;
+    --color-blue-accent-dark: #2563EB;
+    --color-amber-dark: #8A6D00;
+
+    /*
+     * Surfaces. ui.css: --ui-bg, --ui-bg-alt, --ui-card,
+     * --ui-card-hover. (Body background intentionally stays #f8f9fa;
+     * exact surface alignment is deferred to the final pass.)
+     */
+    --color-bg: #F0F2F5;
+    --color-bg-alt: #E8EBF0;
+    --color-surface: #FFFFFF;
+    --color-surface-hover: #FAFBFC;
+
+    /*
+     * Borders. ui.css: --ui-border, --ui-border-light.
+     */
+    --color-line: #E2E5EA;
+    --color-line-light: #EEF0F4;
+
+    /*
+     * Text/ink. ui.css: --ui-text-primary/-secondary/-muted/-inverse
+     * (muted shades darkened for contrast in the prototype).
+     */
+    --color-ink: #0F1B2D;
+    --color-ink-secondary: #4E5A6E;
+    --color-ink-muted: #70798B;
+    --color-ink-inverse: #FFFFFF;
+
+    /*
+     * Typography. ui.css: --ui-font-body/-heading/-mono. Switched from
+     * Roboto to the prototype baseline: Inter body, Outfit headings.
+     */
+    --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+    --font-heading: 'Outfit', 'Inter', system-ui, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+
+    /*
+     * Named type sizes (additive; the default --text-xs/sm/base/lg
+     * scale is left untouched). ui.css: --ui-text-xs (.72rem micro
+     * labels), --ui-text-sm (.85rem dense copy), --ui-text-page-title
+     * (1.5rem), --ui-text-metric (1.85rem); --ui-tracking-caps feeds
+     * the uppercase micro-label convention.
+     */
+    --text-micro: .72rem;
+    --text-dense: .85rem;
+    --text-page-title: 1.5rem;
+    --text-metric: 1.85rem;
+    --tracking-caps: .06em;
+
+    /*
+     * Radius ladder 6/8/12/16/999 px (prototype §5.8). Additive keys —
+     * default radius scale not silently clobbered (§9.5 naming rule).
+     * ui.css: --ui-radius-sm, --ui-radius, --ui-radius-lg,
+     * --ui-radius-xl, --ui-radius-pill.
+     */
+    --radius-control: 6px;
+    --radius-btn: 8px;
+    --radius-card: 12px;
+    --radius-panel: 16px;
+    --radius-pill: 999px;
+
+    /*
+     * Shadow ramp xs→xl + gold focus glow (prototype :root values,
+     * ink-tinted rgba(15,27,45,…)). Named additions — default shadow
+     * scale untouched (§9.5). ui.css: --ui-shadow-xs/sm/md/lg/xl and
+     * --ui-shadow-glow (restated on current gold #FCD116).
+     */
+    --shadow-hairline: 0 1px 2px rgb(15 27 45 / 0.04);
+    --shadow-card: 0 1px 3px rgb(15 27 45 / 0.06), 0 1px 2px rgb(15 27 45 / 0.04);
+    --shadow-lift: 0 4px 6px -1px rgb(15 27 45 / 0.06), 0 2px 4px -2px rgb(15 27 45 / 0.04);
+    --shadow-pop: 0 10px 15px -3px rgb(15 27 45 / 0.06), 0 4px 6px -4px rgb(15 27 45 / 0.04);
+    --shadow-overlay: 0 20px 25px -5px rgb(15 27 45 / 0.08), 0 8px 10px -6px rgb(15 27 45 / 0.04);
+    --shadow-glow: 0 0 0 3px rgb(252 209 22 / 0.2);
+
+    /*
+     * Motion easing (prototype §5.8 spec curve). ui.css: --ui-ease.
+     * Durations use stock duration-150/200/300 utilities.
+     */
+    --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Global typography — prototype baseline (prototype/css/style.css).
+   Unlayered on purpose: Bootstrap Reboot is unlayered, and unlayered
+   rules beat anything inside a cascade layer at equal specificity, so
+   a layered base block here would lose to Bootstrap's body/heading
+   defaults. This sheet loads after the Bootstrap CDN <link>, so these
+   element-selector rules tie Bootstrap's element rules and win in
+   source order. Longhand only — no stock utility names (self-scan rule).
+   ═══════════════════════════════════════════════════════════════════ */
+html {
+    font-size: 14px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Shell components — Batch B (sidebar navigation + skip link).
+   Unlayered plain CSS so these win source-order ties against the
+   Bootstrap CDN sheet exactly like single-class utilities do.
+   ═══════════════════════════════════════════════════════════════════ */
+.sidebar-section-label {
+    @apply px-2.5 pb-2 text-micro font-semibold uppercase tracking-caps text-white/30;
+}
+
+.sidebar-link {
+    /* Horizontal padding is written longhand on purpose: naming the
+       stock horizontal padding utilities anywhere in this file (even
+       in comments) would feed Tailwind's scan of this file itself and
+       emit same-named utilities with different values than Bootstrap's
+       spacing scale, breaking unmigrated screens. */
+    padding-inline: 0.75rem;
+    /* Explicit base color, written longhand for the same self-scan
+       reason: items render sometimes as <a> and sometimes as <button>
+       (sidebar-group-toggle), and the prototype pinned white/55 on the
+       raw link — Bootstrap's button/table-link rules do not. The
+       .active modifier re-colors via text-gold at equal specificity
+       and higher source order, so it still wins here. */
+    color: rgba(255, 255, 255, 0.55);
+    @apply relative mb-0.5 flex w-full items-center gap-3 rounded-btn py-2.5 text-left text-dense font-medium no-underline transition duration-200 ease-standard hover:bg-white/[0.06] hover:text-white/90;
+}
+
+.sidebar-link.active {
+    @apply bg-gold-dim text-gold;
+}
+
+.sidebar-link.active::before {
+    content: '';
+    @apply absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r-sm bg-gold;
+}
+
+.sidebar-link svg {
+    @apply h-[18px] w-[18px] shrink-0;
+}
+
+/* Sidebar collapse-group toggle (Access Control). Rendered as a
+   <button> with the .sidebar-link skin, so the anchor assumptions in
+   Bootstrap's button/table-link rules need explicit resets here. */
+.sidebar-group-toggle {
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.sidebar-group-toggle:hover {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.sidebar-group-toggle svg.chevron {
+    transform: rotate(0deg);
+    transition: transform 200ms var(--ease-standard);
+}
+
+.sidebar-group-toggle[aria-expanded='true'] svg.chevron {
+    transform: rotate(180deg);
+}
+
+.ui-skip-link {
+    /* Longhand padding for the same self-scan reason as .sidebar-link:
+       stock padding utility names must not appear in this file. */
+    @apply sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-3 focus:z-50 focus:rounded-btn focus:bg-surface focus:text-dense focus:font-semibold focus:text-ink focus:shadow-pop;
+}
+
+.ui-skip-link:focus {
+    padding: 0.625rem 1rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Shared component vocabulary — Batch C.
+   Tailwind-side mirror of the FROZEN public/css/ui.css Batch A API
+   (§9.6: ui.css retires at the final pass; from T1 this file's @theme
+   is canonical). Names are identical to ui.css wherever the name does
+   not collide with Bootstrap, so screen batches (D–G) adopt one stable
+   vocabulary and ui.css deletion later cannot strip their styling.
+
+   Divergences from ui.css, on purpose:
+   * Buttons here are SELF-CONTAINED (no Bootstrap .btn base, no
+     --bs-btn-* custom properties) so they survive Bootstrap CSS
+     retirement. ui.css expresses .btn-gold as a BS-variable modifier;
+     the frozen version keeps working for unmigrated screens until I.
+     Structural navy / red / quiet variants are NEW names (.btn-navy,
+     .btn-red, .btn-subtle, .btn-outline-red) because their ui.css
+     counterparts are Bootstrap-name overrides that must never be
+     recreated in this file.
+   * Page headers stay utility-driven inside partials/page-header —
+     ui.css .ui-page-* classes are intentionally NOT mirrored (single
+     source of truth).
+   * Form field helpers are new (.field-*) for migrated forms; unmigrated
+     screens keep Bootstrap controls restyled by ui.css focus rules.
+   * Focus indication is NOT redefined per component: the global gold
+     :focus-visible outline from ui.css covers everything today; its
+     Tailwind replacement lands with the Preflight decision at I.
+
+   Coexistence rule reminder: stock spacing utilities at Bootstrap-
+   colliding steps must not appear in this file (see allowlist notes
+   above) — bracket values or longhand declarations only.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Buttons (prototype metrics: 8px radius, 16/9px padding, dense
+      semibold label). Variants mirror ui.css hover/active stops. ── */
+.btn-gold,
+.btn-navy,
+.btn-red,
+.btn-subtle,
+.btn-outline-red {
+    @apply inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-btn px-[1rem] py-[0.5625rem] text-dense font-semibold leading-snug no-underline transition duration-200 ease-standard disabled:pointer-events-none disabled:opacity-60;
+}
+
+.btn-gold {
+    background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-light) 100%);
+    color: var(--color-navy);
+}
+
+.btn-gold:hover { box-shadow: var(--shadow-lift); }
+
+.btn-gold:active { background: var(--color-gold-active);
+}
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--color-ink);
+  color: var(--color-ink-secondary);
+}
+.btn-outline:hover { border-color: var(--color-navy); color: var(--color-navy); background: rgba(15, 27, 45, 0.03); }
+
+.btn-navy {
+    /* Filled navy button: navy stays navy on hover while the label turns
+       gold (design rule: no gold background, no bg lightening). */
+    @apply bg-navy text-white hover:text-gold active:bg-navy-hover;
+}
+
+/* Bootstrap's base `.btn` declares `--bs-btn-hover-bg: transparent` and
+   applies it at `.btn:hover` (specificity 0,2,0), which would beat this
+   element's single-class `.btn-navy` background (0,1,0) wherever a button
+   carries BOTH `btn` and `btn-navy` — turning the filled navy button
+   transparent on hover. Force the SAME navy fill back at equal specificity,
+   plus the gold hover label, and keep the pressed (active) state navy too
+   so the button never visually "disappears". */
+.btn-navy:hover,
+.btn-navy:focus-visible {
+    background-color: var(--color-navy);
+    color: var(--color-gold);
+}
+
+.btn-navy:active {
+    background-color: var(--color-navy-hover);
+    color: var(--color-white);
+}
+
+.btn-red {
+    @apply bg-red text-white hover:bg-red-hover active:bg-red-active;
+}
+
+.btn-subtle {
+    @apply text-navy ring-1 ring-inset ring-navy/40 hover:bg-navy hover:text-white active:bg-navy-hover;
+}
+
+.btn-outline-red {
+    @apply text-red ring-1 ring-inset ring-red/40 hover:bg-red hover:text-white active:bg-red-active;
+}
+
+/* ── Icon-only action buttons (View / Edit / Delete in table action
+      columns). Fixed-size glyph tiles so buttons never resize with their
+      content; quiet default with navy hover, red tint for destructive. ── */
+.icon-btn {
+    @apply inline-grid h-8 w-8 place-items-center rounded-control border border-transparent text-ink-secondary transition duration-150 ease-standard hover:border-line hover:bg-bg-alt hover:text-navy focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-gold;
+}
+
+.icon-btn .icon-btn-glyph {
+    @apply grid place-items-center;
+}
+
+.icon-btn .icon-btn-glyph svg {
+    width: 16px;
+    height: 16px;
+}
+
+.icon-btn-danger:hover {
+    @apply border-red/30 bg-red/[0.08] text-red;
+}
+
+
+/* ── Status badges: dot-pills with fixed semantic mapping (identical
+      names + colors as frozen ui.css; text shades are AA-darkened). ── */
+.status-badge {
+    @apply inline-flex items-center gap-[0.45em] whitespace-nowrap rounded-pill px-[0.8em] py-[0.28em] text-micro font-semibold tracking-[0.02em] leading-[1.3];
+}
+
+.status-badge::before {
+    content: '';
+    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-current;
+}
+
+.status-badge.is-success,
+.status-badge.is-paid,
+.status-badge.is-active {
+    @apply bg-teal/[0.12] text-teal-dark;
+}
+
+.status-badge.is-info,
+.status-badge.is-approved {
+    @apply bg-blue-accent/[0.12] text-blue-accent-dark;
+}
+
+.status-badge.is-warning,
+.status-badge.is-pending {
+    @apply bg-amber/[0.15] text-amber-dark;
+}
+
+.status-badge.is-danger,
+.status-badge.is-rejected {
+    @apply bg-red/[0.10] text-red;
+}
+
+.status-badge.is-neutral,
+.status-badge.is-archived {
+    @apply bg-ink-secondary/[0.10] text-ink-secondary;
+}
+
+/* ── Data card family: white surface + header/body/footer slots. ── */
+.data-card {
+    @apply rounded-card bg-surface shadow-card ring-1 ring-line;
+}
+
+.data-card-header {
+    @apply flex flex-wrap items-center justify-between gap-3 border-b border-line-light px-[1.25rem] py-[1rem];
+}
+
+.data-card-body {
+    @apply p-[1.25rem];
+}
+
+.data-card-footer {
+    @apply flex flex-wrap items-center justify-between gap-3 border-t border-line-light bg-surface px-[1.25rem] py-[0.75rem];
+}
+
+/* ── Client full-page sticky profile header (clients.show). Combines the
+      page title + actions and the identity block (photo / name / ID/category)
+      into one elevated bar pinned to the top of the scrolling area so profile
+      context stays visible while reading the sections below. Wraps cleanly on
+      narrow viewports. -- */
+.details-full-header {
+    position: sticky;
+    /* The sticky profile header must sit BELOW the app navbar, which is a
+       fixed-height h-16 (4rem / 64px) sticky bar. Sticking at top:4rem
+       keeps the whole header visible below the navbar when scrolling, never
+       hidden underneath it. */
+    top: 4rem;
+    z-index: 20;
+    margin: -1.25rem -1.25rem 1.25rem;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-line);
+    box-shadow: 0 4px 14px -8px rgba(0, 0, 0, 0.18);
+}
+.details-full-head {
+    padding: 1rem 1.25rem 0;
+}
+
+/* ── Metric card: KPI surface with 3px accent bar (dashboard batch D). ── */
+.metric-card {
+    @apply relative overflow-hidden rounded-panel bg-surface p-[1.25rem] shadow-card ring-1 ring-line transition duration-200 ease-standard hover:-translate-y-0.5 hover:bg-surface-hover hover:shadow-lift;
+}
+
+.metric-card::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: var(--ui-accent, var(--color-navy));
+}
+
+.metric-card.accent-gold { --ui-accent: var(--color-gold); }
+.metric-card.accent-teal { --ui-accent: var(--color-teal); }
+.metric-card.accent-red  { --ui-accent: var(--color-red); }
+
+.metric-value {
+    @apply font-heading text-metric font-bold leading-[1.2] text-ink;
+}
+
+/* ── Notice: tinted contextual banner (mirror of frozen ui.css). ── */
+.ui-notice {
+    @apply flex items-start gap-[0.65rem] rounded-control border-l-[3px] border-solid border-l-gold bg-gold-light py-[0.85rem] pr-[1rem] pl-[1rem] text-dense leading-snug text-ink;
+}
+
+/* ── Empty state content (table cells / panels). ── */
+.ui-empty {
+    @apply px-[1rem] py-6 text-center text-ink-muted;
+}
+
+/* ── Uppercase micro-label convention (light surfaces; dark-chrome
+      counterpart is .sidebar-section-label from Batch B). ── */
+.ui-micro-label {
+    @apply text-micro font-semibold uppercase tracking-caps text-ink-muted;
+}
+
+/* ── Form field helpers for migrated screens (new in Batch C).
+      Unmigrated screens continue on Bootstrap controls. ── */
+.field-label {
+    @apply mb-1.5 block text-dense font-semibold text-ink;
+}
+
+.field-control {
+    @apply block w-full rounded-control border border-solid border-line bg-surface px-[0.75rem] py-2 text-dense text-ink placeholder:text-ink-muted transition duration-150 ease-standard focus:border-navy focus:ring-[3px] focus:ring-gold/[0.25] focus:outline-none disabled:pointer-events-none disabled:bg-bg-alt disabled:text-ink-muted;
+}
+
+.field-hint {
+    @apply mt-1 block text-micro text-ink-muted;
+}
+
+.field-error {
+    @apply mt-1 block text-micro font-medium text-red;
+}
+
+/* ── Form section grouping for modal/long forms (Clients UX pass).
+      Navy micro-caps section heading over a white body, stacked with
+      breathing room. Reusable by any migrated form. ── */
+.client-form-group {
+    @apply flex flex-col gap-[12px];
+}
+
+.client-form-group-title {
+    @apply text-micro font-semibold uppercase tracking-caps text-navy border-b border-line-light pb-1;
+}
+
+/* ── Multi-select checkbox grid for Programs & Services (aff_org[]). ── */
+.client-aff-group {
+    @apply flex flex-col gap-[8px];
+}
+
+.client-aff-group-title {
+    @apply mb-0 text-micro font-bold uppercase tracking-wider text-ink-muted;
+}
+
+.client-aff-grid {
+    @apply grid grid-cols-1 gap-[8px] sm:grid-cols-2;
+}
+
+.client-aff-check {
+    @apply inline-flex items-center gap-2 rounded-control border border-line bg-surface px-[0.75rem] py-2 text-dense text-ink transition duration-150 ease-standard hover:bg-bg-alt;
+}
+
+.client-aff-check input[type="checkbox"] {
+    @apply h-4 w-4 shrink-0;
+    accent-color: var(--color-navy);
+}
+
+.client-aff-check:has(input:checked) {
+    @apply border-navy/50 bg-gold-dim;
+}
+
+/* ── Edit modal profile photo container (requirement #7): the photo sits in a
+      dedicated container ABOVE the identity/name fields. Uses the existing
+      photo pipeline — this is presentational only. -- */
+.edit-photo-container {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.edit-photo-frame {
+    width: 96px;
+    height: 96px;
+    flex: 0 0 96px;
+    border-radius: var(--radius-panel);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg);
+    border: 1px solid var(--color-line);
+}
+.edit-photo-preview {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.edit-photo-placeholder {
+    color: var(--color-ink-muted);
+    font-size: var(--text-micro);
+    font-weight: 600;
+}
+.edit-photo-controls {
+    flex: 1;
+    min-width: 200px;
+}
+
+/* ── Applied-filter chips (consumed by partials/active-filters when a
+      screen batch wires it in). ── */
+.filter-chip {
+    @apply inline-flex items-center gap-2 rounded-pill bg-bg-alt px-[0.75rem] py-1.5 text-micro font-semibold text-ink-secondary;
+}
+
+.filter-chip-remove {
+    @apply -mr-1 grid h-5 w-5 place-items-center rounded-pill text-ink-muted transition duration-150 ease-standard hover:bg-surface hover:text-red;
+}
+
+/* ── Shared FilterChips component (Phase 2C) ──
+   Companion to resources/views/partials/filter-chips.blade.php and
+   resources/js/components/FilterChips.js. Static component classes only
+   (no Tailwind scanning needed for the JS-rendered chip row). */
+.filter-chips {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.filter-chips-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+.filter-chips-row[hidden] { display: none; }
+
+.filter-chip {
+    align-items: center;
+}
+.filter-chip .filter-chip-remove {
+    display: inline-grid;
+}
+.filter-chip-remove {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+}
+.filter-chip-remove svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.filter-chips-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.filter-group-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--color-line);
+    background: var(--color-surface);
+    color: var(--color-ink);
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+}
+.filter-group-toggle:hover {
+    border-color: var(--color-navy);
+    background: var(--color-bg);
+}
+.filter-group-toggle:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+}
+.filter-toggle-icon { width: 1rem; height: 1rem; fill: none; }
+
+.filter-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0 0.375rem;
+    border-radius: var(--radius-pill);
+    background: var(--color-navy);
+    color: var(--color-ink-inverse);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+.filter-count-badge[hidden] { display: none; }
+
+.filter-clear-all {
+    border: none;
+    background: transparent;
+    color: var(--color-navy);
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+}
+.filter-clear-all:hover { text-decoration: underline; }
+.filter-clear-all[hidden] { display: none; }
+
+/* Popover menu */
+.filter-multi-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    width: 300px;
+    max-width: 90vw;
+    z-index: 60;
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel);
+    box-shadow: var(--shadow-pop);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: 0.85rem;
+    color: var(--color-ink);
+}
+.filter-multi-menu[hidden] { display: none; }
+
+.filter-multi-scroll {
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.filter-multi {
+    padding: 0.5rem;
+}
+.filter-multi + .filter-multi { border-top: 1px solid var(--color-line-light); }
+
+.filter-multi-head {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.375rem;
+}
+.filter-multi-title {
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-ink-muted);
+}
+.filter-multi-footer {
+    display: flex;
+    justify-content: flex-start;
+    padding-top: 0.375rem;
+    margin-top: 0.25rem;
+}
+.filter-clear-cat {
+    border: none;
+    background: transparent;
+    color: var(--color-navy);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0.125rem 0.25rem;
+}
+.filter-clear-cat:hover { text-decoration: underline; }
+.filter-clear-cat[hidden] { display: none; }
+
+.filter-multi-search {
+    width: 100%;
+    padding: 0.375rem 0.625rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-control);
+    font-size: 0.8rem;
+    background: var(--color-bg);
+    color: var(--color-ink);
+}
+.filter-multi-search:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 1px;
+}
+
+.filter-multi-options {
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.filter-check {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.25rem;
+    cursor: pointer;
+    border-radius: 0.375rem;
+}
+.filter-check:hover { background: var(--color-bg); }
+.filter-check[hidden] { display: none; }
+.filter-check input[type="checkbox"] { accent-color: var(--color-navy); }
+.filter-check-label { flex: 1; font-size: 0.85rem; }
+
+.filter-multi.is-disabled .filter-multi-options { opacity: 0.5; pointer-events: none; }
+
+/* Date range inside popover */
+.filter-date-fields {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.filter-date-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
+}
+.filter-date-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--color-ink-muted);
+}
+.filter-date-input {
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-control);
+    font-size: 0.8rem;
+    color: var(--color-ink);
+    background: var(--color-bg);
+    width: 100%;
+}
+.filter-date-arrow { color: var(--color-ink-muted); }
+
+/* Accessibility: visually hidden live-region helper */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Responsive — Phase 2D. Mobile tier (<768px, one shared 768px breakpoint
+   with the DetailsPanel). The filter popover becomes a prototype-aligned
+   floating bottom sheet, and every touch target is enlarged using the
+   prototype's mobile sizing (NOT a blanket 44px — the desktop UI keeps its
+   compact density). Only `min-height`/`min-width`/`font-size` are set here
+   so they never fight the per-screen scoped `#*-screen` rules (which style
+   colour + padding, not height). */
+@media (max-width: 767.98px) {
+    /* Filter popover -> floating bottom sheet (prototype: left/right/bottom
+       12px, max-height 70vh, sheet slides up). */
+    .filter-multi-menu {
+        position: fixed;
+        top: auto;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: auto;
+        max-width: none;
+        max-height: 70vh;
+        border-radius: 1rem;
+        box-shadow: var(--shadow-overlay);
+    }
+    .filter-multi {
+        position: static;
+    }
+
+    /* Touch targets — FilterChips controls. */
+    .filter-group-toggle { min-height: 40px; }
+    .filter-clear-all { min-height: 36px; display: inline-flex; align-items: center; }
+    .filter-clear-cat { min-height: 36px; display: inline-flex; align-items: center; }
+    .filter-multi-search { min-height: 40px; font-size: 16px; }
+    .filter-date-input { min-height: 40px; font-size: 16px; }
+    .filter-check { min-height: 40px; align-items: center; }
+    .filter-check input[type="checkbox"] { width: 18px; height: 18px; }
+    .filter-chip {
+        min-height: 36px;
+        padding: 0.5rem 0.875rem;
+    }
+
+    /* Chip remove: widen the hit area without inflating the small icon. */
+    .filter-chip-remove {
+        min-width: 32px;
+        min-height: 32px;
+        display: inline-grid;
+        place-items: center;
+        margin: -6px -4px;
+    }
+    .filter-chip-remove svg { width: 0.75rem; height: 0.75rem; }
+
+    /* Shared DataTables chrome — pagination + length/filter inputs. */
+    .dataTables_wrapper .dataTables_paginate .page-link {
+        min-width: 36px;
+        min-height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    .dataTables_wrapper .dataTables_filter input,
+    .dataTables_wrapper .dataTables_length select {
+        min-height: 36px;
+    }
+
+    /* Row action buttons: enlarge the practical touch area (min-height is a
+       new declaration, so it coexists with the per-screen 2px/6px padding). */
+    .actions-col .btn {
+        min-height: 36px;
+        min-width: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
 }

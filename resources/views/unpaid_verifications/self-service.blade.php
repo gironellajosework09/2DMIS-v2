@@ -5,25 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Unpaid Verification — 2D MIS</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    {{-- Batch G migration: standalone public head shares the built app
+         stylesheet + app.js (Alpine) + ui.css (see auth/login). The grantee
+         search/verify/submit fetch contracts are unchanged; the JS-built
+         confirmation modal migrated from bootstrap.Modal to Tailwind + Alpine
+         (Phase 17, same dynamic create->show->remove lifecycle, same close
+         set). Phase 24 removed the Bootstrap JS bundle (zero live consumers);
+         Phase 27 removes the Bootstrap CSS CDN — ui.css §4.8–4.10 owns the
+         shared families. --}}
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
-            background: #f7f9fb;
-            font-family: system-ui, Segoe UI, Roboto, Helvetica, Arial;
+            background: var(--color-bg);
+            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
             padding: 24px;
-        }
-
-        .card {
-            max-width: 600px;
-            margin: 0 auto;
         }
 
         .suggestions-list {
             position: absolute;
             z-index: 2000;
             width: 100%;
-            background: #fff;
-            border: 1px solid #ccc;
+            background: var(--color-surface);
+            border: 1px solid var(--color-line);
             max-height: 220px;
             overflow: auto;
         }
@@ -36,18 +41,18 @@
             text-align: left;
         }
 
-        .uppercase {
-            text-transform: uppercase;
+        .suggestions-list button:hover {
+            background: var(--color-surface-hover);
         }
     </style>
 </head>
 <body>
 
-<div class="card shadow-sm p-4">
-    <h3 class="mb-3 text-center">Unpaid Verification</h3>
+<div class="data-card mx-auto !p-[1.75rem] max-w-[600px]">
+    <h1 class="mb-3 text-center text-lg font-semibold text-ink">Unpaid Verification</h1>
 
     <div class="mb-3">
-        <label class="form-label">Search your name</label>
+        <label for="nameInput" class="field-label">Search your name</label>
         <div class="position-relative">
             <input id="nameInput" class="form-control uppercase" placeholder="Type your full name" autocomplete="off">
             <div id="suggestList" class="suggestions-list d-none"></div>
@@ -56,13 +61,13 @@
 
     <div class="row g-2 mb-3">
         <div class="col-md-6">
-            <label class="form-label">Municipality</label>
+            <label for="municipalitySelect" class="field-label">Municipality</label>
             <select id="municipalitySelect" class="form-select">
                 <option value="">-- Select Municipality --</option>
             </select>
         </div>
         <div class="col-md-6 d-flex align-items-end">
-            <button id="verifyBtn" class="btn btn-primary w-100" disabled>Verify</button>
+            <button id="verifyBtn" class="btn-navy w-full" disabled>Verify</button>
         </div>
     </div>
 
@@ -70,42 +75,107 @@
 
     <div id="confirmSection" class="d-none mt-4">
         <hr>
-        <h5 class="text-center mb-3">Who will attend the payout?</h5>
-        <div class="d-flex justify-content-center gap-3 mb-3">
-            <button id="btnSelf" class="btn btn-success">I will come personally</button>
-            <button id="btnProxy" class="btn btn-warning">Proxy</button>
+        <h2 class="text-center mb-3 text-base font-semibold text-ink">Who will attend the payout?</h2>
+        <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+            <button id="btnSelf" class="btn-navy">I will come personally</button>
+            <button id="btnProxy" class="btn-gold">Proxy</button>
         </div>
     </div>
 
     <div id="proxyForm" class="d-none">
-        <h6 class="mt-3">Proxy Information</h6>
-        <div class="mb-2"><input id="proxyLastname" class="form-control uppercase" placeholder="Lastname"></div>
-        <div class="mb-2"><input id="proxyFirstname" class="form-control uppercase" placeholder="Firstname"></div>
-        <div class="mb-2"><input id="proxyMiddlename" class="form-control uppercase" placeholder="Middlename"></div>
-        <div class="mb-2"><input id="proxyRelationship" class="form-control uppercase" placeholder="Relationship"></div>
-        <div class="mb-2"><input id="proxyPhone" class="form-control" placeholder="Contact Number"></div>
+        <h3 class="mt-3 mb-2 text-dense font-semibold text-ink">Proxy Information</h3>
+        <div class="mb-2"><input id="proxyLastname" class="form-control uppercase" placeholder="Lastname" aria-label="Lastname"></div>
+        <div class="mb-2"><input id="proxyFirstname" class="form-control uppercase" placeholder="Firstname" aria-label="Firstname"></div>
+        <div class="mb-2"><input id="proxyMiddlename" class="form-control uppercase" placeholder="Middlename" aria-label="Middlename"></div>
+        <div class="mb-2"><input id="proxyRelationship" class="form-control uppercase" placeholder="Relationship" aria-label="Relationship"></div>
+        <div class="mb-2"><input id="proxyPhone" class="form-control" placeholder="Contact Number" aria-label="Contact number"></div>
         <div class="mb-2">
-            <label class="form-label small mb-1">Birthdate</label>
+            <label for="proxyBirthdate" class="field-label">Birthdate</label>
             <input type="date" id="proxyBirthdate" class="form-control">
         </div>
         <div class="mb-2">
-            <label class="form-label small mb-1">Gender</label>
+            <label for="proxyGender" class="field-label">Gender</label>
             <select id="proxyGender" class="form-select">
                 <option value="">-- Select Gender --</option>
                 <option>Male</option>
                 <option>Female</option>
             </select>
         </div>
-        <div class="mb-2"><input id="proxyOccupation" class="form-control uppercase" placeholder="Occupation"></div>
-        <div class="mb-3"><input id="proxyMonthlyIncome" class="form-control uppercase" placeholder="Monthly Income"></div>
-        <button id="submitProxyBtn" class="btn btn-primary w-100">Submit Proxy Info</button>
+        <div class="mb-2"><input id="proxyOccupation" class="form-control uppercase" placeholder="Occupation" aria-label="Occupation"></div>
+        <div class="mb-3"><input id="proxyMonthlyIncome" class="form-control uppercase" placeholder="Monthly Income" aria-label="Monthly income"></div>
+        <button id="submitProxyBtn" class="btn-navy w-full">Submit Proxy Info</button>
     </div>
 
     <div id="successBox" class="alert alert-success d-none mt-4 text-center"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    // Phase 17: localized Alpine store for the JS-built Final Confirmation
+    // modal — replaces bootstrap.Modal while preserving the exact dynamic
+    // create -> show -> remove -> recreate lifecycle, the trigger contract,
+    // the close set (X / Cancel / backdrop click / ESC — none confirm), and
+    // the business flow (Confirm -> close+remove -> saveUnpaid). Alpine owns
+    // presentation only; saveUnpaid (fetch contract) is untouched.
+    document.addEventListener('alpine:init', function () {
+        Alpine.store('unpaidConfirmationModal', {
+            open: false,
+            _prevFocus: null,
+            _onConfirm: null,
+            _rootEl: null,
+            openFor: function (rootEl, onConfirm) {
+                this._rootEl = rootEl;
+                this._onConfirm = onConfirm;
+                this._prevFocus = document.activeElement;
+                document.body.style.overflow = 'hidden';
+                this.open = true;
+                var root = rootEl;
+                Alpine.nextTick(function () {
+                    var closeBtn = root.querySelector('[aria-label="Close"]');
+                    if (closeBtn) closeBtn.focus();
+                });
+            },
+            close: function () {
+                if (!this.open) return;
+                this.open = false;
+                document.body.style.overflow = '';
+                if (this._prevFocus && typeof this._prevFocus.focus === 'function') {
+                    this._prevFocus.focus();
+                }
+                this._prevFocus = null;
+                this._onConfirm = null;
+                var root = this._rootEl;
+                this._rootEl = null;
+                if (root && root.parentNode) {
+                    Alpine.destroyTree(root);
+                    root.remove();
+                }
+            },
+            confirm: function () {
+                var onConfirm = this._onConfirm;
+                this.close();
+                if (onConfirm) onConfirm();
+            }
+        });
+    });
+
+    window.unpaidConfirmationModalComponent = function () {
+        return {
+            get open() { return this.$store.unpaidConfirmationModal.open; },
+            close: function () { this.$store.unpaidConfirmationModal.close(); },
+            confirm: function () { this.$store.unpaidConfirmationModal.confirm(); },
+            handleTab: function (e) {
+                var dlg = this.$refs.dialog;
+                if (!dlg) return;
+                var focusables = dlg.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+                if (!focusables.length) return;
+                var first = focusables[0];
+                var last = focusables[focusables.length - 1];
+                if (e.shiftKey && document.activeElement === first) { last.focus(); }
+                else if (!e.shiftKey && document.activeElement === last) { first.focus(); }
+            }
+        };
+    };
+
     const searchUrl = '{{ route('grantee-search', ['kind' => 'unpaid']) }}';
     const verifyUrl = '{{ route('grantee-search.verify', ['kind' => 'unpaid']) }}';
     const saveUrl = '{{ route('unpaid-verification.submit') }}';
@@ -231,43 +301,64 @@
     });
 
     function showConfirmation(isProxy, lname = '', fname = '', mname = '', rel = '') {
+        // Phase 17: same dynamic create->append->init->open->...->remove
+        // lifecycle, but presentation is Tailwind + Alpine now (no
+        // bootstrap.Modal, no data-bs-*). The modal is created fresh each open
+        // with the current proxy/self values baked in and removed on close,
+        // exactly as before. Confirm still runs saveUnpaid() — untouched fetch
+        // contract.
         const modal = document.createElement('div');
-        modal.className = 'modal fade';
         modal.innerHTML = `
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title">Final Confirmation</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <p class="mb-2">
-                        ${isProxy
-                            ? `You are submitting proxy information for the payout:<br><strong>${lname}, ${fname} ${mname}</strong><br>Relationship: <strong>${rel}</strong>`
-                            : `You are confirming that <strong>you</strong> will personally attend the payout.`}
-                    </p>
-                    <div class="alert alert-warning small mb-0">
-                        <strong>Important:</strong> You can only submit once.
-                        Please make sure your information is <u>correct</u> before confirming.
+        <div x-data="unpaidConfirmationModalComponent()"
+             x-cloak
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="unpaidConfirmationModalTitle"
+             class="pointer-events-none fixed inset-0 z-[200]">
+            <div x-show="$store.unpaidConfirmationModal.open"
+                 x-transition.opacity.duration.200ms
+                 @click="$store.unpaidConfirmationModal.close()"
+                 class="pointer-events-auto absolute inset-0 bg-ink/40"
+                 aria-hidden="true"></div>
+            <div class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto p-4">
+                <div x-show="$store.unpaidConfirmationModal.open"
+                     x-ref="dialog"
+                     x-transition.opacity.duration.200ms
+                     @keydown.escape.window="$store.unpaidConfirmationModal.close()"
+                     @keydown.tab.prevent.stop="handleTab($event)"
+                     class="pointer-events-auto flex max-h-[90vh] w-full max-w-[480px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+                    <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">
+                        <h5 id="unpaidConfirmationModalTitle" class="mb-0 text-dense font-heading font-semibold text-white">Final Confirmation</h5>
+                        <button type="button"
+                            class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-white/70 transition duration-150 ease-standard hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                            @click="$store.unpaidConfirmationModal.close()"
+                            aria-label="Close">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" id="confirmYesBtn" class="btn btn-primary">Yes, Confirm Submission</button>
+                    <div class="min-h-0 flex-1 overflow-y-auto p-[1.25rem]">
+                        <p class="mb-2">
+                            ${isProxy
+                                ? `You are submitting proxy information for the payout:<br><strong>${lname}, ${fname} ${mname}</strong><br>Relationship: <strong>${rel}</strong>`
+                                : `You are confirming that <strong>you</strong> will personally attend the payout.`}
+                        </p>
+                        <div class="alert alert-warning small mb-0">
+                            <strong>Important:</strong> You can only submit once.
+                            Please make sure your information is <u>correct</u> before confirming.
+                        </div>
+                    </div>
+                    <div class="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-neutral-100 px-[1.25rem] py-[0.9rem]">
+                        <button type="button" class="btn-subtle" @click="$store.unpaidConfirmationModal.close()">Cancel</button>
+                        <button type="button" id="confirmYesBtn" class="btn-navy" @click="$store.unpaidConfirmationModal.confirm()">Yes, Confirm Submission</button>
+                    </div>
                 </div>
             </div>
         </div>`;
         document.body.appendChild(modal);
-        const bsModal = new bootstrap.Modal(modal);
-        bsModal.show();
-
-        modal.querySelector('#confirmYesBtn').addEventListener('click', () => {
-            bsModal.hide();
-            modal.remove();
+        Alpine.initTree(modal);
+        Alpine.store('unpaidConfirmationModal').openFor(modal, function () {
             saveUnpaid(isProxy, lname, fname, mname, rel);
         });
-
-        modal.addEventListener('hidden.bs.modal', () => modal.remove());
     }
 
     function saveUnpaid(isProxy, lname = '', fname = '', mname = '', rel = '') {

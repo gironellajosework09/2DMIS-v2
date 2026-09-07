@@ -437,6 +437,194 @@ const UPDATE_LOGS = [
   { id: 6, clientId: 11, fullName: 'Benigno Aquino',    action: 'Added Landbank account',                      ipAddress: '192.168.1.93', createdAt: '2026-07-25 10:05' },
 ];
 
+/* ═══════════════════════════════════════════════════════════════
+   P5 — PAYOUTS (payout attendance + unpaid grantee tracking).
+   Rows tie to TRANSACTIONS so all modules share one dataset.
+   ═══════════════════════════════════════════════════════════════ */
+
+const PAYOUT_STATUS_META = {
+  paid:      { label: 'Paid',      cls: 'paid' },
+  unclaimed: { label: 'Unclaimed', cls: 'rejected' },
+  pending:   { label: 'Scheduled', cls: 'pending' },
+};
+
+const PAYOUT_VENUES = [
+  'District Office - Vigan City',
+  'Candon City Civic Center',
+  'Santa Cruz Municipal Hall',
+  'Tagudin Covered Court',
+];
+
+/* [payout id, tx no, status, date] */
+const PAYOUT_SEEDS = [
+  ['PO-2026-001', '#001', 'paid',      '2026-08-02'],
+  ['PO-2026-002', '#002', 'pending',   '2026-08-25'],
+  ['PO-2026-003', '#003', 'paid',      '2026-08-02'],
+  ['PO-2026-004', '#012', 'paid',      '2026-08-05'],
+  ['PO-2026-005', '#010', 'unclaimed', '2026-08-05'],
+  ['PO-2026-006', '#007', 'paid',      '2026-08-09'],
+  ['PO-2026-007', '#014', 'paid',      '2026-08-09'],
+  ['PO-2026-008', '#005', 'pending',   '2026-08-26'],
+  ['PO-2026-009', '#018', 'paid',      '2026-08-12'],
+  ['PO-2026-010', '#008', 'paid',      '2026-08-12'],
+  ['PO-2026-011', '#016', 'paid',      '2026-08-15'],
+  ['PO-2026-012', '#017', 'unclaimed', '2026-08-15'],
+  ['PO-2026-013', '#019', 'paid',      '2026-08-18'],
+  ['PO-2026-014', '#004', 'pending',   '2026-08-27'],
+];
+
+function buildPayout([id, txNo, status, date]) {
+  const tx = TRANSACTIONS.find(t => t.no === txNo);
+  const client = tx ? RESIDENT_BY_ID.get(tx.clientId) : null;
+  const meta = PAYOUT_STATUS_META[status];
+  const r = client || RESIDENTS[0];
+  return {
+    id, txNo, status,
+    statusLabel: meta.label, statusCls: meta.cls,
+    clientId: r.id,
+    clientName: r.fullName,
+    formalName: r.formalName,
+    initials: r.initials, avatar: r.avatar, avatarText: r.avatarText,
+    municipality: r.municipality, barangay: r.barangay,
+    program: tx ? tx.program : 'AICS',
+    amount: tx ? tx.amount : 5000,
+    type: tx ? tx.type : 'Cash Assistance',
+    date,
+    venue: PAYOUT_VENUES[id.charCodeAt(id.length - 1) % PAYOUT_VENUES.length],
+    method: status === 'paid' ? (Number(id.slice(-1)) % 2 ? 'Cash card' : 'Over-the-counter') : '-',
+    verifiedBy: status === 'pending' ? null : 'Grace Reyes',
+    verifiedAt: status === 'pending' ? null : date + ' 09:' + String(10 + (Number(id.slice(-1)) * 3) % 45).padStart(2, '0'),
+  };
+}
+
+const PAYOUTS = PAYOUT_SEEDS.map(buildPayout);
+
+/* ═══════════════════════════════════════════════════════════════
+   P7 — USERS / ACCESS CONTROL (tbl_users + permission grants)
+   ═══════════════════════════════════════════════════════════════ */
+
+const ROLES = [
+  { label: 'Super Admin', cls: 'role-super' },
+  { label: 'Admin',       cls: 'approved' },
+  { label: 'Encoder',     cls: 'active' },
+  { label: 'Viewer',      cls: 'archived' },
+];
+
+/* Real v1/v2 page keys used by the permission picker */
+const PAGE_KEYS = [
+  '*', 'clients.php', 'households.php', 'all_transactions.php', 'scholars.php',
+  'scanner.php', 'payout_attendance.php', 'unpaid_verified.php', 'register.php',
+  'manage_permissions.php', 'audit_logs.php',
+];
+
+const USER_SEEDS = [
+  {
+    name: 'Jordi Admin', username: 'jordi', role: 'Super Admin', status: 'Active',
+    department: 'Office of the District Representative', multiDevice: true,
+    lastLogin: '2026-08-23 07:42', pages: ['*'], programs: ['*'],
+  },
+  {
+    name: 'Maria Lopez', username: 'mlopez', role: 'Admin', status: 'Active',
+    department: 'MSWDO - Candon City', multiDevice: false,
+    lastLogin: '2026-08-22 16:20', pages: ['clients.php', 'households.php', 'all_transactions.php', 'scholars.php'], programs: ['*'],
+  },
+  {
+    name: 'Pedro Ramos', username: 'pedro.ramos', role: 'Encoder', status: 'Active',
+    department: 'MSWDO - Santa Cruz', multiDevice: false,
+    lastLogin: '2026-08-22 09:05', pages: ['clients.php', 'households.php', 'all_transactions.php'], programs: ['AICS', 'AKAP', 'MAIP', 'TUPAD'],
+  },
+  {
+    name: 'Grace Reyes', username: 'grace.reyes', role: 'Encoder', status: 'Active',
+    department: 'Municipal Treasury - Tagudin', multiDevice: false,
+    lastLogin: '2026-08-21 14:48', pages: ['payout_attendance.php', 'scanner.php', 'unpaid_verified.php'], programs: ['*'],
+  },
+  {
+    name: 'Ana Santos', username: 'ana.santos', role: 'Viewer', status: 'Active',
+    department: 'Planning Office - Vigan', multiDevice: false,
+    lastLogin: '2026-08-19 11:30', pages: ['clients.php'], programs: [],
+  },
+  {
+    name: 'Liza Cruz', username: 'liza.cruz', role: 'Encoder', status: 'Inactive',
+    department: 'MSWDO - Santiago', multiDevice: false,
+    lastLogin: '2026-06-30 10:12', pages: ['clients.php', 'all_transactions.php'], programs: ['CEDSSG', 'CEAP'],
+  },
+  {
+    name: 'Carlos Reyes', username: 'carlos.reyes', role: 'Admin', status: 'Inactive',
+    department: 'MSWDO - Candon City', multiDevice: false,
+    lastLogin: '2026-05-14 08:55', pages: ['clients.php', 'households.php'], programs: ['TUPAD'],
+  },
+];
+
+function buildUser(seed, i) {
+  const initials = seed.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+  return Object.assign({}, seed, {
+    id: i + 1,
+    initials,
+    avatar: AVATAR_COLORS[i % AVATAR_COLORS.length],
+    avatarText: AVATAR_TEXT[i % AVATAR_TEXT.length],
+  });
+}
+
+const USERS = USER_SEEDS.map(buildUser);
+
+/* ═══════════════════════════════════════════════════════════════
+   P7 — AUDIT LOGS (system-wide activity trail)
+   ═══════════════════════════════════════════════════════════════ */
+
+const AUDIT_TYPES = {
+  success: { cls: 'active' },
+  info:    { cls: 'approved' },
+  warning: { cls: 'pending' },
+  danger:  { cls: 'rejected' },
+};
+
+const AUDIT_SEEDS = [
+  ['2026-08-23 07:42:11', 'jordi', 'LOGIN', 'Authentication', 'session jordi', 'Signed in from 192.168.1.2 - single-device session issued', 'success'],
+  ['2026-08-22 16:24:03', 'mlopez', 'TX_UPDATE', 'Transactions', '#005 MAIP', 'Updated amount from 2000 to 2500 for Christine Cruz', 'info'],
+  ['2026-08-22 16:20:44', 'mlopez', 'LOGIN', 'Authentication', 'session mlopez', 'Signed in from 192.168.1.35', 'success'],
+  ['2026-08-22 15:58:19', 'mlopez', 'SCHOLAR_UPDATE', 'Scholars', 'SC-2026-003', 'Changed year level to 1st Year for Grace Reyes', 'info'],
+  ['2026-08-22 09:31:07', 'pedro.ramos', 'CLIENT_CREATE', 'Clients', '#28', 'Registered new client Rosario Fernandez (Candon City)', 'success'],
+  ['2026-08-22 09:05:52', 'pedro.ramos', 'LOGIN', 'Authentication', 'session pedro.ramos', 'Signed in from 192.168.1.61', 'success'],
+  ['2026-08-21 17:02:38', 'jordi', 'USER_DEACTIVATE', 'Access Control', 'carlos.reyes', 'Deactivated user account Carlos Reyes (Admin)', 'warning'],
+  ['2026-08-21 14:52:10', 'grace.reyes', 'PAYOUT_MARK_PAID', 'Payouts', 'PO-2026-013', 'Marked payout as paid for Andres Zamora (AICS)', 'success'],
+  ['2026-08-21 14:48:36', 'grace.reyes', 'LOGIN', 'Authentication', 'session grace.reyes', 'Signed in from 192.168.1.74', 'success'],
+  ['2026-08-21 11:19:54', 'grace.reyes', 'SCAN_CONFIRM', 'Scanner', 'TXN #018', 'Scan validated and payout confirmed for Imelda Soriano', 'success'],
+  ['2026-08-21 11:04:41', 'grace.reyes', 'SCAN_REJECT', 'Scanner', 'TXN #020', 'Scan rejected - transaction not eligible for payout', 'danger'],
+  ['2026-08-20 15:47:29', 'mlopez', 'HH_CREATE', 'Households', 'HH-2026-007', 'Registered household headed by Rosario Fernandez', 'success'],
+  ['2026-08-20 10:33:15', 'jordi', 'EXPORT_CSV', 'Transactions', 'transactions.csv', 'Exported filtered transactions CSV (20 rows)', 'info'],
+  ['2026-08-19 11:32:08', 'ana.santos', 'LOGIN', 'Authentication', 'session ana.santos', 'Signed in from 192.168.1.90', 'success'],
+  ['2026-08-19 11:30:57', 'ana.santos', 'CLIENT_VIEW', 'Clients', '#3', 'Viewed profile of Ana Santos from Client Registry', 'info'],
+  ['2026-08-18 13:26:47', 'grace.reyes', 'PAYOUT_MARK_UNCLAIMED', 'Payouts', 'PO-2026-005', 'Marked payout as unclaimed for Rosa Diaz (CEDSSG)', 'warning'],
+  ['2026-08-18 09:12:33', 'jordi', 'USER_UPDATE', 'Access Control', 'grace.reyes', 'Granted payout_attendance.php page permission', 'info'],
+  ['2026-08-17 16:40:21', 'pedro.ramos', 'TX_DELETE', 'Transactions', '#021 TUPAD', 'Deleted duplicate transaction for Henry Baltazar', 'danger'],
+];
+
+let AUDIT_NEXT_ID = 1;
+
+function buildAudit(row) {
+  const [ts, actor, action, module, target, description, type] = row;
+  const u = USERS.find(x => x.username === actor);
+  return {
+    id: AUDIT_NEXT_ID++,
+    ts, actor, action, module, target, description,
+    type,
+    actorName: u ? u.name : actor,
+  };
+}
+
+const AUDIT_LOGS = AUDIT_SEEDS.map(buildAudit);
+
+/* Append a live audit entry when demo actions happen */
+function pushAudit(action, module, target, description, type = 'info') {
+  AUDIT_LOGS.unshift({
+    id: AUDIT_NEXT_ID++,
+    ts: nowStamp() + ':00'.slice(0, 3),
+    actor: 'jordi', actorName: 'Jordi Admin',
+    action, module, target, description, type,
+  });
+  if (state.audit && state.audit.page === 1) renderAudit();
+}
+
 const NOTIFICATIONS = [
   { icon: 'gold', title: 'Pending approval', text: '5 transactions awaiting approval', time: '12 min ago', unread: true },
   { icon: 'red',  title: 'Duplicate detected', text: 'Possible duplicate for Ana Santos', time: '1 hr ago', unread: true },
@@ -484,9 +672,33 @@ const state = {
   scholarTab: 'scholars',
   openResidentId: null,
   openScholarId: null,
-  panelMode: 'resident',  // 'resident' | 'scholar'
+  panelMode: 'resident',  // 'resident' | 'scholar' | 'payout'
   lastFocusedRow: null,
   calendar: { month: 7, year: 2026 }, // 0-indexed month (July = August 2026 view default handled below)
+  payouts: {
+    search: '',
+    filters: { program: [], status: [], municipality: [] },
+    sortKey: null,      // date | amount | name
+    sortDir: 'asc',
+    page: 1,
+    perPage: 8,
+  },
+  users: {
+    search: '',
+    filters: { role: [], status: [] },
+    sortKey: null,      // name | lastLogin
+    sortDir: 'asc',
+    page: 1,
+    perPage: 5,
+  },
+  audit: {
+    search: '',
+    filters: { module: [], actor: [], action: [] },
+    dateFrom: '',
+    dateTo: '',
+    page: 1,
+    perPage: 8,
+  },
 };
 
 const PAGE_NAMES = {
@@ -560,6 +772,20 @@ const FILTER_SPECS = {
     { key: 'program', label: 'Program', searchable: true, options: () => SCHOLAR_FILTER_PROGRAMS, get: s => [s.program] },
     { key: 'status',  label: 'Status',  options: () => ['Active', 'Graduated', 'Inactive'], get: s => [s.status] },
   ],
+  payouts: [
+    { key: 'program',       label: 'Program',       searchable: true, options: () => [...new Set(PAYOUTS.map(p => p.program))], get: p => [p.program] },
+    { key: 'status',        label: 'Status',        options: () => Object.keys(PAYOUT_STATUS_META).map(k => PAYOUT_STATUS_META[k].label), get: p => [p.statusLabel] },
+    { key: 'municipality',  label: 'Municipality',  options: () => [...new Set(PAYOUTS.map(p => p.municipality))].sort(), get: p => [p.municipality] },
+  ],
+  users: [
+    { key: 'role',   label: 'Role',   options: () => ROLES.map(r => r.label), get: u => [u.role] },
+    { key: 'status', label: 'Status', options: () => ['Active', 'Inactive'], get: u => [u.status] },
+  ],
+  audit: [
+    { key: 'module', label: 'Module', options: () => [...new Set(AUDIT_LOGS.map(l => l.module))], get: l => [l.module] },
+    { key: 'actor',  label: 'Actor',  searchable: true, options: () => [...new Set(AUDIT_LOGS.map(l => l.actorName))], get: l => [l.actorName] },
+    { key: 'action', label: 'Action', searchable: true, options: () => [...new Set(AUDIT_LOGS.map(l => l.action))], get: l => [l.action] },
+  ],
 };
 
 /* Per-menu search query registry: `${module}|${catKey}` → string */
@@ -586,6 +812,9 @@ function renderModule(module) {
   else if (module === 'transactions') renderTransactions();
   else if (module === 'households') renderHouseholds();
   else if (module === 'scholars') renderScholars();
+  else if (module === 'payouts') renderPayouts();
+  else if (module === 'users') renderUsers();
+  else if (module === 'audit') renderAudit();
 }
 
 function renderFilterOptions(module, cat) {
@@ -779,7 +1008,7 @@ document.addEventListener('keydown', (e) => {
 
 function showPage(page) {
   state.page = page;
-  if (state.panelMode === 'scholar' && $('#detailsPanel').classList.contains('open')) closeResidentPanel(false);
+  if ($('#detailsPanel').classList.contains('open')) closeResidentPanel(false);
   $$('.page').forEach(p => p.classList.remove('active'));
   $$('.sidebar-link').forEach(l => l.classList.remove('active'));
   const target = $('#page-' + page);
@@ -1073,12 +1302,60 @@ function renderGipProfiles() {
       <td>${esc(g.latestWorkExperience)}</td>
       <td>${esc(g.achievements)}</td>
       <td class="row-actions">
-        <button type="button" class="row-action" data-sim="Opening GIP profile (mock)" title="View GIP profile" aria-label="View GIP profile">
+        <button type="button" class="row-action" data-gip-view="${g.clientId}" title="View GIP profile" aria-label="View GIP profile of ${esc(name)}">
           <svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </td>
     </tr>`;
   }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No GIP profiles yet.</td></tr>`;
+}
+
+/* Full GIP profile modal (opened from the GIP Profiles tab) */
+function openGipModal(clientId) {
+  const g = GIP_PROFILES.find(x => x.clientId === clientId);
+  if (!g) return;
+  const r = RESIDENT_BY_ID.get(clientId);
+  openModal({
+    title: 'GIP Profile',
+    sub: r ? esc(r.formalName) : '',
+    size: 'modal-lg',
+    bodyHTML: `
+      <div class="details-grid">
+        ${fieldRow('Intern', esc(r ? r.fullName : '—'))}
+        ${fieldRow('Valid Government ID', esc(g.validGovtId))}
+        ${fieldRow('ID Number', esc(g.idNumber))}
+        ${fieldRow('Insurance Beneficiary', esc(g.insuranceBeneficiary))}
+        ${fieldRow('Emergency Contact', esc(g.emergencyContact))}
+        ${fieldRow('ECP Contact Number', esc(g.ecpContactNumber))}
+        ${fieldRow('ECP Address', esc(g.ecpAddress), 'wide')}
+      </div>
+      <section class="details-section">
+        <h3 class="details-section-title">Education</h3>
+        <div class="details-grid">
+          ${fieldRow('College', esc(g.college), 'wide')}
+          ${fieldRow('Course', esc(g.course), 'wide')}
+          ${fieldRow('Year Graduated', esc(g.yearGraduated))}
+          ${fieldRow('High School', esc(g.highSchool))}
+          ${fieldRow('Elementary School', esc(g.elementarySchool))}
+        </div>
+      </section>
+      <section class="details-section">
+        <h3 class="details-section-title">Engagement</h3>
+        <div class="details-grid">
+          ${fieldRow('Latest Work Experience', esc(g.latestWorkExperience), 'wide')}
+          ${fieldRow('Position', esc(g.position))}
+          ${fieldRow('Period of Engagement', esc(g.periodOfEngagement))}
+          ${fieldRow('Special Skills', esc(g.specialSkills), 'wide')}
+          ${fieldRow('Achievements', esc(g.achievements), 'wide')}
+        </div>
+      </section>`,
+    footerHTML: `
+      <button type="button" class="btn btn-outline" data-modal-cancel>Close</button>
+      <button type="button" class="btn btn-outline" data-open-resident="${clientId}">Open Client Profile</button>`,
+    onOpen: (ov) => {
+      ov.querySelector('[data-modal-cancel]').addEventListener('click', closeModal);
+    },
+  });
 }
 
 function renderScholarReports() {
@@ -1366,6 +1643,7 @@ function closeResidentPanel(returnFocus = true) {
   $('#detailsPanel').setAttribute('aria-hidden', 'true');
   state.openResidentId = null;
   state.openScholarId = null;
+  state.openResidentPanelPayout = null;
   state.panelMode = 'resident';
   if (returnFocus && state.lastFocusedRow && state.lastFocusedRow.isConnected) {
     state.lastFocusedRow.focus();
@@ -1671,6 +1949,7 @@ function saveScholarForm(e, existing) {
     closeModal();
     renderScholars();
     showToast(`Scholar ${existing.id} updated`);
+    pushAudit('SCHOLAR_UPDATE', 'Scholars', existing.id, `Updated scholar record ${existing.formalName} (${existing.program}, ${existing.status})`, 'info');
     if (state.openScholarId === existing.id) renderScholarPanel(existing);
     return;
   }
@@ -1686,6 +1965,7 @@ function saveScholarForm(e, existing) {
   state.scholars.page = 1;
   renderScholars();
   prependActivity(`<strong>${esc(client.fullName)}</strong> was enrolled as a ${esc(d.program)} scholar`);
+  pushAudit('SCHOLAR_CREATE', 'Scholars', id, `Enrolled ${client.fullName} as ${d.program} scholar at ${d.school}`, 'success');
   showToast(`Scholar ${id} added`);
 }
 
@@ -1710,7 +1990,22 @@ function submitGranteeUpdate(e) {
   form.reset();
   if (progHost) { buildProgramSelect(progHost, []); }
   prependActivity(`<strong>${esc(name)}</strong> submitted a grantee self-update (${esc(program)})`);
+  pushAudit('GRANTEE_SELF_UPDATE', 'Scholars', name, `Grantee self-update received: ${action}`, 'info');
   showToast('Update submitted — queued for office review (mock)');
+}
+
+function downloadCsv(filename, header, rows) {
+  const csv = [header].concat(rows).map(r =>
+    r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function exportScholarCsv() {
@@ -1718,41 +2013,70 @@ function exportScholarCsv() {
   const rows = SCHOLARS.map(s => [
     s.id, s.clientId, s.fullName, s.program, s.school, s.course, s.yearLevel, s.status,
   ]);
-  const csv = [header].concat(rows).map(r =>
-    r.map(c => '"' + String(c ?? '').replace(/"/g, '""') + '"').join(',')).join('\r\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'scholars-report-2026.csv';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  downloadCsv('scholars-report-2026.csv', header, rows);
   showToast('scholars-report-2026.csv downloaded (UTF-8 BOM)');
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SCANNER — simulated scan
+   SCANNER — simulated scan + payout resolution
    ═══════════════════════════════════════════════════════════════ */
 
+let lastScanTx = null;
+
 function simulateScan() {
-  const tx = TRANSACTIONS[Math.floor(Math.random() * TRANSACTIONS.length)];
+  const eligible = TRANSACTIONS.filter(t => t.status !== 'paid');
+  const tx = (eligible.length ? eligible : TRANSACTIONS)[Math.floor(Math.random() * (eligible.length || TRANSACTIONS.length))];
   const r = RESIDENT_BY_ID.get(tx.clientId);
   const ready = tx.status !== 'rejected';
   const statusCls = ready ? 'approved' : 'rejected';
   const statusLabel = ready ? 'Ready for Payout' : 'Blocked';
+  const existingPayout = PAYOUTS.find(p => p.txNo === tx.no && p.status !== 'unclaimed');
+  lastScanTx = tx;
   $('#scannerResult').innerHTML = `
     <div class="result-field"><label>Client Name</label><div class="value">${esc(r.fullName)}</div></div>
     <div class="result-field"><label>Program</label><div class="value"><span class="program-tag">${esc(tx.program)}</span></div></div>
     <div class="result-field"><label>Transaction ID</label><div class="value" style="font-family:'Outfit',monospace;">TXN-2026-0${String(tx.no).replace('#', '')}</div></div>
     <div class="result-field"><label>Amount Payable</label><div class="value text-money" style="font-size:1.2rem;color:var(--teal);">${money(tx.amount)}</div></div>
+    ${existingPayout ? `<div class="result-field"><label>Linked Payout</label><div class="value" style="font-family:'Outfit',monospace;">${esc(existingPayout.id)} - ${esc(existingPayout.statusLabel)}</div></div>` : ''}
     <div class="result-field"><label>Payout Status</label><div class="value"><span class="status-badge ${statusCls}"><span class="dot"></span>${statusLabel}</span></div></div>
     <div class="result-actions">
-      <button type="button" class="btn btn-gold btn-sm" style="flex:1" data-sim="Payout confirmed (simulated)">Confirm Payout</button>
-      <button type="button" class="btn btn-outline btn-sm" style="flex:1" data-sim="Payout rejected (simulated)">Reject</button>
+      <button type="button" class="btn btn-gold btn-sm" style="flex:1" data-scan-confirm ${ready ? '' : 'disabled'}>Confirm Payout</button>
+      <button type="button" class="btn btn-outline btn-sm" style="flex:1" data-scan-reject>Reject</button>
     </div>`;
+  pushAudit(ready ? 'SCAN_VALIDATE' : 'SCAN_BLOCKED', 'Scanner', `TXN ${tx.no}`,
+    `${ready ? 'Validated' : 'Blocked'} scan for ${r.fullName} (${tx.program})`, ready ? 'info' : 'danger');
   showToast('Scan complete — result loaded (mock data)');
+}
+
+function resolveScan(action) {
+  const tx = lastScanTx;
+  if (!tx) return;
+  const r = RESIDENT_BY_ID.get(tx.clientId);
+  if (action === 'paid') {
+    tx.status = 'paid'; tx.statusLabel = 'Paid'; tx.statusCls = TX_STATUS_META.paid.cls;
+    let payout = PAYOUTS.find(p => p.txNo === tx.no && p.status !== 'unclaimed');
+    if (!payout) {
+      const id = nextPayoutId();
+      payout = buildPayout([id, tx.no, 'pending', nowStamp().slice(0, 10)]);
+      PAYOUTS.unshift(payout);
+    }
+    markPayoutStatus(payout.id, 'paid');
+    prependActivity(`<strong>${esc(r.fullName)}</strong> received a scanned payout for <strong>${esc(tx.program)}</strong> (${money(tx.amount)})`);
+    renderTransactions();
+    renderDashboardRecent();
+    updateMetrics();
+    showToast(`Payout confirmed for ${r.fullName} — transaction marked paid`);
+  } else {
+    tx.status = 'rejected'; tx.statusLabel = 'Rejected'; tx.statusCls = TX_STATUS_META.rejected.cls;
+    prependActivity(`Scanned payout for <strong>${esc(r.fullName)}</strong> was rejected`);
+    pushAudit('SCAN_REJECT', 'Scanner', `TXN ${tx.no}`, `Rejected payout scan for ${r.fullName} (${tx.program})`, 'danger');
+    renderTransactions();
+    renderDashboardRecent();
+    updateMetrics();
+    showToast(`Transaction ${tx.no} rejected — not eligible for payout`);
+  }
+  $('#scannerResult').innerHTML = '<div class="scanner-result-placeholder">Resolution recorded. Run another simulated scan.</div>';
+  lastScanTx = null;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1837,7 +2161,12 @@ function closeModal() {
 
 function confirmDialog({ title, message, confirmLabel = 'Confirm', danger = true }) {
   return new Promise((resolve) => {
-    confirmResolve = resolve;
+    /* settled-guard prevents double resolution; confirmResolve is registered
+       AFTER openModal() so the replacement-close inside openModal cannot
+       cancel this fresh dialog — it only cancels an OLDER pending one
+       (e.g. a confirm replaced by a new modal, or closed via Esc/backdrop). */
+    let settled = false;
+    const done = (val) => { if (!settled) { settled = true; confirmResolve = null; resolve(val); } };
     openModal({
       title,
       bodyHTML: `<div class="confirm-body">${message}</div>`,
@@ -1847,15 +2176,12 @@ function confirmDialog({ title, message, confirmLabel = 'Confirm', danger = true
       onOpen: (ov) => {
         const cancel = ov.querySelector('[data-modal-cancel]');
         const ok = ov.querySelector('[data-modal-confirm]');
-        cancel.addEventListener('click', () => closeModal());  // closes → resolves(false)
-        ok.addEventListener('click', () => {
-          const r = confirmResolve; confirmResolve = null;
-          closeModal();
-          if (r) r(true);
-        });
+        cancel.addEventListener('click', () => { done(false); closeModal(); });
+        ok.addEventListener('click', () => { done(true); closeModal(); });
         ok.focus();
       },
     });
+    confirmResolve = (val) => done(val);
   });
 }
 
@@ -1911,6 +2237,9 @@ function refreshAllViews() {
   renderUpdateLogs();
   renderDashboardRecent();
   renderActivity();
+  renderPayouts();
+  renderUsers();
+  renderAudit();
   updateMetrics();
 }
 
@@ -2081,6 +2410,7 @@ function saveClientForm(e, existing) {
     closeModal();
     refreshAllViews();
     prependActivity(`<strong>${esc(existing.formalName)}</strong> updated their client record`);
+    pushAudit('CLIENT_UPDATE', 'Clients', `#${existing.id}`, `Updated client record ${existing.formalName} (${existing.municipality})`, 'info');
     showToast(`Client #${existing.id} updated`);
     if (state.openResidentId === existing.id) renderResidentPanel(existing);
     return;
@@ -2099,6 +2429,7 @@ function saveClientForm(e, existing) {
   state.clients.page = 1;
   refreshAllViews();
   prependActivity(`<strong>${esc(r.formalName)}</strong> registered as a new client`);
+  pushAudit('CLIENT_CREATE', 'Clients', `#${r.id}`, `Registered new client ${r.formalName} (${r.municipality})`, 'success');
   showToast(`Client #${r.id} added`);
 }
 
@@ -2109,7 +2440,14 @@ function toggleArchive(id) {
   if (state.openResidentId === id) renderResidentPanel(r);
   renderClients();
   prependActivity(`<strong>${esc(r.formalName)}</strong> was ${r.status === 'Archived' ? 'archived' : 'reactivated'}`);
+  pushArchiveAudit(r);
   showToast(r.status === 'Archived' ? 'Client archived' : 'Client reactivated');
+}
+
+function pushArchiveAudit(r) {
+  const archived = r.status === 'Archived';
+  pushAudit(archived ? 'CLIENT_ARCHIVE' : 'CLIENT_REACTIVATE', 'Clients', `#${r.id}`,
+    `${archived ? 'Archived' : 'Reactivated'} client record ${r.formalName}`, archived ? 'warning' : 'success');
 }
 
 function deleteClient(id) {
@@ -2132,6 +2470,7 @@ function deleteClient(id) {
     state.clients.page = 1;
     refreshAllViews();
     prependActivity(`<strong>${esc(r.formalName)}</strong> was deleted from the client registry`);
+    pushAudit('CLIENT_DELETE', 'Clients', `#${id}`, `Deleted client ${r.formalName} and ${txCount} related transaction${txCount === 1 ? '' : 's'}`, 'danger');
     showToast(`Client #${id} deleted`);
   });
 }
@@ -2209,6 +2548,9 @@ function saveTxForm(e, existing) {
   state.transactions.page = 1;
   refreshAllViews();
   prependActivity(`<strong>${esc(client.fullName)}</strong> ${existing ? 'updated' : 'applied for'} a ${esc(payload.program)} transaction (${esc(payload.no)})`);
+  pushAudit(existing ? 'TX_UPDATE' : 'TX_CREATE', 'Transactions', `${payload.no} ${payload.program}`,
+    `${existing ? 'Updated' : 'Recorded'} transaction for ${client.fullName} (${payload.program}, ${money(amount)}, ${payload.statusLabel})`,
+    existing ? 'info' : 'success');
   showToast(`${existing ? 'Transaction' : 'Transaction'} ${payload.no} ${existing ? 'updated' : 'added'}`);
 }
 
@@ -2226,6 +2568,7 @@ function deleteTx(no) {
     state.transactions.page = 1;
     refreshAllViews();
     prependActivity(`Transaction <strong>${esc(no)}</strong> was deleted`);
+    pushAudit('TX_DELETE', 'Transactions', `${no} ${tx.program}`, `Deleted transaction for ${tx.clientName} (${money(tx.amount)})`, 'danger');
     showToast(`Transaction ${no} deleted`);
   });
 }
@@ -2290,6 +2633,9 @@ function saveHouseholdForm(e, existing) {
   state.households.page = 1;
   refreshAllViews();
   prependActivity(`Household <strong>${esc(payload.code)}</strong> was ${existing ? 'updated' : 'registered'} (head: ${esc(head.fullName)})`);
+  pushAudit(existing ? 'HH_UPDATE' : 'HH_CREATE', 'Households', payload.code,
+    `${existing ? 'Updated' : 'Registered'} household headed by ${head.fullName} (${payload.barangay}, ${payload.muni})`,
+    existing ? 'info' : 'success');
   showToast(existing ? `Household ${payload.code} updated` : `Household ${payload.code} registered`);
 }
 
@@ -2307,8 +2653,696 @@ function deleteHousehold(code) {
     state.households.page = 1;
     refreshAllViews();
     prependActivity(`Household <strong>${esc(code)}</strong> was deleted`);
+    pushAudit('HH_DELETE', 'Households', code, `Deleted household headed by ${h.head}`, 'danger');
     showToast(`Household ${code} deleted`);
   });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   P5 — PAYOUTS (attendance table, details panel, CRUD, CSV)
+   ═══════════════════════════════════════════════════════════════ */
+
+function filteredPayouts() {
+  const st = state.payouts;
+  let list = PAYOUTS.slice();
+  if (st.search) {
+    const q = st.search.toLowerCase();
+    list = list.filter(p =>
+      p.clientName.toLowerCase().includes(q) ||
+      p.formalName.toLowerCase().includes(q) ||
+      p.id.toLowerCase().includes(q) ||
+      p.txNo.toLowerCase().includes(q) ||
+      p.program.toLowerCase().includes(q) ||
+      p.venue.toLowerCase().includes(q));
+  }
+  list = list.filter(p => filterMatches(p, 'payouts'));
+  if (st.sortKey) {
+    list.sort((a, b) => compare(
+      st.sortKey === 'date' ? a.date : st.sortKey === 'amount' ? a.amount : a.formalName,
+      st.sortKey === 'date' ? b.date : st.sortKey === 'amount' ? b.amount : b.formalName,
+      st.sortDir));
+  }
+  return list;
+}
+
+function payoutMetrics(list = PAYOUTS) {
+  const paid = list.filter(p => p.status === 'paid');
+  const unclaimed = list.filter(p => p.status === 'unclaimed');
+  const scheduled = list.filter(p => p.status === 'pending');
+  return {
+    released: paid.reduce((s, p) => s + p.amount, 0),
+    paidCount: paid.length,
+    unclaimedCount: unclaimed.length,
+    scheduledCount: scheduled.length,
+  };
+}
+
+function renderPayouts() {
+  const st = state.payouts;
+  const { items, page, totalPages, total } = pageSlice(filteredPayouts(), st.page, st.perPage);
+  st.page = page;
+
+  const searchEl = $('#payoutsSearch');
+  if (searchEl && document.activeElement !== searchEl) searchEl.value = st.search;
+
+  const tbody = $('#payoutsBody');
+  tbody.innerHTML = items.map(p => `
+    <tr class="row-clickable" data-payout-id="${esc(p.id)}" tabindex="0"
+        aria-label="Open payout ${esc(p.id)} for ${esc(p.clientName)}">
+      <td style="font-family:'Outfit',monospace;font-size:0.82rem;color:var(--text-muted)">${esc(p.id)}</td>
+      <td>
+        <div class="td-name">
+          <div class="td-avatar" style="background:${p.avatar};color:${p.avatarText}">${esc(p.initials)}</div>
+          <div>
+            <div style="font-weight:600">${esc(p.clientName)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted)">${esc(p.barangay)}, ${esc(p.municipality)}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="program-tag">${esc(p.program)}</span></td>
+      <td style="font-family:'Outfit',monospace;color:var(--text-muted)">${esc(p.txNo)}</td>
+      <td style="white-space:nowrap">${esc(p.date)}</td>
+      <td class="text-money">${money(p.amount)}</td>
+      <td><span class="status-badge ${p.statusCls}"><span class="dot"></span>${esc(p.statusLabel)}</span></td>
+      <td class="row-actions">
+        ${p.status !== 'paid' ? `
+        <button type="button" class="row-action" data-paid-payout="${esc(p.id)}" aria-label="Mark ${esc(p.id)} as paid" title="Mark as Paid">
+          <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        </button>` : ''}
+        ${p.status !== 'unclaimed' ? `
+        <button type="button" class="row-action danger" data-unclaimed-payout="${esc(p.id)}" aria-label="Mark ${esc(p.id)} as unclaimed" title="Mark Unclaimed">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </button>` : ''}
+      </td>
+      <td class="chevron-cell"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></td>
+    </tr>`).join('') || `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:32px;">No payouts match your filters.</td></tr>`;
+
+  $('#payoutsCount').textContent = `Showing ${items.length ? (page - 1) * st.perPage + 1 : 0}-${(page - 1) * st.perPage + items.length} of ${total} payouts`;
+  renderPagination('#payoutsPager', { page, totalPages }, 'payouts', (p) => { state.payouts.page = p; renderPayouts(); });
+  updateSortIndicators('payouts', st.sortKey, st.sortDir);
+  renderFilterUI('payouts');
+
+  const m = payoutMetrics();
+  $('#payoutMetricReleased').textContent = money(m.released);
+  $('#payoutMetricPaid').textContent = `${m.paidCount} paid`;
+  $('#payoutMetricUnclaimed').textContent = `${m.unclaimedCount} to re-release`;
+  $('#payoutMetricScheduled').textContent = `${m.scheduledCount} upcoming`;
+  const payoutsBadge = $('#sidebarPayoutsBadge');
+  if (payoutsBadge) payoutsBadge.textContent = PAYOUTS.length;
+}
+
+function togglePayoutSort(key) {
+  const st = state.payouts;
+  if (st.sortKey === key) st.sortDir = st.sortDir === 'asc' ? 'desc' : 'asc';
+  else { st.sortKey = key; st.sortDir = 'asc'; }
+  renderPayouts();
+}
+
+function toggleUserSort(key) {
+  const st = state.users;
+  if (st.sortKey === key) st.sortDir = st.sortDir === 'asc' ? 'desc' : 'asc';
+  else { st.sortKey = key; st.sortDir = 'asc'; }
+  renderUsers();
+}
+
+const nextPayoutId = () => {
+  const nums = PAYOUTS.map(p => Number(String(p.id).split('-').pop())).filter(n => !Number.isNaN(n));
+  return 'PO-2026-' + String((nums.length ? Math.max(...nums) : 0) + 1).padStart(3, '0');
+};
+
+function openPayoutForm(txNo = null) {
+  const tx = txNo ? TRANSACTIONS.find(t => t.no === txNo) : null;
+
+  openModal({
+    title: 'Record Payout',
+    sub: 'Schedule a payout or log an over-the-counter release',
+    size: 'modal-lg',
+    bodyHTML: `
+      <form id="payoutForm">
+        <div class="form-grid">
+          <div class="form-group span-2">
+            <label class="form-label" for="poTx">Transaction *</label>
+            <select class="form-input" id="poTx" name="txNo">
+              ${TRANSACTIONS.map(t =>
+                `<option value="${esc(t.no)}" data-client="${t.clientId}" ${tx && tx.no === t.no ? 'selected' : ''}>${esc(t.no)} - ${esc(t.clientName)} (${esc(t.program)}, ${money(t.amount)})</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="poStatus">Status</label>
+            <select class="form-input" id="poStatus" name="status">${optListKV(
+              [['pending', 'Scheduled'], ['paid', 'Paid'], ['unclaimed', 'Unclaimed']], 'pending')}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="poDate">Payout Date</label>
+            <input type="date" class="form-input" id="poDate" name="date" value="${nowStamp().slice(0, 10)}">
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="poVenue">Venue</label>
+            <select class="form-input" id="poVenue" name="venue">${optList(PAYOUT_VENUES, PAYOUT_VENUES[0])}</select>
+          </div>
+        </div>
+      </form>`,
+    footerHTML: `
+      <button type="button" class="btn btn-outline" data-modal-cancel>Cancel</button>
+      <button type="submit" class="btn btn-gold" form="payoutForm">Record Payout</button>`,
+    onOpen: (ov) => {
+      ov.querySelector('[data-modal-cancel]').addEventListener('click', closeModal);
+      ov.querySelector('#payoutForm').addEventListener('submit', savePayoutForm);
+    },
+  });
+}
+
+function savePayoutForm(e) {
+  e.preventDefault();
+  const d = readForm(e.target);
+  const tx = TRANSACTIONS.find(t => t.no === d.txNo);
+  if (!tx) { showToast('Select a valid transaction'); return; }
+  const client = RESIDENT_BY_ID.get(tx.clientId);
+  const id = nextPayoutId();
+  const meta = PAYOUT_STATUS_META[d.status] || PAYOUT_STATUS_META.pending;
+  const payout = {
+    id, txNo: tx.no, status: d.status,
+    statusLabel: meta.label, statusCls: meta.cls,
+    clientId: client.id, clientName: client.fullName, formalName: client.formalName,
+    initials: client.initials, avatar: client.avatar, avatarText: client.avatarText,
+    municipality: client.municipality, barangay: client.barangay,
+    program: tx.program, amount: tx.amount, type: tx.type,
+    date: d.date || nowStamp().slice(0, 10),
+    venue: d.venue,
+    method: d.status === 'paid' ? 'Over-the-counter' : '-',
+    verifiedBy: d.status === 'pending' ? null : 'Jordi Admin',
+    verifiedAt: d.status === 'pending' ? null : nowStamp(),
+  };
+  PAYOUTS.unshift(payout);
+  closeModal();
+  state.payouts.page = 1;
+  renderPayouts();
+  prependActivity(`Payout <strong>${esc(id)}</strong> recorded for <strong>${esc(client.fullName)}</strong> (${esc(tx.program)})`);
+  pushAudit('PAYOUT_CREATE', 'Payouts', id, `Recorded payout for ${client.fullName} (${tx.program}, ${money(tx.amount)})`, 'success');
+  showToast(`Payout ${id} recorded`);
+}
+
+function markPayoutStatus(id, status) {
+  const p = PAYOUTS.find(x => x.id === id);
+  if (!p || p.status === status) return;
+  const label = PAYOUT_STATUS_META[status].label;
+  const needsConfirm = status === 'paid';
+  const doIt = () => {
+    p.status = status;
+    p.statusLabel = label;
+    p.statusCls = PAYOUT_STATUS_META[status].cls;
+    p.method = status === 'paid' ? (p.method === '-' ? 'Over-the-counter' : p.method) : '-';
+    p.verifiedBy = status === 'pending' ? null : 'Jordi Admin';
+    p.verifiedAt = status === 'pending' ? null : nowStamp();
+    renderPayouts();
+    if (state.openResidentPanelPayout === id && $('#detailsPanel').classList.contains('open')) renderPayoutPanel(p);
+    prependActivity(`Payout <strong>${esc(id)}</strong> marked <strong>${esc(label)}</strong> (${esc(p.clientName)})`);
+    pushAudit(status === 'paid' ? 'PAYOUT_MARK_PAID' : 'PAYOUT_MARK_UNCLAIMED', 'Payouts', id,
+      `Marked payout as ${label.toLowerCase()} for ${p.clientName} (${p.program})`,
+      status === 'unclaimed' ? 'warning' : 'success');
+    showToast(`Payout ${id} marked ${label}`);
+  };
+  if (needsConfirm) {
+    confirmDialog({
+      title: 'Confirm payout release?',
+      message: `Confirm that <strong>${esc(p.clientName)}</strong> received <strong>${money(p.amount)}</strong> (${esc(p.program)}, ${esc(p.id)}) at ${esc(p.venue)}? The transaction will be recorded as paid.`,
+      confirmLabel: 'Confirm Release',
+      danger: false,
+    }).then(ok => { if (ok) { doIt(); syncTxFromPayout(p); } });
+  } else {
+    doIt();
+    if (status !== 'pending') syncTxFromPayout(p);
+  }
+}
+
+function syncTxFromPayout(p) {
+  const tx = TRANSACTIONS.find(t => t.no === p.txNo);
+  if (!tx) return;
+  if (p.status === 'paid') { tx.status = 'paid'; tx.statusLabel = 'Paid'; tx.statusCls = TX_STATUS_META.paid.cls; }
+  else if (p.status === 'unclaimed') { tx.status = 'approved'; tx.statusLabel = 'Approved'; tx.statusCls = TX_STATUS_META.approved.cls; }
+  renderTransactions();
+  renderDashboardRecent();
+  updateMetrics();
+}
+
+function renderPayoutPanel(p) {
+  const r = RESIDENT_BY_ID.get(p.clientId);
+  $('#detailsHeader').innerHTML = `
+    <button type="button" class="details-close" id="detailsClose" aria-label="Close details panel">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="details-identity">
+      <div class="details-avatar" style="background:${p.avatar};color:${p.avatarText}">${esc(p.initials)}</div>
+      <div style="flex:1;min-width:0">
+        <h2 id="detailsPanelTitle">${esc(p.clientName)}</h2>
+        <div class="sub">${esc(p.id)} &middot; ${esc(p.txNo)}</div>
+        <div class="details-meta">
+          <span class="status-badge ${p.statusCls}"><span class="dot"></span>${esc(p.statusLabel)}</span>
+          <span class="program-tag">${esc(p.program)}</span>
+        </div>
+      </div>
+    </div>`;
+
+  $('#detailsActions').innerHTML = `
+    ${p.status !== 'paid' ? `<button type="button" class="btn btn-gold" data-paid-payout="${esc(p.id)}">Mark as Paid</button>` : ''}
+    ${p.status !== 'unclaimed' ? `<button type="button" class="btn btn-outline" data-unclaimed-payout="${esc(p.id)}">Mark Unclaimed</button>` : ''}
+    <button type="button" class="btn btn-outline" data-sim="Payout slip sent to printer (mock)">Print Slip</button>`;
+
+  $('#detailsBody').innerHTML = `
+    <section class="details-section" aria-labelledby="sec-po-amount">
+      <h3 class="details-section-title" id="sec-po-amount">Amount</h3>
+      <div class="details-note text-money" style="font-size:1.5rem;color:var(--teal)">${money(p.amount)}</div>
+    </section>
+    <section class="details-section" aria-labelledby="sec-po-details">
+      <h3 class="details-section-title" id="sec-po-details">Payout Details</h3>
+      <div class="details-grid">
+        ${fieldRow('Payout ID', esc(p.id))}
+        ${fieldRow('Reference Transaction', esc(p.txNo))}
+        ${fieldRow('Assistance Type', esc(p.type))}
+        ${fieldRow('Payout Date', esc(p.date))}
+        ${fieldRow('Venue', esc(p.venue), 'wide')}
+        ${fieldRow('Release Method', esc(p.method))}
+        ${fieldRow('Verified By', esc(p.verifiedBy || '- Not yet claimed -'))}
+        ${fieldRow('Verified At', esc(p.verifiedAt || '-'))}
+      </div>
+    </section>
+    ${r ? `
+    <section class="details-section" aria-labelledby="sec-po-client">
+      <h3 class="details-section-title" id="sec-po-client">Beneficiary</h3>
+      <div class="details-grid">
+        ${fieldRow('Client', esc(r.formalName))}
+        ${fieldRow('Client ID', String(r.id))}
+        ${fieldRow('Category', `<span class="status-badge ${r.category.cls}"><span class="dot"></span>${esc(r.category.label)}</span>`)}
+        ${fieldRow('Municipality', esc(r.municipality))}
+        ${fieldRow('Barangay', esc(r.barangay))}
+        ${fieldRow('Contact No.', esc(r.mobile))}
+      </div>
+      <div style="margin-top:14px;">
+        <button type="button" class="btn btn-outline btn-sm" data-open-resident="${r.id}">
+          Open full client profile
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="vertical-align:-2px"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </section>` : ''}
+    <section class="details-section" aria-labelledby="sec-po-history">
+      <h3 class="details-section-title" id="sec-po-history">Other Payouts</h3>
+      <div class="details-timeline">
+        ${PAYOUTS.filter(x => x.clientId === p.clientId && x.id !== p.id).slice(0, 3).map(x =>
+          `<div class="tl-item"><h5>${esc(x.id)} - ${esc(x.statusLabel)}</h5><p>${money(x.amount)} - ${esc(x.program)}</p><time>${esc(x.date)}</time></div>`).join('')
+          || '<div class="details-note">No other payout records for this beneficiary.</div>'}
+      </div>
+    </section>`;
+  state.openResidentPanelPayout = p.id;
+}
+
+function openPayoutPanel(id) {
+  const p = PAYOUTS.find(x => x.id === id);
+  if (!p) return;
+  state.lastFocusedRow = document.activeElement && document.activeElement.closest('tr')
+    ? document.activeElement : null;
+  renderPayoutPanel(p);
+  state.panelMode = 'payout';
+  $('#detailsPanel').classList.add('open');
+  $('#detailsBackdrop').classList.add('show');
+  lockScroll();
+  $('#detailsPanel').setAttribute('aria-hidden', 'false');
+  const close = $('#detailsClose');
+  if (close) close.focus();
+}
+
+function exportPayoutCsv() {
+  const header = ['Payout ID', 'Transaction', 'Beneficiary', 'Program', 'Amount', 'Date', 'Venue', 'Status', 'Method'];
+  const rows = filteredPayouts().map(p => [
+    p.id, p.txNo, p.clientName, p.program, p.amount, p.date, p.venue, p.statusLabel, p.method,
+  ]);
+  downloadCsv('payouts-export.csv', header, rows);
+  pushAudit('EXPORT_CSV', 'Payouts', 'payouts-export.csv', `Exported payout CSV (${rows.length} rows)`, 'info');
+  showToast(`payouts-export.csv downloaded (${rows.length} rows, UTF-8 BOM)`);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   P7 — USERS / ACCESS CONTROL
+   ═══════════════════════════════════════════════════════════════ */
+
+function roleMeta(label) {
+  return ROLES.find(r => r.label === label) || ROLES[ROLES.length - 1];
+}
+
+function pagesSummary(pages) {
+  if (!pages || !pages.length) return 'No page access';
+  if (pages.includes('*')) return 'All pages (*)';
+  return pages.map(p => (p === '*' ? '*' : p.replace('.php', ''))).join(', ');
+}
+
+function programsSummary(programs) {
+  if (!programs || !programs.length) return 'No program access';
+  if (programs.includes('*')) return 'All programs (*)';
+  return programs.join(', ');
+}
+
+function filteredUsers() {
+  const st = state.users;
+  let list = USERS.slice();
+  if (st.search) {
+    const q = st.search.toLowerCase();
+    list = list.filter(u =>
+      u.name.toLowerCase().includes(q) ||
+      u.username.toLowerCase().includes(q) ||
+      u.role.toLowerCase().includes(q) ||
+      u.department.toLowerCase().includes(q));
+  }
+  list = list.filter(u => filterMatches(u, 'users'));
+  if (st.sortKey) {
+    list.sort((a, b) => compare(
+      st.sortKey === 'name' ? a.name : a.lastLogin,
+      st.sortKey === 'name' ? b.name : b.lastLogin,
+      st.sortDir));
+  }
+  return list;
+}
+
+function userMetrics(list = USERS) {
+  return {
+    total: list.length,
+    active: list.filter(u => u.status === 'Active').length,
+    inactive: list.filter(u => u.status === 'Inactive').length,
+    multi: list.filter(u => u.multiDevice).length,
+  };
+}
+
+function renderUsers() {
+  const st = state.users;
+  const { items, page, totalPages, total } = pageSlice(filteredUsers(), st.page, st.perPage);
+  st.page = page;
+
+  const searchEl = $('#usersSearch');
+  if (searchEl && document.activeElement !== searchEl) searchEl.value = st.search;
+
+  const tbody = $('#usersBody');
+  tbody.innerHTML = items.map(u => {
+    const rm = roleMeta(u.role);
+    return `
+    <tr tabindex="0" class="row-clickable" data-user-id="${u.id}" aria-label="Open details for user ${esc(u.name)}">
+      <td>
+        <div class="td-name">
+          <div class="td-avatar" style="background:${u.avatar};color:${u.avatarText}">${esc(u.initials)}</div>
+          <div>
+            <div style="font-weight:600">${esc(u.name)}</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);font-family:'Outfit',monospace">@${esc(u.username)}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="status-badge ${rm.cls}"><span class="dot"></span>${esc(u.role)}</span></td>
+      <td style="max-width:220px"><span style="font-size:0.78rem;color:var(--text-secondary)">${esc(pagesSummary(u.pages))}</span></td>
+      <td style="white-space:nowrap;color:var(--text-secondary)">${esc(u.lastLogin)}</td>
+      <td><span class="status-badge ${u.status === 'Active' ? 'active' : 'archived'}"><span class="dot"></span>${esc(u.status)}</span></td>
+      <td class="row-actions">
+        <button type="button" class="row-action" data-edit-user="${u.id}" aria-label="Edit user ${esc(u.name)}" title="Edit">
+          <svg viewBox="0 0 24 24"><path d="M17 3a2.83 2.83 0 114 4L7.5 20.5 2 22l1.5-5.5z"/></svg>
+        </button>
+        <button type="button" class="row-action ${u.status === 'Active' ? 'danger' : ''}" data-toggle-user="${u.id}"
+                aria-label="${u.status === 'Active' ? 'Deactivate' : 'Activate'} user ${esc(u.name)}"
+                title="${u.status === 'Active' ? 'Deactivate' : 'Activate'}">
+          ${u.status === 'Active'
+            ? '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 118 0v4"/></svg>'
+            : '<svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 017-2.6"/><line x1="3" y1="3" x2="21" y2="21"/></svg>'}
+        </button>
+      </td>
+      <td class="chevron-cell"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px;">No users match your filters.</td></tr>`;
+
+  $('#usersCount').textContent = `Showing ${items.length ? (page - 1) * st.perPage + 1 : 0}-${(page - 1) * st.perPage + items.length} of ${total} users`;
+  renderPagination('#usersPager', { page, totalPages }, 'users', (p) => { state.users.page = p; renderUsers(); });
+  updateSortIndicators('users', st.sortKey, st.sortDir);
+  renderFilterUI('users');
+
+  const m = userMetrics();
+  $('#userMetricTotal').textContent = m.total;
+  $('#userMetricActive').textContent = m.active;
+  $('#userMetricInactive').textContent = m.inactive;
+  $('#userMetricMulti').textContent = m.multi;
+}
+
+function openUserDetails(id) {
+  const u = USERS.find(x => x.id === Number(id));
+  if (!u) return;
+  const rm = roleMeta(u.role);
+  const pageChips = (u.pages || []).map(p => `<span class="program-tag">${esc(p)}</span>`).join(' ')
+    || '<span class="prog-empty">None</span>';
+  const progChips = (u.programs || []).map(p => `<span class="program-tag">${esc(p)}</span>`).join(' ')
+    || '<span class="prog-empty">None</span>';
+  openModal({
+    title: u.name,
+    sub: `@${u.username} - ${u.role}`,
+    bodyHTML: `
+      <div class="details-grid">
+        ${fieldRow('Role', `<span class="status-badge ${rm.cls}"><span class="dot"></span>${esc(u.role)}</span>`)}
+        ${fieldRow('Status', `<span class="status-badge ${u.status === 'Active' ? 'active' : 'archived'}"><span class="dot"></span>${esc(u.status)}</span>`)}
+        ${fieldRow('Department', esc(u.department), 'wide')}
+        ${fieldRow('Last Login', esc(u.lastLogin))}
+        ${fieldRow('Multi-device Exempt', u.multiDevice ? 'Yes' : 'No')}
+      </div>
+      <section class="details-section">
+        <h3 class="details-section-title">Page Permissions</h3>
+        <div class="details-programs">${pageChips}</div>
+      </section>
+      <section class="details-section">
+        <h3 class="details-section-title">Program Access</h3>
+        <div class="details-programs">${progChips}</div>
+      </section>`,
+    footerHTML: `
+      <button type="button" class="btn btn-outline" data-modal-cancel>Close</button>
+      <button type="button" class="btn btn-outline" data-reset-user="${u.id}">Reset Password</button>
+      <button type="button" class="btn btn-gold" data-edit-user="${u.id}">Edit User</button>`,
+    onOpen: (ov) => {
+      ov.querySelector('[data-modal-cancel]').addEventListener('click', closeModal);
+    },
+  });
+}
+
+function openUserForm(id) {
+  const u = id ? USERS.find(x => x.id === Number(id)) : null;
+  const pageChecks = PAGE_KEYS.map(k =>
+    `<label class="filter-check"><input type="checkbox" name="pages" value="${esc(k)}" ${u && u.pages.includes(k) ? 'checked' : ''}><span>${esc(k)}</span></label>`).join('');
+  const progChecks = PROGRAMS.map(p =>
+    `<label class="filter-check"><input type="checkbox" name="programs" value="${esc(p)}" ${u && u.programs.includes(p) ? 'checked' : ''}><span>${esc(p)}</span></label>`).join('');
+
+  openModal({
+    title: u ? `Edit User - @${u.username}` : 'Add User',
+    sub: u ? esc(u.name) : 'Create an account and grant page / program permissions',
+    size: 'modal-lg',
+    bodyHTML: `
+      <form id="userForm">
+        <div class="form-grid">
+          ${input('Full Name *', 'name', u ? u.name : '', true)}
+          ${input('Username *', 'username', u ? u.username : '', true)}
+          <div class="form-group">
+            <label class="form-label" for="ufRole">Role</label>
+            <select class="form-input" id="ufRole" name="role">${optList(ROLES.map(r => r.label), u ? u.role : 'Encoder')}</select>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="ufStatus">Status</label>
+            <select class="form-input" id="ufStatus" name="status">${optList(['Active', 'Inactive'], u ? u.status : 'Active')}</select>
+          </div>
+          <div class="form-group span-2">
+            <label class="form-label" for="ufDept">Department / Office</label>
+            <input type="text" class="form-input" id="ufDept" name="department" value="${u ? esc(u.department) : ''}">
+          </div>
+          <div class="form-group span-2">
+            <label class="form-check-line" for="ufMulti">
+              <input type="checkbox" id="ufMulti" name="multiDevice" ${u && u.multiDevice ? 'checked' : ''}>
+              <span>Multi-device login exemption (single-device rule waived)</span>
+            </label>
+          </div>
+          <div class="form-group span-2">
+            <span class="form-label">Page Permissions</span>
+            <div class="perm-grid">${pageChecks}</div>
+          </div>
+          <div class="form-group span-2">
+            <span class="form-label">Program Access</span>
+            <div class="perm-grid perm-grid-cols">${progChecks}</div>
+          </div>
+        </div>
+      </form>`,
+    footerHTML: `
+      <button type="button" class="btn btn-outline" data-modal-cancel>Cancel</button>
+      <button type="submit" class="btn btn-gold" form="userForm">${u ? 'Save Changes' : 'Add User'}</button>`,
+    onOpen: (ov) => {
+      ov.querySelector('[data-modal-cancel]').addEventListener('click', closeModal);
+      ov.querySelector('#userForm').addEventListener('submit', (e) => saveUserForm(e, u));
+    },
+  });
+}
+
+function saveUserForm(e, existing) {
+  e.preventDefault();
+  const d = readForm(e.target);
+  if (!d.name || !d.username) { showToast('Full name and username are required'); return; }
+  const checked = sel => Array.from(e.target.querySelectorAll(`input[name="${sel}"]:checked`)).map(cb => cb.value);
+  const pages = checked('pages');
+  const programs = checked('programs');
+  const initials = d.name.split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
+
+  if (existing) {
+    Object.assign(existing, {
+      name: d.name, username: d.username, role: d.role, status: d.status,
+      department: d.department || '-', multiDevice: !!d.multiDevice,
+      pages, programs, initials,
+    });
+    closeModal();
+    renderUsers();
+    prependActivity(`User <strong>@${esc(existing.username)}</strong> was updated`);
+    pushAudit('USER_UPDATE', 'Access Control', existing.username,
+      `Updated account ${existing.name} (${existing.role}) - ${pages.includes('*') ? 'all pages' : pages.length + ' page grants'}`, 'info');
+    showToast(`User @${existing.username} updated`);
+    return;
+  }
+
+  if (USERS.some(x => x.username.toLowerCase() === d.username.toLowerCase())) {
+    showToast('That username is already taken');
+    return;
+  }
+  const nu = buildUser({
+    name: d.name, username: d.username, role: d.role, status: d.status,
+    department: d.department || '-', multiDevice: !!d.multiDevice,
+    lastLogin: 'Never', pages, programs,
+  }, USERS.length);
+  nu.id = Math.max(0, ...USERS.map(x => x.id)) + 1;
+  USERS.unshift(nu);
+  closeModal();
+  state.users.page = 1;
+  renderUsers();
+  prependActivity(`New user <strong>@${esc(nu.username)}</strong> was created (${esc(nu.role)})`);
+  pushAudit('USER_CREATE', 'Access Control', nu.username,
+    `Created account ${nu.name} (${nu.role}) with ${nu.pages.includes('*') ? 'full access' : nu.pages.length + ' page grants'}`, 'success');
+  showToast(`User @${nu.username} added`);
+}
+
+function toggleUserActive(id) {
+  const u = USERS.find(x => x.id === Number(id));
+  if (!u) return;
+  const deactivating = u.status === 'Active';
+  if (deactivating && u.role === 'Super Admin') {
+    showToast('The Super Admin account cannot be deactivated in the demo');
+    return;
+  }
+  confirmDialog({
+    title: deactivating ? 'Deactivate user?' : 'Activate user?',
+    message: deactivating
+      ? `Deactivate <strong>@${esc(u.username)}</strong> (${esc(u.name)})? They will lose access at the next session check.`
+      : `Restore access for <strong>@${esc(u.username)}</strong> (${esc(u.name)})?`,
+    confirmLabel: deactivating ? 'Deactivate' : 'Activate',
+    danger: deactivating,
+  }).then(ok => {
+    if (!ok) return;
+    u.status = deactivating ? 'Inactive' : 'Active';
+    renderUsers();
+    pushAudit(deactivating ? 'USER_DEACTIVATE' : 'USER_ACTIVATE', 'Access Control', u.username,
+      `${deactivating ? 'Deactivated' : 'Activated'} user account ${u.name} (${u.role})`,
+      deactivating ? 'warning' : 'success');
+    prependActivity(`User <strong>@${esc(u.username)}</strong> was ${deactivating ? 'deactivated' : 'activated'}`);
+    showToast(`@${u.username} is now ${u.status}`);
+  });
+}
+
+function resetUserPassword(id) {
+  const u = USERS.find(x => x.id === Number(id));
+  if (!u) return;
+  confirmDialog({
+    title: 'Reset password?',
+    message: `Issue a password reset for <strong>@${esc(u.username)}</strong>? In production the user receives a one-time link and must set a new password within 60 minutes.`,
+    confirmLabel: 'Reset Password',
+    danger: false,
+  }).then(ok => {
+    if (!ok) return;
+    pushAudit('PASSWORD_RESET', 'Access Control', u.username, `Issued password reset for ${u.name}`, 'info');
+    showToast(`Password reset issued for @${u.username}`);
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   P7 — AUDIT LOGS
+   ═══════════════════════════════════════════════════════════════ */
+
+function filteredAudit() {
+  const st = state.audit;
+  let list = AUDIT_LOGS.slice();
+  if (st.search) {
+    const q = st.search.toLowerCase();
+    list = list.filter(l =>
+      l.actorName.toLowerCase().includes(q) ||
+      l.action.toLowerCase().includes(q) ||
+      l.module.toLowerCase().includes(q) ||
+      l.target.toLowerCase().includes(q) ||
+      l.description.toLowerCase().includes(q));
+  }
+  if (st.dateFrom) list = list.filter(l => l.ts.slice(0, 10) >= st.dateFrom);
+  if (st.dateTo) list = list.filter(l => l.ts.slice(0, 10) <= st.dateTo);
+  list = list.filter(l => filterMatches(l, 'audit'));
+  return list;
+}
+
+function renderAudit() {
+  const st = state.audit;
+  const { items, page, totalPages, total } = pageSlice(filteredAudit(), st.page, st.perPage);
+  st.page = page;
+
+  const searchEl = $('#auditSearch');
+  if (searchEl && document.activeElement !== searchEl) searchEl.value = st.search;
+
+  const tbody = $('#auditBody');
+  tbody.innerHTML = items.map(l => {
+    const tcls = AUDIT_TYPES[l.type] ? AUDIT_TYPES[l.type].cls : 'archived';
+    return `
+    <tr class="row-clickable" data-audit-id="${l.id}" tabindex="0" aria-label="View audit entry ${l.id}">
+      <td style="white-space:nowrap;font-family:'Outfit',monospace;font-size:0.78rem;color:var(--text-muted)">${esc(l.ts)}</td>
+      <td style="font-weight:600">${esc(l.actorName)}<div style="font-size:0.72rem;color:var(--text-muted);font-family:'Outfit',monospace">@${esc(l.actor)}</div></td>
+      <td><span class="program-tag">${esc(l.action)}</span></td>
+      <td><span class="status-badge ${tcls}"><span class="dot"></span>${esc(l.module)}</span></td>
+      <td style="font-weight:600">${esc(l.target)}<div style="font-size:0.75rem;color:var(--text-secondary);max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(l.description)}</div></td>
+      <td class="chevron-cell"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px;">No audit entries match your filters.</td></tr>`;
+
+  $('#auditCount').textContent = `Showing ${items.length ? (page - 1) * st.perPage + 1 : 0}-${(page - 1) * st.perPage + items.length} of ${total} entries`;
+  renderPagination('#auditPager', { page, totalPages }, 'audit', (p) => { state.audit.page = p; renderAudit(); });
+  renderFilterUI('audit');
+}
+
+function openAuditModal(id) {
+  const l = AUDIT_LOGS.find(x => x.id === Number(id));
+  if (!l) return;
+  const tcls = AUDIT_TYPES[l.type] ? AUDIT_TYPES[l.type].cls : 'archived';
+  openModal({
+    title: `Audit Entry #${l.id}`,
+    sub: `${l.module} - ${l.action}`,
+    bodyHTML: `
+      <div class="details-grid">
+        ${fieldRow('Timestamp', esc(l.ts))}
+        ${fieldRow('Severity', `<span class="status-badge ${tcls}"><span class="dot"></span>${esc(l.type)}</span>`)}
+        ${fieldRow('Actor', `${esc(l.actorName)} (@${esc(l.actor)})`)}
+        ${fieldRow('Action Code', `<span class="program-tag">${esc(l.action)}</span>`)}
+        ${fieldRow('Module', esc(l.module))}
+        ${fieldRow('Affected Record', esc(l.target), 'wide')}
+      </div>
+      <section class="details-section">
+        <h3 class="details-section-title">Description</h3>
+        <div class="details-note">${esc(l.description)}</div>
+      </section>`,
+    footerHTML: `
+      <button type="button" class="btn btn-outline" data-modal-cancel>Close</button>`,
+    onOpen: (ov) => {
+      ov.querySelector('[data-modal-cancel]').addEventListener('click', closeModal);
+    },
+  });
+}
+
+function exportAuditCsv() {
+  const header = ['ID', 'Timestamp', 'Actor', 'Action', 'Module', 'Target', 'Description', 'Type'];
+  const rows = filteredAudit().map(l => [l.id, l.ts, l.actorName, l.action, l.module, l.target, l.description, l.type]);
+  downloadCsv('audit-trail.csv', header, rows);
+  showToast(`audit-trail.csv downloaded (${rows.length} entries, UTF-8 BOM)`);
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2346,7 +3380,7 @@ function updateSortIndicators(table, sortKey, sortDir) {
    ═══════════════════════════════════════════════════════════════ */
 
 function onInit() {
-  ['clients', 'transactions', 'households', 'scholars'].forEach(m => initFilterGroup(m));
+  ['clients', 'transactions', 'households', 'scholars', 'payouts', 'users', 'audit'].forEach(m => initFilterGroup(m));
   renderDashboardRecent();
   renderActivity();
   renderCalendar();
@@ -2358,6 +3392,9 @@ function onInit() {
   renderGipProfiles();
   renderScholarReports();
   renderUpdateLogs();
+  renderPayouts();
+  renderUsers();
+  renderAudit();
   updateMetrics();
 
   /* Login / logout */
@@ -2399,6 +3436,43 @@ function onInit() {
     if (key === 'transactions') { state.transactions.page = Number(page); renderTransactions(); }
     if (key === 'households') { state.households.page = Number(page); renderHouseholds(); }
     if (key === 'scholars') { state.scholars.page = Number(page); renderScholars(); }
+    if (key === 'payouts') { state.payouts.page = Number(page); renderPayouts(); }
+    if (key === 'users') { state.users.page = Number(page); renderUsers(); }
+    if (key === 'audit') { state.audit.page = Number(page); renderAudit(); }
+  });
+
+  /* Payout rows → slide-over details panel */
+  document.addEventListener('click', (e) => {
+    const row = e.target.closest('tr[data-payout-id]');
+    if (!row) return;
+    if (e.target.closest('.row-action')) return;
+    row.focus(); openPayoutPanel(row.dataset.payoutId);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!e.target.matches || !e.target.matches('tr[data-payout-id]')) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openPayoutPanel(e.target.dataset.payoutId);
+    }
+  });
+
+  /* User + audit rows → detail modals */
+  document.addEventListener('click', (e) => {
+    const uRow = e.target.closest('tr[data-user-id]');
+    if (uRow) {
+      if (!e.target.closest('.row-action')) openUserDetails(uRow.dataset.userId);
+      return;
+    }
+    const aRow = e.target.closest('tr[data-audit-id]');
+    if (aRow) openAuditModal(aRow.dataset.auditId);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!e.target.matches) return;
+    if (e.target.matches('tr[data-user-id]')) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openUserDetails(e.target.dataset.userId); }
+    } else if (e.target.matches('tr[data-audit-id]')) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openAuditModal(e.target.dataset.auditId); }
+    }
   });
 
   /* Row click / keyboard → details panel (CRUD row buttons are excluded) */
@@ -2542,6 +3616,41 @@ function onInit() {
   const granteeForm = $('#granteeForm');
   if (granteeForm) granteeForm.addEventListener('submit', submitGranteeUpdate);
 
+  /* P5/P7 — payout, user, audit actions (delegated) */
+  document.addEventListener('click', (e) => {
+    const addPo = e.target.closest('[data-add-payout]');
+    if (addPo) { openPayoutForm(addPo.dataset.addPayout === '' ? null : addPo.dataset.addPayout || null); return; }
+    const paid = e.target.closest('[data-paid-payout]');
+    if (paid) { markPayoutStatus(paid.dataset.paidPayout, 'paid'); return; }
+    const unclaimed = e.target.closest('[data-unclaimed-payout]');
+    if (unclaimed) { markPayoutStatus(unclaimed.dataset.unclaimedPayout, 'unclaimed'); return; }
+    const poExport = e.target.closest('[data-payout-export]');
+    if (poExport) { exportPayoutCsv(); return; }
+    const backToResident = e.target.closest('[data-open-resident]');
+    if (backToResident) {
+      if (modalEl) closeModal();
+      if ($('#detailsPanel').classList.contains('open')) closeResidentPanel(false);
+      openResidentPanel(Number(backToResident.dataset.openResident));
+      return;
+    }
+    const addUser = e.target.closest('[data-add-user]');
+    if (addUser) { openUserForm(); return; }
+    const editUser = e.target.closest('[data-edit-user]');
+    if (editUser) { if (modalEl) closeModal(); openUserForm(editUser.dataset.editUser); return; }
+    const toggleUser = e.target.closest('[data-toggle-user]');
+    if (toggleUser) { toggleUserActive(toggleUser.dataset.toggleUser); return; }
+    const resetUser = e.target.closest('[data-reset-user]');
+    if (resetUser) { resetUserPassword(resetUser.dataset.resetUser); return; }
+    const auditExport = e.target.closest('[data-audit-export]');
+    if (auditExport) { exportAuditCsv(); return; }
+    const gipView = e.target.closest('[data-gip-view]');
+    if (gipView) { openGipModal(Number(gipView.dataset.gipView)); return; }
+    const scanConfirm = e.target.closest('[data-scan-confirm]');
+    if (scanConfirm) { resolveScan('paid'); return; }
+    const scanReject = e.target.closest('[data-scan-reject]');
+    if (scanReject) { resolveScan('rejected'); return; }
+  });
+
   /* Simulation buttons (delegated) */
   document.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-sim]');
@@ -2597,13 +3706,62 @@ function onInit() {
     renderScholars();
   });
 
-  /* Sortable headers */
+  /* Payouts search */
+  const payoutsSearch = $('#payoutsSearch');
+  if (payoutsSearch) payoutsSearch.addEventListener('input', (e) => {
+    state.payouts.search = e.target.value.trim();
+    state.payouts.page = 1;
+    renderPayouts();
+  });
+
+  /* Users search */
+  const usersSearch = $('#usersSearch');
+  if (usersSearch) usersSearch.addEventListener('input', (e) => {
+    state.users.search = e.target.value.trim();
+    state.users.page = 1;
+    renderUsers();
+  });
+
+  /* Audit search + date range */
+  const auditSearch = $('#auditSearch');
+  if (auditSearch) auditSearch.addEventListener('input', (e) => {
+    state.audit.search = e.target.value.trim();
+    state.audit.page = 1;
+    renderAudit();
+  });
+  ['auditDateFrom', 'auditDateTo'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      state.audit.dateFrom = $('#auditDateFrom').value || '';
+      state.audit.dateTo = $('#auditDateTo').value || '';
+      state.audit.page = 1;
+      renderAudit();
+    });
+  });
+  const auditClearDates = $('#auditClearDates');
+  if (auditClearDates) auditClearDates.addEventListener('click', () => {
+    state.audit.dateFrom = '';
+    state.audit.dateTo = '';
+    $('#auditDateFrom').value = '';
+    $('#auditDateTo').value = '';
+    state.audit.page = 1;
+    renderAudit();
+  });
+
+  /* Sortable headers (mouse + keyboard) */
   document.addEventListener('click', (e) => {
     const th = e.target.closest('th[data-sort]');
     if (!th) return;
     const table = th.closest('[data-table]').dataset.table;
     if (table === 'clients') toggleClientSort(th.dataset.sort);
     if (table === 'transactions') toggleTransactionSort(th.dataset.sort);
+    if (table === 'payouts') togglePayoutSort(th.dataset.sort);
+    if (table === 'users') toggleUserSort(th.dataset.sort);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (!e.target.closest || !e.target.matches('th[data-sort]')) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.target.click(); }
   });
 
   /* Notifications dropdown */
@@ -2656,6 +3814,7 @@ function toggleNotifications(open) {
 function doLogin() {
   $('#loginPage').classList.remove('active');
   $('#appShell').classList.add('active');
+  pushAudit('LOGIN', 'Authentication', 'session jordi', 'Signed in from 192.168.1.2 - single-device session issued (demo)', 'success');
   $('#globalSearch').focus();
 }
 

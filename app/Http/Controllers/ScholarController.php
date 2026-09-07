@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ScholarRequest;
 use App\Models\Client;
+use App\Models\GipInfo;
+use App\Models\Municipality;
 use App\Models\ScholarInfo;
 use App\Services\AccessControlService;
 use App\Services\ScholarService;
@@ -34,7 +36,12 @@ class ScholarController extends Controller
 
     public function index(): View
     {
-        return view('scholars.index');
+        $scholarPrograms = ['CEAP', 'CEAP_NEW', 'CEDSSG', 'CEDSSG_NEW', 'OTEA', 'OTCES'];
+
+        return view('scholars.index', [
+            'municipalities' => Municipality::query()->orderBy('name')->get(),
+            'programs' => $scholarPrograms,
+        ]);
     }
 
     /**
@@ -141,7 +148,7 @@ class ScholarController extends Controller
         ]);
     }
 
-    public function update(ScholarRequest $request): RedirectResponse
+    public function update(ScholarRequest $request): JsonResponse|RedirectResponse
     {
         $this->acl->canAccessRecord(
             $request->user(),
@@ -149,7 +156,15 @@ class ScholarController extends Controller
             'scholars.php',
         ) || abort(403, 'Access denied.');
 
-        $this->scholarService->save($request->validated());
+        $scholar = $this->scholarService->save($request->validated());
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Scholar record updated successfully.',
+                'id' => $scholar->id,
+            ]);
+        }
 
         return redirect()
             ->route('scholars.index')
@@ -185,5 +200,76 @@ class ScholarController extends Controller
         $scholar->update(['client_id' => (int) $clientId]);
 
         return response()->json(['message' => 'success']);
+    }
+
+    public function show(ScholarInfo $scholar, Request $request): View
+    {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofScholar($scholar->id), 'scholars.php')
+            || abort(403, 'Access denied.');
+
+        $isPanel = $request->boolean('panel');
+
+        return view('scholars.show', [
+            'scholar' => $scholar,
+            'panel' => $isPanel,
+        ]);
+    }
+
+    public function gipData(Request $request): JsonResponse
+    {
+        $start = (int) $request->input('start', 0);
+        $length = (int) $request->input('length', 25);
+        $search = $request->input('search.value');
+        $orderIndex = (int) $request->input('order.0.column', 0);
+        $orderDir = $request->input('order.0.dir', 'asc') === 'desc' ? 'desc' : 'asc';
+
+        $query = GipInfo::query()->with('client');
+
+        if ($search) {
+            $query->whereHas('client', function ($q) use ($search) {
+                $q->where('full_name', 'like', "%{$search}%");
+            });
+        }
+
+        $total = $query->count();
+
+        $gip = $query->orderBy('id', $orderDir)
+            ->offset($start)
+            ->limit($length)
+            ->get();
+
+        $rows = $gip->map(function ($g) {
+            $c = $g->client;
+
+            return [
+                'id' => $g->id,
+                'intern_name' => $c ? $c->full_name : '—',
+                'college_course' => $g->college.' / '.$g->course,
+                'year_graduated' => $g->year_graduated,
+                'work_experience' => $g->latest_work_experience,
+                'achievements' => $g->achievements,
+                'actions' => '<button class="btn btn-sm btn-primary gip-view" data-id="'.$g->client_id.'">View</button>',
+            ];
+        });
+
+        return response()->json([
+            'draw' => (int) $request->input('draw'),
+            'recordsTotal' => $total,
+            'recordsFiltered' => $total,
+            'data' => $rows,
+        ]);
+    }
+
+    public function gipShow(GipInfo $gip, Request $request): View
+    {
+        $this->acl->canAccessRecord($request->user(), RecordMunicipality::ofClient($gip->client_id), 'scholars.php')
+            || abort(403, 'Access denied.');
+
+        $isPanel = $request->boolean('panel');
+
+        return view('scholars.gip-show', [
+            'gip' => $gip,
+            'panel' => $isPanel,
+        ]);
     }
 }

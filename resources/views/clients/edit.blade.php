@@ -3,14 +3,25 @@
 @section('title', 'Edit Client — 2D MIS')
 
 @section('content')
-    <div class="card shadow-lg border-0 p-4">
-        <h3 class="mb-3 text-center">Edit Client</h3>
-        @include('clients._form', [
-            'action' => route('clients.update', $client),
-            'method' => 'PUT',
-            'client' => $client,
-            'barangays' => $barangays,
-            'affOrgs' => $affOrgs,
-        ])
-    </div>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Clients', 'url' => route('clients.index')],
+            ['label' => 'Edit Client'],
+        ],
+    ])
+
+    @include('partials.page-header', ['title' => 'Edit Client'])
+
+    <section class="data-card" aria-label="Edit client form">
+        <div class="data-card-body">
+            @include('clients._form', [
+                'action' => route('clients.update', $client),
+                'method' => 'PUT',
+                'client' => $client,
+                'barangays' => $barangays,
+                'affOrgs' => $affOrgs,
+            ])
+        </div>
+    </section>
 @endsection

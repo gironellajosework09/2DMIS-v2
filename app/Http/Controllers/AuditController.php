@@ -56,6 +56,37 @@ class AuditController extends Controller
         return view('admin.audit_logs.index', [
             'tables' => self::TABLES,
             'targetTable' => $targetTable,
+            'filterChips' => [
+                'id' => 'audit-filters',
+                'categories' => [
+                    [
+                        'key' => 'user',
+                        'label' => 'User',
+                        'searchable' => true,
+                        'feedParam' => 'user',
+                        'options' => [],
+                        'selected' => [], // fed from json.users on feed load
+                    ],
+                    [
+                        'key' => 'action',
+                        'label' => 'Action',
+                        'searchable' => true,
+                        'feedParam' => 'action',
+                        'options' => [],
+                        'selected' => [],
+                    ],
+                ],
+                'dateRanges' => [
+                    [
+                        'key' => 'date',
+                        'label' => 'Date',
+                        'startParam' => 'minDate',
+                        'endParam' => 'maxDate',
+                        'start' => (string) $request->query('minDate', ''),
+                        'end' => (string) $request->query('maxDate', ''),
+                    ],
+                ],
+            ],
         ]);
     }
 
@@ -70,6 +101,7 @@ class AuditController extends Controller
             $date = Carbon::parse($log->created_at, 'UTC')->setTimezone('Asia/Manila');
 
             return [
+                'id' => (int) $log->id,
                 'username' => $log->username,
                 'action' => $log->action,
                 'target' => $log->target_name,
@@ -119,7 +151,7 @@ class AuditController extends Controller
     private function feedQuery(string $targetTable)
     {
         $base = DB::table('tbl_audit_logs as al')
-            ->select('al.action', 'al.created_at', 'u.username')
+            ->select('al.id', 'al.action', 'al.created_at', 'u.username')
             ->join('tbl_users as u', 'al.user_id', '=', 'u.id')
             ->where('al.target_table', $targetTable)
             ->orderByDesc('al.created_at')
@@ -143,5 +175,24 @@ class AuditController extends Controller
         }
 
         return $base->addSelect('al.target_id AS target_name');
+    }
+
+    public function show(Request $request, int $id): View
+    {
+        $targetTable = $request->query('table');
+        $targetTable = isset(self::TABLES[$targetTable]) ? $targetTable : 'tbl_clients';
+
+        $log = $this->feedQuery($targetTable)
+            ->where('al.id', $id)
+            ->first();
+
+        abort_unless($log !== null, 404);
+
+        return view('admin.audit_logs.show', [
+            'log' => $log,
+            'tables' => self::TABLES,
+            'targetTable' => $targetTable,
+            'panel' => $request->boolean('panel'),
+        ]);
     }
 }

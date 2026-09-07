@@ -17,6 +17,49 @@ class ScannerController extends Controller
 {
     public function __construct(private readonly ScanService $scanner) {}
 
+    /**
+     * P4.5 scanner-engine hub. Not gated by a single page middleware (no
+     * universal "scanners" page key exists); instead it lists only the
+     * scanner pages the signed-in user may already open, each re-checked
+     * with the same canAccessPage call the sidebar loop performs.
+     */
+    public function index(Request $request): View
+    {
+        $acl = app(AccessControlService::class);
+
+        $scanners = collect(config('scanner.scanners'))
+            ->filter(fn (array $config) => $acl->canAccessPage($request->user(), $config['page']))
+            ->map(function (array $config, string $key) {
+                return [
+                    'key' => $key,
+                    'title' => $config['title'] ?? $config['key'] ?? $key,
+                    'url' => route('scanners.'.$key),
+                    'programs' => $this->normalizePrograms($config['programs'] ?? []),
+                ];
+            })
+            ->values()
+            ->all();
+
+        return view('scanners.index', ['scanners' => $scanners]);
+    }
+
+    /**
+     * Flattens a programs list that config may store either as a bare list
+     * (['CEAP']) or as an assoc map (['CEAP' => [...template...]]) into the
+     * plain program-name list the hub cards need.
+     *
+     * @return list<string>
+     */
+    private function normalizePrograms(array $programs): array
+    {
+        $names = [];
+        foreach ($programs as $key => $value) {
+            $names[] = is_int($key) ? $value : $key;
+        }
+
+        return $names;
+    }
+
     public function show(string $key): View
     {
         $config = $this->scanner->config($key);

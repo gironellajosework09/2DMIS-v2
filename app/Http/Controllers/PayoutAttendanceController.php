@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Municipality;
+use App\Services\AccessControlService;
+use App\Support\FilterConfig;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,16 +25,90 @@ use Illuminate\View\View;
  */
 class PayoutAttendanceController extends Controller
 {
+    /**
+     * P5.5 payouts hub. Like the scanner-engine hub it is NOT page-gated:
+     * destinations are the payout-attendance variants, the unpaid-verifications
+     * screen and the two payout scanners, each rendered only when its own page
+     * key passes canAccessPage.
+     */
+    public function landing(Request $request): View
+    {
+        $acl = app(AccessControlService::class);
+
+        $destinations = [];
+
+        $attendanceLabels = [
+            'scanned_payouts' => 'Attendance',
+            'scanned_payouts2' => 'Attendance 2',
+            'scanned_payouts_unpaid' => 'Attendance Unpaid',
+        ];
+
+        foreach (config('payout.attendance') as $variant => $config) {
+            if (! $acl->canAccessPage($request->user(), $config['page'])) {
+                continue;
+            }
+
+            $destinations[] = [
+                'kind' => 'attendance',
+                'title' => $attendanceLabels[$variant] ?? $config['title'],
+                'subtitle' => $config['title'],
+                'url' => route('payout-attendance.'.$variant.'.index'),
+            ];
+        }
+
+        if ($acl->canAccessPage($request->user(), 'unpaid_verifications.php')) {
+            $destinations[] = [
+                'kind' => 'unpaid',
+                'title' => 'Unpaid Grantees',
+                'subtitle' => 'Self-service verification submissions',
+                'url' => route('unpaid-verifications.index'),
+            ];
+        }
+
+        foreach (['payout' => 'Open Payout Scanner', 'payout_unpaid' => 'Open Unpaid Scanner'] as $scannerKey => $label) {
+            $page = config('scanner.scanners.'.$scannerKey.'.page');
+            if ($page !== null && $acl->canAccessPage($request->user(), $page)) {
+                $destinations[] = [
+                    'kind' => 'scanner',
+                    'title' => $label,
+                    'subtitle' => config('scanner.scanners.'.$scannerKey.'.title') ?? $scannerKey,
+                    'url' => route('scanners.'.$scannerKey),
+                ];
+            }
+        }
+
+        return view('payouts.index', ['destinations' => $destinations]);
+    }
+
     public function index(Request $request, string $variant): View
     {
         $config = config('payout.attendance.'.$variant);
 
         abort_unless(! empty($config), 404);
 
+        // This feed is NOT ACL-scoped (matches v1), so option lists stay
+        // unscoped too — restricted users see all municipalities/programs,
+        // consistent with the rows their feed actually returns.
+        $municipalities = Municipality::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $programs = $config['programs'] ?? [];
+
         return view('payouts.attendance', [
             'variant' => $variant,
             'config' => $config,
-            'municipalities' => DB::table('tbl_municipalities')->orderBy('name')->get(['id', 'name']),
+            'municipalities' => $municipalities,
+            'filterChips' => [
+                'id' => 'payout-filters-'.$variant,
+                'categories' => [
+                    FilterConfig::municipalityCategory($municipalities, $request, $config['page'] ?? $variant.'.php'),
+                    FilterConfig::programCategory($request, $programs),
+                ],
+                'dateRanges' => [
+                    FilterConfig::dateRange('Scanned', 'scanned_start', 'scanned_end', $request),
+                ],
+            ],
         ]);
     }
 
@@ -125,10 +202,10 @@ class PayoutAttendanceController extends Controller
             ->leftJoin('tbl_users as u', 'ps.scanned_by', '=', 'u.id');
 
         if ($municipality !== '') {
-            $query->where('c.city_municipality', $municipality);
+            FilterConfig::applyMultiValue($query, 'c.city_municipality', $municipality);
         }
         if ($program !== '') {
-            $query->where('t.program', $program);
+            FilterConfig::applyMultiValue($query, 't.program', $program);
         }
         if ($scannedStart !== '') {
             $query->whereDate('ps.scanned_at', '>=', $scannedStart);
@@ -262,5 +339,25 @@ class PayoutAttendanceController extends Controller
     private function formatScannedAt(string $scannedAt): string
     {
         return Carbon::parse($scannedAt, 'UTC')->setTimezone('Asia/Manila')->format('m/d/Y - h:i A');
+    }
+
+    public function show(Request $request, string $variant, int $id): View
+    {
+        $config = config('payout.attendance.'.$variant);
+
+        abort_unless(! empty($config), 404);
+
+        $this->authorize('view', $variant);
+
+        $single = $this->singleRecord($config, $id);
+
+        abort_unless($single !== null, 404);
+
+        return view('payouts.show', [
+            'variant' => $variant,
+            'config' => $config,
+            'single' => $single,
+            'panel' => $request->boolean('panel'),
+        ]);
     }
 }

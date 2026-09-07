@@ -2,198 +2,306 @@
 
 @section('title', $config['title'].' — 2D MIS')
 
+{{-- Batch G migration (UI_UX_ANALYSIS §8.9 Group 2, scanner engine shell):
+     presentation-only. The html5-qrcode mount (#reader), the lookup/save
+     fetch contracts, the modal + audio feedback and every id the script
+     binds to are unchanged — the <script> block below is byte-preserved.
+     Layout follows the prototype scanner language: navy capture viewport,
+     framed scan region, result card in a companion column. --}}
 @push('styles')
     <style>
-        #reader {
-            width: 100%;
-            max-width: 500px;
-            margin: 20px auto;
+        /* ── Scanner screen scope. Prefixed with #scanner-screen —
+           nothing here can leak to other screens. ── */
+        #scanner-screen .scanner-viewport {
+            background-color: var(--color-navy);
+            border-radius: var(--radius-panel);
+            padding: 32px 20px;
+            min-height: 400px;
         }
 
-        #details .section-line {
+        #scanner-screen .scanner-frame {
+            width: min(320px, 100%);
+            margin-inline: auto;
+            border: 3px solid rgb(252 209 22 / 0.4);
+            border-radius: 20px;
+            padding: 8px;
+        }
+
+        #scanner-screen #reader {
+            width: 100%;
+            max-width: 500px;
+            margin-inline: auto;
+        }
+
+        #scanner-screen .scanner-label {
+            color: rgb(255 255 255 / 0.6);
+            font-size: var(--ui-text-sm);
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #scanner-screen .result-heading {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-bottom: 16px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--color-line);
+        }
+
+        #scanner-screen #details .section-line,
+        #scanner-screen #details .fs-4 {
+            color: var(--color-navy);
+        }
+
+        #scanner-screen #details .section-line {
             font-weight: 700;
-            font-size: 1.25rem;
-            color: #dc3545;
+            font-size: 1rem;
+            letter-spacing: 0.04em;
             margin-top: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--color-line-light);
         }
     </style>
 @endpush
 
 @section('content')
-    <div class="card shadow-lg border-0 p-4">
-        <h3 class="mb-3 text-center">{{ $config['title'] }}</h3>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => $config['title']],
+        ],
+    ])
 
-        @php($fields = $config['ui']['fields'] ?? [])
+    @include('partials.page-header', [
+        'title' => $config['title'],
+        'subtitle' => 'Scan a QR code to validate, then confirm the transaction.',
+    ])
 
-        @if (count(array_intersect($fields, ['date_applied', 'date_paid'])) > 0)
-            <div class="row mb-3">
-                @if (in_array('date_applied', $fields, true))
-                    <div class="col-md-6">
-                        <label class="form-label">Date Applied</label>
-                        <input type="date" id="constDateApplied" class="form-control">
+    @php($fields = $config['ui']['fields'] ?? [])
+    @php($attendanceMode = ($config['mode'] ?? null) === 'seat_attendance' || ($config['mode'] ?? null) === 'unpaid_attendance')
+
+    <div id="scanner-screen" class="grid grid-cols-1 items-start gap-[24px] xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)]">
+        {{-- Capture column: pre-scan setup fields + camera viewport --}}
+        <section class="data-card" aria-label="Scanner">
+            <div class="data-card-body flex flex-col gap-[16px]">
+                @if (count(array_intersect($fields, ['date_applied', 'date_paid'])) > 0)
+                    <div class="grid grid-cols-1 gap-[12px] sm:grid-cols-2">
+                        @if (in_array('date_applied', $fields, true))
+                            <div class="min-w-0">
+                                <label for="constDateApplied" class="field-label">Date Applied</label>
+                                <input type="date" id="constDateApplied" class="form-control">
+                            </div>
+                        @endif
+                        @if (in_array('date_paid', $fields, true))
+                            <div class="min-w-0">
+                                <label for="constDatePaid" class="field-label">Date Paid</label>
+                                <input type="date" id="constDatePaid" class="form-control">
+                            </div>
+                        @endif
                     </div>
                 @endif
-                @if (in_array('date_paid', $fields, true))
-                    <div class="col-md-6">
-                        <label class="form-label">Date Paid</label>
-                        <input type="date" id="constDatePaid" class="form-control">
+
+                @if (in_array('amount_paid', $fields, true))
+                    <div class="max-w-[280px] min-w-0">
+                        <label for="amountPaid" class="field-label">Amount Paid</label>
+                        <input type="number" step="0.01" id="amountPaid" class="form-control" placeholder="Enter amount">
+                    </div>
+                @elseif (! empty($config['ui']['amount_paid_readonly'] ?? null))
+                    <div class="max-w-[280px] min-w-0">
+                        <span class="field-label">Amount Paid</span>
+                        <input type="text" class="form-control" value="{{ $config['ui']['amount_paid_readonly'] }}" readonly>
+                    </div>
+                @endif
+
+                <div class="scanner-viewport">
+                    <div class="scanner-frame">
+                        <div id="reader"></div>
+                    </div>
+                    <p class="scanner-label mb-0">Position the QR code within the frame</p>
+                </div>
+            </div>
+        </section>
+
+        {{-- Result column: scan outcome + generic-form flow --}}
+        <section class="data-card" aria-label="Scan result">
+            <div class="data-card-body flex flex-col gap-[24px]">
+
+                <div id="scanResultArea" style="display:none;">
+                    <div class="result-heading">
+                        <span class="grid h-7 w-7 shrink-0 place-items-center rounded-pill bg-teal/[0.12] text-teal" aria-hidden="true">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><polyline points="20 6 9 17 4 12"/></svg>
+                        </span>
+                        <h3 class="mb-0 text-base font-semibold text-ink">{{ $attendanceMode ? 'Transaction Details' : 'Client Details' }}</h3>
+                    </div>
+                    <div id="details" class="rounded-[var(--radius-control)] border border-line bg-surface-hover p-[14px] text-dense leading-relaxed text-ink"></div>
+                    <div class="mt-[16px] flex justify-center gap-2">
+                        <button class="btn-navy" id="saveBtn">
+                            {{ $attendanceMode ? 'Confirm' : 'Save Transaction' }}
+                        </button>
+                        <button class="btn-subtle" id="cancelBtn">Cancel / Scan Again</button>
+                    </div>
+                </div>
+
+                @if (($config['mode'] ?? null) === 'generic_form')
+                    <div id="formArea" style="display:none;">
+                        <div class="result-heading">
+                            <span class="grid h-7 w-7 shrink-0 place-items-center rounded-pill bg-navy/[0.08] text-navy" aria-hidden="true">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                            </span>
+                            <h3 class="mb-0 text-base font-semibold text-ink">Client Details</h3>
+                        </div>
+                        <div id="clientDetails" class="rounded-[var(--radius-control)] border border-line bg-surface-hover p-[14px] text-dense text-ink"></div>
+
+                        <form id="transactionForm" class="mt-[16px] flex flex-col gap-[12px]">
+                            <input type="hidden" name="client_id" id="client_id">
+
+                            <div class="max-w-[360px] min-w-0">
+                                <label for="program" class="field-label">Program <span class="text-danger">*</span></label>
+                                <select name="program" id="program" class="form-select" required>
+                                    <option value="">-- Select Program --</option>
+                                    @foreach ($config['programs'] as $program)
+                                        <option value="{{ $program }}">{{ $program }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="relative">
+                                <span class="field-label">Beneficiary <span class="text-danger">*</span></span>
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="radio" name="patient_option" id="patient_self" value="self" checked>
+                                    <label class="form-check-label" for="patient_self">
+                                        Self (<span id="selfName">Scanned Client</span>)
+                                    </label>
+                                </div>
+
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="radio" name="patient_option" id="patient_custom" value="custom">
+                                    <label class="form-check-label" for="patient_custom">Enter Name</label>
+                                </div>
+                                <input type="text" name="patient_name_custom" id="patient_name_custom_input" class="form-control mt-2" placeholder="Enter patient name" disabled>
+
+                                <div class="form-check mt-1">
+                                    <input class="form-check-input" type="radio" name="patient_option" id="patient_existing" value="existing">
+                                    <label class="form-check-label" for="patient_existing">Select Existing Client</label>
+                                </div>
+                                <input type="text" id="existing_search" class="form-control mt-2" placeholder="Search existing client" disabled aria-label="Search existing client">
+                                <input type="hidden" name="existing_client_id" id="existing_client_id">
+                                <ul id="search_results" class="list-group position-absolute bg-white border" style="width:min(24rem,100%); z-index:1000;"></ul>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-[12px] sm:grid-cols-3">
+                                <div class="min-w-0">
+                                    <label for="date_applied" class="field-label">Date Applied <span class="text-danger">*</span></label>
+                                    <input type="date" name="date_applied" id="date_applied" class="form-control" required>
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="type" class="field-label">Type <span class="text-danger">*</span></label>
+                                    <select name="type" id="type" class="form-select" required>
+                                        <option value="">-- Select Type --</option>
+                                        @foreach ($config['ui']['types'] as $type)
+                                            <option value="{{ $type }}">{{ $type }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="status" class="field-label">Status <span class="text-danger">*</span></label>
+                                    <select name="status" id="status" class="form-select" required>
+                                        @foreach ($config['ui']['statuses'] as $status)
+                                            <option value="{{ $status }}">{{ $status }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-[12px] sm:grid-cols-2">
+                                <div class="min-w-0">
+                                    <label for="remarks" class="field-label">Remarks</label>
+                                    <input type="text" name="remarks" id="remarks" class="form-control uppercase">
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="comments" class="field-label">Comments</label>
+                                    <input type="text" name="comments" id="comments" class="form-control uppercase">
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 gap-[12px] sm:grid-cols-3">
+                                <div class="min-w-0">
+                                    <label for="suggested_amount" class="field-label">Suggested Amount</label>
+                                    <input type="number" step="0.01" name="suggested_amount" id="suggested_amount" class="form-control">
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="amount_paid" class="field-label">Amount Paid</label>
+                                    <input type="number" step="0.01" name="amount_paid" id="amount_paid" class="form-control">
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="payout_date" class="field-label">Pay Out Date</label>
+                                    <input type="date" name="payout_date" id="payout_date" class="form-control">
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="date_paid" class="field-label">Date Paid</label>
+                                    <input type="date" name="date_paid" id="date_paid" class="form-control">
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="gwa" class="field-label">GWA</label>
+                                    <input type="number" step="0.0001" name="gwa" id="gwa" class="form-control">
+                                </div>
+                                <div class="min-w-0">
+                                    <label for="units" class="field-label">Units</label>
+                                    <input type="number" step="0.0001" name="units" id="units" class="form-control">
+                                </div>
+                            </div>
+
+                            <div class="mt-[4px] flex items-center justify-end gap-2">
+                                <button type="button" class="btn-subtle" id="formCancelBtn">Cancel / Scan Again</button>
+                                <button type="submit" class="btn-navy">Save Transaction</button>
+                            </div>
+                        </form>
                     </div>
                 @endif
             </div>
-        @endif
-
-        @if (in_array('amount_paid', $fields, true))
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label for="amountPaid" class="form-label">Amount Paid</label>
-                    <input type="number" step="0.01" id="amountPaid" class="form-control" placeholder="Enter amount">
-                </div>
-            </div>
-        @elseif (! empty($config['ui']['amount_paid_readonly'] ?? null))
-            <div class="row mb-3">
-                <div class="col-md-6">
-                    <label class="form-label">Amount Paid</label>
-                    <input type="text" class="form-control" value="{{ $config['ui']['amount_paid_readonly'] }}" readonly>
-                </div>
-            </div>
-        @endif
-
-        <div id="reader"></div>
-
-        <div class="mt-3" id="scanResultArea" style="display:none;">
-            <h5>{{ ($config['mode'] ?? null) === 'seat_attendance' || ($config['mode'] ?? null) === 'unpaid_attendance' ? 'Transaction Details' : 'Client Details' }}</h5>
-            <div id="details" class="alert alert-info"></div>
-            <div class="text-center">
-                <button class="btn btn-success" id="saveBtn">
-                    {{ ($config['mode'] ?? null) === 'seat_attendance' || ($config['mode'] ?? null) === 'unpaid_attendance' ? 'Confirm' : 'Save Transaction' }}
-                </button>
-                <button class="btn btn-secondary" id="cancelBtn">Cancel / Scan Again</button>
-            </div>
-        </div>
-
-        @if (($config['mode'] ?? null) === 'generic_form')
-            <div class="mt-4" id="formArea" style="display:none;">
-                <h5>Client Details</h5>
-                <div id="clientDetails" class="alert alert-info"></div>
-
-                <form id="transactionForm">
-                    <input type="hidden" name="client_id" id="client_id">
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label>Program <span class="text-danger">*</span></label>
-                            <select name="program" class="form-select" required>
-                                <option value="">-- Select Program --</option>
-                                @foreach ($config['programs'] as $program)
-                                    <option value="{{ $program }}">{{ $program }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-3 position-relative">
-                        <label>Beneficiary <span class="text-danger">*</span></label>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="patient_option" id="patient_self" value="self" checked>
-                            <label class="form-check-label" for="patient_self">
-                                Self (<span id="selfName">Scanned Client</span>)
-                            </label>
-                        </div>
-
-                        <div class="form-check mt-1">
-                            <input class="form-check-input" type="radio" name="patient_option" id="patient_custom" value="custom">
-                            <label class="form-check-label" for="patient_custom">Enter Name</label>
-                        </div>
-                        <input type="text" name="patient_name_custom" id="patient_name_custom_input" class="form-control mt-2" placeholder="Enter patient name" disabled>
-
-                        <div class="form-check mt-1">
-                            <input class="form-check-input" type="radio" name="patient_option" id="patient_existing" value="existing">
-                            <label class="form-check-label" for="patient_existing">Select Existing Client</label>
-                        </div>
-                        <input type="text" id="existing_search" class="form-control mt-2" placeholder="Search existing client" disabled>
-                        <input type="hidden" name="existing_client_id" id="existing_client_id">
-                        <ul id="search_results" class="list-group position-absolute w-50 bg-white border"></ul>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label>Date Applied <span class="text-danger">*</span></label>
-                            <input type="date" name="date_applied" class="form-control" required>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label>Type <span class="text-danger">*</span></label>
-                            <select name="type" class="form-select" required>
-                                <option value="">-- Select Type --</option>
-                                @foreach ($config['ui']['types'] as $type)
-                                    <option value="{{ $type }}">{{ $type }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label>Status <span class="text-danger">*</span></label>
-                            <select name="status" class="form-select" required>
-                                @foreach ($config['ui']['statuses'] as $status)
-                                    <option value="{{ $status }}">{{ $status }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label>Remarks</label>
-                        <input type="text" name="remarks" class="form-control uppercase">
-                    </div>
-                    <div class="mb-3">
-                        <label>Comments</label>
-                        <input type="text" name="comments" class="form-control uppercase">
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label>Suggested Amount</label>
-                            <input type="number" step="0.01" name="suggested_amount" class="form-control">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label>Amount Paid</label>
-                            <input type="number" step="0.01" name="amount_paid" class="form-control">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label>Pay Out Date</label>
-                            <input type="date" name="payout_date" class="form-control">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label>Date Paid</label>
-                            <input type="date" name="date_paid" class="form-control">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label>GWA</label>
-                            <input type="number" step="0.0001" name="gwa" class="form-control">
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label>Units</label>
-                            <input type="number" step="0.0001" name="units" class="form-control">
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-end gap-2">
-                        <button type="button" class="btn btn-secondary" id="formCancelBtn">Cancel / Scan Again</button>
-                        <button type="submit" class="btn btn-primary">Save Transaction</button>
-                    </div>
-                </form>
-            </div>
-        @endif
+        </section>
     </div>
 
-    <div class="modal fade" id="messageModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="modalTitle">Notification</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    {{-- Scanner message modal (#messageModal) — Tailwind + Alpine.js (Phase 13).
+         Migrated off bootstrap.Modal / data-bs-*. The showModal(msg, type, title,
+         onOk) public contract and callback (afterModal) sequencing are preserved:
+         title/message are still set as plain text (innerText — keeps newlines in
+         the multi-line "Already Saved" details), the OK button still runs the
+         callback synchronously on click (default reloadPage / resumeAfterModal),
+         backdrop + ESC still close without firing the callback. --}}
+    <div id="messageModal"
+         x-data="scannerMessageModalComponent()"
+         x-cloak
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="modalTitle"
+         aria-describedby="modalMessage"
+         class="pointer-events-none fixed inset-0 z-[200]">
+        <div x-show="$store.scannerMessageModal.open"
+             x-transition.opacity.duration.200ms
+             @click="$store.scannerMessageModal.close()"
+             class="pointer-events-auto absolute inset-0 bg-ink/40"
+             aria-hidden="true"></div>
+        <div class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto p-4">
+            <div x-show="$store.scannerMessageModal.open"
+                 x-ref="dialog"
+                 x-transition.opacity.duration.200ms
+                 @keydown.escape.window="$store.scannerMessageModal.close()"
+                 @keydown.tab.prevent.stop="handleTab($event)"
+                 class="pointer-events-auto flex max-h-[90vh] w-full max-w-[480px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+                <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">
+                    <h5 id="modalTitle" class="mb-0 text-dense font-heading font-semibold text-white">Notification</h5>
+                    <button type="button"
+                        class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-white/70 transition duration-150 ease-standard hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
+                        @click="$store.scannerMessageModal.close()"
+                        aria-label="Close">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
                 </div>
-                <div class="modal-body" id="modalMessage"></div>
-                <div class="modal-footer">
-                    <button type="button" id="modalOkBtn" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+                <div id="modalMessage" class="min-h-0 flex-1 overflow-y-auto whitespace-pre-line p-[1.25rem] text-sm leading-relaxed text-ink"></div>
+                <div class="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-neutral-100 px-[1.25rem] py-[0.9rem]">
+                    <button type="button" id="modalOkBtn" class="btn-navy" @click="$store.scannerMessageModal.handleOk()">OK</button>
                 </div>
             </div>
         </div>
@@ -201,6 +309,68 @@
 
     <audio id="soundSuccess" src="{{ asset('sounds/success.mp3') }}" preload="auto"></audio>
     <audio id="soundError" src="{{ asset('sounds/not_found.mp3') }}" preload="auto"></audio>
+
+    <script>
+        (function () {
+            document.addEventListener('alpine:init', function () {
+                Alpine.store('scannerMessageModal', {
+                    open: false,
+                    title: '',
+                    body: '',
+                    afterModal: null,
+                    _prevFocus: null,
+                    openWith: function (opts) {
+                        this.title = opts.title || 'Notification';
+                        this.body = opts.body || '';
+                        this.afterModal = opts.afterModal || null;
+                        this._prevFocus = document.activeElement;
+                        var t = document.getElementById('modalTitle');
+                        if (t) t.innerText = this.title;
+                        var b = document.getElementById('modalMessage');
+                        if (b) b.innerText = this.body;
+                        document.body.style.overflow = 'hidden';
+                        this.open = true;
+                        Alpine.nextTick(function () {
+                            var ok = document.getElementById('modalOkBtn');
+                            if (ok) ok.focus();
+                        });
+                    },
+                    close: function () {
+                        if (!this.open) return;
+                        this.open = false;
+                        this.afterModal = null;
+                        document.body.style.overflow = '';
+                        if (this._prevFocus && typeof this._prevFocus.focus === 'function') {
+                            this._prevFocus.focus();
+                        }
+                        this._prevFocus = null;
+                    },
+                    handleOk: function () {
+                        var cb = this.afterModal;
+                        this.close();
+                        if (cb && typeof cb === 'function') cb();
+                    }
+                });
+            });
+
+            window.scannerMessageModalComponent = function () {
+                return {
+                    get open() { return this.$store.scannerMessageModal.open; },
+                    close: function () { this.$store.scannerMessageModal.close(); },
+                    handleTab: function (e) {
+                        var dlg = this.$refs.dialog;
+                        if (!dlg) return;
+                        var focusables = dlg.querySelectorAll('button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+                        if (!focusables.length) return;
+                        var first = focusables[0];
+                        var last = focusables[focusables.length - 1];
+                        if (e.shiftKey && document.activeElement === first) { last.focus(); }
+                        else if (!e.shiftKey && document.activeElement === last) { first.focus(); }
+                    }
+                };
+            };
+        })();
+    </script>
 @endsection
 
 @push('scripts')
@@ -213,7 +383,6 @@
 
         let html5QrcodeScanner = null;
         let lastScan = null;
-        let afterModal = null;
 
         function playSound(type) {
             const el = type === 'success'
@@ -226,10 +395,13 @@
         }
 
         function showModal(msg, type, title, onOk) {
-            document.getElementById('modalTitle').innerText = title || 'Notification';
-            document.getElementById('modalMessage').innerText = msg;
-            afterModal = onOk || reloadPage;
-            new bootstrap.Modal(document.getElementById('messageModal')).show();
+            var store = Alpine.store('scannerMessageModal');
+            if (store) {
+                store.openWith({ title: title || 'Notification', body: msg, afterModal: onOk || reloadPage });
+            } else {
+                document.getElementById('modalTitle').innerText = title || 'Notification';
+                document.getElementById('modalMessage').innerText = msg;
+            }
             playSound(type || 'error');
         }
 
@@ -426,10 +598,6 @@
 
         document.getElementById('cancelBtn').addEventListener('click', function () {
             SCANNER.resume ? resumeAfterModal() : reloadPage();
-        });
-
-        document.getElementById('modalOkBtn').addEventListener('click', function () {
-            if (afterModal) afterModal();
         });
 
         if (SCANNER.generic) {

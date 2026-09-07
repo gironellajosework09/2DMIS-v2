@@ -109,3 +109,51 @@ Detailed implementation contracts and phase documentation are located in:
   subsequent `php artisan migrate` runs there are safe and do NOT reload the dump.
 - PHP prints a harmless "Module openssl is already loaded" warning on every run
   (duplicate line in `C:\xampp\php\php.ini`).
+
+
+# Playwright Usage Rules
+
+Playwright is the project's E2E testing framework and must be allowed to test the application across all configured browsers and mobile devices.
+
+## Execution Rules
+
+* Do not disable or remove configured Playwright browser projects to reduce AI token usage.
+* Do not run the entire Playwright suite unless explicitly requested or required for final regression verification.
+* When developing or debugging a specific feature, run only the relevant test file.
+* When possible, run the specific browser/project relevant to the current issue.
+* Run all configured browser projects when performing cross-browser verification.
+* Full-suite testing across all configured projects is reserved for explicit regression testing.
+
+## Failure Analysis Rules
+
+When a Playwright test fails:
+
+1. Read the test failure output first.
+2. Inspect the failing test.
+3. Inspect only the minimum application files necessary to diagnose the failure.
+4. Do not scan the entire project.
+5. Do not inspect unrelated modules.
+6. Do not automatically open screenshots, traces, videos, or HTML reports unless necessary.
+7. Do not generate additional debugging artifacts unless necessary.
+8. Fix only the actual cause of the failure.
+9. Rerun only the affected test.
+10. Perform broader regression testing only after the targeted test passes.
+
+## Application Preservation
+
+Playwright must adapt to the existing 2DMIS v2 application.
+
+Never modify application functionality, backend behavior, database structure, routes, authentication, business rules, or existing behavior merely to make a Playwright test pass.
+
+Tests must verify the application rather than redefine how the application should work.
+
+## Token Efficiency
+
+Token efficiency must be achieved by limiting unnecessary AI analysis, not by reducing Playwright's browser coverage.
+
+Do not perform broad project analysis for a localized Playwright issue.
+
+Do not repeatedly rerun successful tests without a reason.
+
+Do not summarize large Playwright reports when a concise pass/fail result is sufficient.
+

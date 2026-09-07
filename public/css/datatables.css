@@ -1,0 +1,586 @@
+/* ═════════════════════════════════════════════════════════════════════
+   2DMIS v2 — Project-owned DataTables skin (Phase 25)
+   ---------------------------------------------------------------------
+   Replaces https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css
+   on the 11 DataTables screens. Plain CSS, no build step, served as
+   public/css/datatables.css from each screen's @push('styles') block in
+   the same position the CDN skin used to occupy (before the screen's own
+   token <style>, so per-screen overrides still win the cascade).
+
+   Ownership contract:
+   - Self-contained: NO --bs-* custom properties are declared or consumed.
+     DataTables chrome renders identically whether or not Bootstrap's
+     stylesheet is loaded, so the CDN bootstrap5 skin is no longer a
+     dependency. Only dataTables.bootstrap5.min.js (the markup renderer)
+     is retained, at 12 file-level CDN refs.
+   - Scoped: the Bootstrap-equivalent layer below is scoped to elements
+     INSIDE .dataTables_wrapper (the chrome DataTables generates). It
+     never affects application markup outside a DataTable.
+   - Values match Bootstrap 5.3.2's consumed output where the app does
+     not already override them (comments mark those), and the project's
+     ui.css tokens where the app re-points them (navy pagination, gold
+     focus ring). Screens' own token skins keep their per-screen rules.
+
+   Sections:
+     A. DataTables core chrome — upstream 1.13.6 bootstrap5 skin rules
+        reasserted with identical selectors/values (nothing shifts now).
+     B. Bootstrap-equivalent layer for DataTables-generated markup
+        (table(.sm)/form-control(-sm)/form-select(-sm)/pagination),
+        scoped strictly to .dataTables_wrapper.
+     C. Dark-mode token overrides (upstream, currently unused; kept for
+        parity with the CDN file so diffing stays meaningful).
+   ═════════════════════════════════════════════════════════════════════ */
+
+/* ── A. DataTables core chrome (upstream 1.13.6, unchanged) ───────── */
+:root {
+    --dt-row-selected: 13, 110, 253;
+    --dt-row-selected-text: 255, 255, 255;
+    --dt-row-selected-link: 9, 10, 11;
+    --dt-row-stripe: 0, 0, 0;
+    --dt-row-hover: 0, 0, 0;
+    --dt-column-ordering: 0, 0, 0;
+    --dt-html-background: white;
+}
+
+table.dataTable td.dt-control {
+    text-align: center;
+    cursor: pointer;
+}
+table.dataTable td.dt-control:before {
+    display: inline-block;
+    color: rgba(0, 0, 0, 0.5);
+    content: "►";
+}
+table.dataTable tr.dt-hasChild td.dt-control:before {
+    content: "▼";
+}
+
+table.dataTable thead > tr > th.sorting,
+table.dataTable thead > tr > th.sorting_asc,
+table.dataTable thead > tr > th.sorting_desc,
+table.dataTable thead > tr > th.sorting_asc_disabled,
+table.dataTable thead > tr > th.sorting_desc_disabled,
+table.dataTable thead > tr > td.sorting,
+table.dataTable thead > tr > td.sorting_asc,
+table.dataTable thead > tr > td.sorting_desc,
+table.dataTable thead > tr > td.sorting_asc_disabled,
+table.dataTable thead > tr > td.sorting_desc_disabled {
+    cursor: pointer;
+    position: relative;
+    padding-right: 26px;
+}
+table.dataTable thead > tr > th.sorting:before,
+table.dataTable thead > tr > th.sorting:after,
+table.dataTable thead > tr > th.sorting_asc:before,
+table.dataTable thead > tr > th.sorting_asc:after,
+table.dataTable thead > tr > th.sorting_desc:before,
+table.dataTable thead > tr > th.sorting_desc:after,
+table.dataTable thead > tr > th.sorting_asc_disabled:before,
+table.dataTable thead > tr > th.sorting_asc_disabled:after,
+table.dataTable thead > tr > th.sorting_desc_disabled:before,
+table.dataTable thead > tr > th.sorting_desc_disabled:after,
+table.dataTable thead > tr > td.sorting:before,
+table.dataTable thead > tr > td.sorting:after,
+table.dataTable thead > tr > td.sorting_asc:before,
+table.dataTable thead > tr > td.sorting_asc:after,
+table.dataTable thead > tr > td.sorting_desc:before,
+table.dataTable thead > tr > td.sorting_desc:after,
+table.dataTable thead > tr > td.sorting_asc_disabled:before,
+table.dataTable thead > tr > td.sorting_asc_disabled:after,
+table.dataTable thead > tr > td.sorting_desc_disabled:before,
+table.dataTable thead > tr > td.sorting_desc_disabled:after {
+    position: absolute;
+    display: block;
+    opacity: 0.125;
+    right: 10px;
+    line-height: 9px;
+    font-size: 0.8em;
+}
+table.dataTable thead > tr > th.sorting:before,
+table.dataTable thead > tr > th.sorting_asc:before,
+table.dataTable thead > tr > th.sorting_desc:before,
+table.dataTable thead > tr > th.sorting_asc_disabled:before,
+table.dataTable thead > tr > th.sorting_desc_disabled:before,
+table.dataTable thead > tr > td.sorting:before,
+table.dataTable thead > tr > td.sorting_asc:before,
+table.dataTable thead > tr > td.sorting_desc:before,
+table.dataTable thead > tr > td.sorting_asc_disabled:before,
+table.dataTable thead > tr > td.sorting_desc_disabled:before {
+    bottom: 50%;
+    content: "▲";
+}
+table.dataTable thead > tr > th.sorting:after,
+table.dataTable thead > tr > th.sorting_asc:after,
+table.dataTable thead > tr > th.sorting_desc:after,
+table.dataTable thead > tr > th.sorting_asc_disabled:after,
+table.dataTable thead > tr > th.sorting_desc_disabled:after,
+table.dataTable thead > tr > td.sorting:after,
+table.dataTable thead > tr > td.sorting_asc:after,
+table.dataTable thead > tr > td.sorting_desc:after,
+table.dataTable thead > tr > td.sorting_asc_disabled:after,
+table.dataTable thead > tr > td.sorting_desc_disabled:after {
+    top: 50%;
+    content: "▼";
+}
+table.dataTable thead > tr > th.sorting_asc:before,
+table.dataTable thead > tr > th.sorting_desc:after,
+table.dataTable thead > tr > td.sorting_asc:before,
+table.dataTable thead > tr > td.sorting_desc:after {
+    opacity: 0.6;
+}
+table.dataTable thead > tr > th.sorting_desc_disabled:after,
+table.dataTable thead > tr > th.sorting_asc_disabled:before,
+table.dataTable thead > tr > td.sorting_desc_disabled:after,
+table.dataTable thead > tr > td.sorting_asc_disabled:before {
+    display: none;
+}
+table.dataTable thead > tr > th:active,
+table.dataTable thead > tr > td:active {
+    outline: none;
+}
+div.dataTables_scrollBody > table.dataTable > thead > tr > th:before,
+div.dataTables_scrollBody > table.dataTable > thead > tr > th:after,
+div.dataTables_scrollBody > table.dataTable > thead > tr > td:before,
+div.dataTables_scrollBody > table.dataTable > thead > tr > td:after {
+    display: none;
+}
+
+div.dataTables_processing {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 200px;
+    margin-left: -100px;
+    margin-top: -26px;
+    text-align: center;
+    padding: 2px;
+}
+div.dataTables_processing > div:last-child {
+    position: relative;
+    width: 80px;
+    height: 15px;
+    margin: 1em auto;
+}
+div.dataTables_processing > div:last-child > div {
+    position: absolute;
+    top: 0;
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: rgb(var(--dt-row-selected));
+    animation-timing-function: cubic-bezier(0, 1, 1, 0);
+}
+div.dataTables_processing > div:last-child > div:nth-child(1) {
+    left: 8px;
+    animation: datatables-loader-1 0.6s infinite;
+}
+div.dataTables_processing > div:last-child > div:nth-child(2) {
+    left: 8px;
+    animation: datatables-loader-2 0.6s infinite;
+}
+div.dataTables_processing > div:last-child > div:nth-child(3) {
+    left: 32px;
+    animation: datatables-loader-2 0.6s infinite;
+}
+div.dataTables_processing > div:last-child > div:nth-child(4) {
+    left: 56px;
+    animation: datatables-loader-3 0.6s infinite;
+}
+
+@keyframes datatables-loader-1 {
+    0% { transform: scale(0); }
+    100% { transform: scale(1); }
+}
+@keyframes datatables-loader-3 {
+    0% { transform: scale(1); }
+    100% { transform: scale(0); }
+}
+@keyframes datatables-loader-2 {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(24px, 0); }
+}
+
+table.dataTable.nowrap th,
+table.dataTable.nowrap td {
+    white-space: nowrap;
+}
+table.dataTable th.dt-left,
+table.dataTable td.dt-left {
+    text-align: left;
+}
+table.dataTable th.dt-center,
+table.dataTable td.dt-center,
+table.dataTable td.dataTables_empty {
+    text-align: center;
+}
+table.dataTable th.dt-right,
+table.dataTable td.dt-right {
+    text-align: right;
+}
+table.dataTable th.dt-justify,
+table.dataTable td.dt-justify {
+    text-align: justify;
+}
+table.dataTable th.dt-nowrap,
+table.dataTable td.dt-nowrap {
+    white-space: nowrap;
+}
+table.dataTable thead th,
+table.dataTable thead td,
+table.dataTable tfoot th,
+table.dataTable tfoot td {
+    text-align: left;
+}
+table.dataTable thead th.dt-head-left,
+table.dataTable thead td.dt-head-left,
+table.dataTable tfoot th.dt-head-left,
+table.dataTable tfoot td.dt-head-left {
+    text-align: left;
+}
+table.dataTable thead th.dt-head-center,
+table.dataTable thead td.dt-head-center,
+table.dataTable tfoot th.dt-head-center,
+table.dataTable tfoot td.dt-head-center {
+    text-align: center;
+}
+table.dataTable thead th.dt-head-right,
+table.dataTable thead td.dt-head-right,
+table.dataTable tfoot th.dt-head-right,
+table.dataTable tfoot td.dt-head-right {
+    text-align: right;
+}
+table.dataTable thead th.dt-head-justify,
+table.dataTable thead td.dt-head-justify,
+table.dataTable tfoot th.dt-head-justify,
+table.dataTable tfoot td.dt-head-justify {
+    text-align: justify;
+}
+table.dataTable thead th.dt-head-nowrap,
+table.dataTable thead td.dt-head-nowrap,
+table.dataTable tfoot th.dt-head-nowrap,
+table.dataTable tfoot td.dt-head-nowrap {
+    white-space: nowrap;
+}
+table.dataTable tbody th.dt-body-left,
+table.dataTable tbody td.dt-body-left {
+    text-align: left;
+}
+table.dataTable tbody th.dt-body-center,
+table.dataTable tbody td.dt-body-center {
+    text-align: center;
+}
+table.dataTable tbody th.dt-body-right,
+table.dataTable tbody td.dt-body-right {
+    text-align: right;
+}
+table.dataTable tbody th.dt-body-justify,
+table.dataTable tbody td.dt-body-justify {
+    text-align: justify;
+}
+table.dataTable tbody th.dt-body-nowrap,
+table.dataTable tbody td.dt-body-nowrap {
+    white-space: nowrap;
+}
+
+table.dataTable {
+    clear: both;
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+    max-width: none !important;
+    border-collapse: separate !important;
+    border-spacing: 0;
+}
+table.dataTable td,
+table.dataTable th {
+    -webkit-box-sizing: content-box;
+    box-sizing: content-box;
+}
+table.dataTable.table-striped > tbody > tr:nth-of-type(2n+1) > * {
+    box-shadow: none;
+}
+table.dataTable > tbody > tr {
+    background-color: transparent;
+}
+table.dataTable > tbody > tr.selected > * {
+    box-shadow: inset 0 0 0 9999px rgb(var(--dt-row-selected));
+    color: rgb(var(--dt-row-selected-text));
+}
+table.dataTable > tbody > tr.selected a {
+    color: rgb(var(--dt-row-selected-link));
+}
+table.dataTable.table-striped > tbody > tr.odd > * {
+    box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-stripe), 0.05);
+}
+table.dataTable.table-striped > tbody > tr.odd.selected > * {
+    box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-selected), 0.95);
+}
+table.dataTable.table-hover > tbody > tr:hover > * {
+    box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-hover), 0.075);
+}
+table.dataTable.table-hover > tbody > tr.selected:hover > * {
+    box-shadow: inset 0 0 0 9999px rgba(var(--dt-row-selected), 0.975);
+}
+
+div.dataTables_wrapper div.dataTables_length label {
+    font-weight: normal;
+    text-align: left;
+    white-space: nowrap;
+}
+div.dataTables_wrapper div.dataTables_length select {
+    width: auto;
+    display: inline-block;
+}
+div.dataTables_wrapper div.dataTables_filter {
+    text-align: right;
+}
+div.dataTables_wrapper div.dataTables_filter label {
+    font-weight: normal;
+    white-space: nowrap;
+    text-align: left;
+}
+div.dataTables_wrapper div.dataTables_filter input {
+    margin-left: 0.5em;
+    display: inline-block;
+    width: auto;
+}
+div.dataTables_wrapper div.dataTables_info {
+    padding-top: 0.85em;
+}
+div.dataTables_wrapper div.dataTables_paginate {
+    margin: 0;
+    white-space: nowrap;
+    text-align: right;
+}
+div.dataTables_wrapper div.dataTables_paginate ul.pagination {
+    margin: 2px 0;
+    white-space: nowrap;
+    justify-content: flex-end;
+}
+div.dataTables_wrapper div.dt-row {
+    position: relative;
+}
+
+div.dataTables_scrollHead table.dataTable {
+    margin-bottom: 0 !important;
+}
+div.dataTables_scrollBody > table {
+    border-top: none;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+div.dataTables_scrollBody > table > thead .sorting:before,
+div.dataTables_scrollBody > table > thead .sorting_asc:before,
+div.dataTables_scrollBody > table > thead .sorting_desc:before,
+div.dataTables_scrollBody > table > thead .sorting:after,
+div.dataTables_scrollBody > table > thead .sorting_asc:after,
+div.dataTables_scrollBody > table > thead .sorting_desc:after {
+    display: none;
+}
+div.dataTables_scrollBody > table > tbody tr:first-child th,
+div.dataTables_scrollBody > table > tbody tr:first-child td {
+    border-top: none;
+}
+div.dataTables_scrollFoot > .dataTables_scrollFootInner {
+    box-sizing: content-box;
+}
+div.dataTables_scrollFoot > .dataTables_scrollFootInner > table {
+    margin-top: 0 !important;
+    border-top: none;
+}
+
+@media screen and (max-width: 767px) {
+    div.dataTables_wrapper div.dataTables_length,
+    div.dataTables_wrapper div.dataTables_filter,
+    div.dataTables_wrapper div.dataTables_info,
+    div.dataTables_wrapper div.dataTables_paginate {
+        text-align: center;
+    }
+    div.dataTables_wrapper div.dataTables_paginate ul.pagination {
+        justify-content: center !important;
+    }
+}
+
+table.dataTable.table-sm > thead > tr > th:not(.sorting_disabled) {
+    padding-right: 20px;
+}
+
+table.table-bordered.dataTable {
+    border-right-width: 0;
+}
+table.table-bordered.dataTable thead tr:first-child th,
+table.table-bordered.dataTable thead tr:first-child td {
+    border-top-width: 1px;
+}
+table.table-bordered.dataTable th,
+table.table-bordered.dataTable td {
+    border-left-width: 0;
+}
+table.table-bordered.dataTable th:first-child,
+table.table-bordered.dataTable td:first-child {
+    border-left-width: 1px;
+}
+table.table-bordered.dataTable th:last-child,
+table.table-bordered.dataTable td:last-child {
+    border-right-width: 1px;
+}
+table.table-bordered.dataTable th,
+table.table-bordered.dataTable td {
+    border-bottom-width: 1px;
+}
+div.dataTables_scrollHead table.table-bordered {
+    border-bottom-width: 0;
+}
+
+div.table-responsive > div.dataTables_wrapper > div.row {
+    margin: 0;
+}
+div.table-responsive > div.dataTables_wrapper > div.row > div[class^=col-]:first-child {
+    padding-left: 0;
+}
+div.table-responsive > div.dataTables_wrapper > div.row > div[class^=col-]:last-child {
+    padding-right: 0;
+}
+
+/* ── B. Bootstrap-equivalent layer for DataTables-generated markup ──
+   The generated chrome carries Bootstrap class names (.table(-sm),
+   .form-control(-sm), .form-select(-sm), .pagination/.page-*). The
+   rules below own that markup so Bootstrap CSS is not required for it.
+   Values mirror Bootstrap 5.3.2's consumed defaults except where the
+   app re-points them at project tokens (marked "ui.css").            */
+
+/* B1. Table base (screens declare `table table-sm`). */
+.dataTables_wrapper table.dataTable {
+    width: 100%;
+    vertical-align: top;
+    border-color: #dee2e6; /* Bootstrap --bs-table-border-color */
+}
+.dataTables_wrapper table.dataTable.align-middle {
+    vertical-align: middle !important; /* Bootstrap .align-middle */
+}
+.dataTables_wrapper table.dataTable > thead {
+    vertical-align: bottom;
+}
+.dataTables_wrapper table.dataTable > tbody {
+    vertical-align: inherit;
+}
+.dataTables_wrapper table.dataTable > :not(caption) > * > * {
+    padding: 0.5rem 0.5rem;
+    color: #212529;                    /* Bootstrap --bs-table-color */
+    background-color: #fff;            /* Bootstrap --bs-table-bg */
+    border-bottom-width: 1px;          /* Bootstrap --bs-border-width */
+    box-shadow: inset 0 0 0 9999px transparent; /* --bs-table-accent-bg */
+}
+.dataTables_wrapper table.dataTable.table-sm > :not(caption) > * > * {
+    padding: 0.25rem 0.25rem; /* Bootstrap .table-sm */
+}
+
+/* B2. Filter input (.form-control.form-control-sm) and length select
+   (.form-select.form-select-sm). Focus states stay ui.css classes
+   (.form-control:focus / .form-select:focus), which match by class
+   name and remain valid after Bootstrap's stylesheet is removed. */
+.dataTables_wrapper div.dataTables_length label,
+.dataTables_wrapper div.dataTables_filter label {
+    display: inline-block; /* Bootstrap reboot label */
+}
+.dataTables_wrapper .dataTables_filter input {
+    padding: 0.25rem 0.5rem;
+    min-height: calc(1.5em + 0.5rem + 2px); /* .form-control-sm */
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #212529;
+    appearance: none;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem; /* --bs-border-radius-sm; screens override (6px) */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.dataTables_wrapper .dataTables_filter input::placeholder {
+    color: #6c757d; /* Bootstrap --bs-secondary-color */
+    opacity: 1;
+}
+.dataTables_wrapper .dataTables_length select {
+    padding: 0.25rem 2.25rem 0.25rem 0.5rem;
+    min-height: calc(1.5em + 0.75rem + 2px); /* .form-select */
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #212529;
+    appearance: none;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 0.25rem; /* --bs-border-radius-sm; screens override (6px) */
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+/* B3. Pagination (.pagination .page-item .page-link). Structure/
+   default colors mirror Bootstrap 5.3.2; identity colors follow the
+   app's ui.css re-pointing (navy, gold focus ring). */
+.dataTables_wrapper .pagination {
+    display: flex;
+    padding-left: 0;
+    list-style: none; /* Bootstrap .pagination */
+}
+.dataTables_wrapper .pagination .page-link {
+    position: relative;
+    display: block;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    color: var(--ui-navy); /* ui.css re-point */
+    text-decoration: none;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out,
+                border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+.dataTables_wrapper .pagination .page-item:not(:first-child) .page-link {
+    margin-left: -1px; /* Bootstrap negative margin join */
+}
+.dataTables_wrapper .pagination .page-item:first-child .page-link {
+    border-top-left-radius: 0.375rem;  /* --bs-border-radius */
+    border-bottom-left-radius: 0.375rem;
+}
+.dataTables_wrapper .pagination .page-item:last-child .page-link {
+    border-top-right-radius: 0.375rem;
+    border-bottom-right-radius: 0.375rem;
+}
+.dataTables_wrapper .pagination .page-link:hover {
+    z-index: 2;
+    color: var(--ui-navy-hover); /* ui.css re-point */
+    background-color: #e9ecef;   /* Bootstrap --bs-pagination-hover-bg */
+    border-color: #dee2e6;
+}
+.dataTables_wrapper .pagination .page-link:focus,
+.dataTables_wrapper .pagination .page-link:focus-visible {
+    z-index: 3;
+    color: #0a58ca; /* Bootstrap --bs-pagination-focus-color (unchanged) */
+    background-color: #e9ecef;
+    outline: 0;
+    box-shadow: var(--ui-focus-ring); /* ui.css re-point (gold) */
+}
+.dataTables_wrapper .pagination .page-item.active .page-link {
+    z-index: 3;
+    color: #fff;                /* Bootstrap --bs-pagination-active-color */
+    background-color: var(--ui-navy); /* ui.css + per-screen skins */
+    border-color: var(--ui-navy);
+}
+.dataTables_wrapper .pagination .page-item.active .page-link:focus-visible {
+    background-color: var(--ui-navy);
+    box-shadow: var(--ui-focus-ring);
+}
+.dataTables_wrapper .pagination .page-item.disabled .page-link {
+    color: #6c757d; /* Bootstrap --bs-pagination-disabled-color */
+    pointer-events: none;
+    background-color: #e9ecef; /* --bs-pagination-disabled-bg */
+    border-color: #dee2e6;
+}
+
+/* ── C. Dark-mode token overrides (upstream, unused today) ────────── */
+:root[data-bs-theme=dark] {
+    --dt-row-hover: 255, 255, 255;
+    --dt-row-stripe: 255, 255, 255;
+    --dt-column-ordering: 255, 255, 255;
+}

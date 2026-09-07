@@ -128,6 +128,67 @@ Window size target: the freeze window should fit the sum of steps 2–5; backup
 timing from the drill (municipal data volume is small, so this is realistically
 a short window).
 
+### 7.1 Production specifics & S2 per-page flip sequence (P8, finalized 2026-08-29)
+
+Approvals and mechanics live in `docs/implementation/P8_DECISION_PACKAGE.md`
+(§B–§F + "OWNER DECISIONS & PRE-FLIGHT — 2026-08-29"). Production-specific
+hard requirements, in execution order:
+
+1. **Sentinel seed before any migrate (CRITICAL):** production's `migrations`
+   table must already hold the `__legacy_v1_baseline_schema__` row before the
+   first `php artisan migrate`, otherwise the committed schema dump
+   (`database/schema/mysql-schema.sql`, opens with `DROP TABLE IF EXISTS`) wipes
+   every table. Seed via reviewed SQL (`INSERT INTO migrations (migration, batch)
+   VALUES ('__legacy_v1_baseline_schema__', 1);`) first; then only additive
+   migrations run (Laravel infra tables + the two P12 additive tables
+   `tbl_action_permissions` / `tbl_user_municipalities`).
+2. **Reconciliation at step 5** = §C.9 Q1–Q7 from
+   `docs/reconciliation_queries.sql` (Q6 is CAST-corrected),
+   plus the §5 framework checks. Runs SELECT-only, pre-grant.
+3. **Backup/restore drill:** re-proven against production-size data on staging
+   before the window; local drill already passed (§4). Document dump/restore
+   timings to size the window.
+4. **Staging rehearsal:** one full grant → flip → smoke → rollback cycle on
+   staging before real cutover (rollback exercised, §8). Staging not yet
+   available — a local rehearsal fallback on `main_system_test` was completed
+   2026-08-29 (real config-file flip/rollback for `clients.php`; see the P8
+   package record). The formal staging rehearsal is still REQUIRED.
+5. **S2 per-page flip (post-deploy, per §D):** after reconciliation + bootstrap
+   + grants, flip `enforcement` one page at a time in order clients.php →
+   household.php → all_transactions.php → scholars.php → register.php. **If
+   production runs `php artisan config:cache`, re-run it after each flip**,
+   otherwise the flip does not take effect. Smoke per §D step 5; monitor
+   `tbl_audit_logs`; rollback = flip the single flag back to `false` (instant,
+   tables inert).
+6. **Deferred (owner-approved 2026-08-29):** A.5 public throttling, P7 audit
+   enhancements, denial auditing — all out of scope; do not add 429 behavior at
+   cutover.
+
+### 7.2 Responsibility matrix (2026-08-29 — authority re-scoped)
+
+The developer is NOT the production system/DB owner and performs NO production
+operation. Every production step is executed by the production
+administrator/owner under owner approval. Canonical matrix:
+`docs/implementation/P8_DECISION_PACKAGE.md` →
+"RESPONSIBILITY MATRIX & DBA HANDOFF — 2026-08-29"; read-only reconciliation
+package: `docs/DBA_RECONCILIATION_HANDOFF.md`.
+
+| Runbook step (§7 / §7.1) | Developer | Administrator/Owner |
+|---|---|---|
+| 1 Announce & freeze | prepares notice text | issues it |
+| 2 Final backup + verify | — | runs dump + restore-drill verification |
+| 3 Deploy + migrate (sentinel, `migrate:install`, additive migrate) | prepares deployment package + reviewed SQL | executes deploy + migrations |
+| 4 Sanity check | defines checks | runs them |
+| 5 Reconcile (Q1–Q7 + §5 checks) | analyses returned results | runs the read-only handoff |
+| 6 Super-admin bootstrap | supplies reviewed SQL **only if Q3 = 0** `'*'` holders | executes it |
+| 7 Grants (§E) | defines grant list from Q2/Q3 | applies via admin screens |
+| S2 per-page flips (§D) | defines smoke-test procedure | flips flags + `config:cache` + smoke-tests + monitors |
+| 8 Rollback | defines rollback criteria | executes (flag revert / re-point / restore) |
+| Post-window (v1 archive, cred rotation, backup schedule) | updates docs | performs on prod |
+
+Staging provisioning (Hostinger SSH, PHP 8.3+, rehearsal env) is OWNER/ADMIN
+ACTION REQUIRED and is **not worked around** by the developer.
+
 ## 8. Rollback procedure
 
 | Trigger | Action | Data impact |

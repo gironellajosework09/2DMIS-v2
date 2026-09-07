@@ -66,6 +66,32 @@ class HouseholdTest extends TestCase
             ->assertSessionHas('login_status', 'denied');
     }
 
+    public function test_households_success_flash_renders_migrated_alpine_toast(): void
+    {
+        $this->logInAs($this->householdUser());
+
+        $this->withSession(['success' => 'Household added successfully!'])
+            ->get(route('households.index'))
+            ->assertOk()
+            ->assertSee('Household added successfully!')
+            ->assertSee('x-data="{ open: true }"', false)
+            ->assertSee('x-show="open"', false)
+            ->assertSee('@click="open = false"', false)
+            ->assertSee('role="status"', false)
+            ->assertDontSee('data-bs-dismiss="toast"', false)
+            ->assertDontSee('data-bs-autohide', false);
+    }
+
+    public function test_households_success_flash_absent_renders_no_toast(): void
+    {
+        $this->logInAs($this->householdUser());
+
+        $this->get(route('households.index'))
+            ->assertOk()
+            ->assertDontSee('x-data="{ open: true }"', false)
+            ->assertDontSee('role="status"', false);
+    }
+
     public function test_households_pages_load_for_permitted_user(): void
     {
         $head = $this->headClient();

@@ -371,19 +371,19 @@ screens themselves sit behind `page:manage_permissions.php`.
 
 ---
 
-## G. ADR-001..010 status review (statuses NOT changed)
+## G. ADR-001..010 status review (statuses aligned to `ARCHITECTURE_DECISION.md` 2026-08-29; sign-offs already recorded 2026-08-24 — this pass only corrects the snapshot, it changes no ADR)
 
 | ADR | Title | Status today | Implemented? | Evidence | Recommendation | Reason |
 |---|---|---|---|---|---|---|
-| 001 | Framework: Laravel | Proposed | **Yes** | Whole codebase on Laravel 12 (P0–P12); hosting PHP 8.3+ owner-confirmed | **ACCEPT** | Decision fully executed; fallback condition moot |
-| 002 | Auth & sessions (username + single-device) | Proposed | **Yes** | P1: username provider, `EnsureSingleDevice` w/ `hash_equals`, exemptions, force-logout; 6 auth tests green | **ACCEPT** | Contract ported and tested; no deviations |
-| 003 | Single ACL service | Proposed | **Yes** | `AccessControlService` sole authority; gates `page`/`program`/`action`; `page:`/`action:` middleware; grep shows zero username checks / magic ids; extended P2/P3/P7/P12 | **ACCEPT** | Strongest-evidenced ADR in the repo |
-| 004 | Scanner engine (config-driven) | Proposed | **Yes** | P4: 14 scanners via `config/scanner.php`; P5 payout variants same pattern; scanner/payout suites green | **ACCEPT** | Built and regression-covered |
-| 005 | Baseline + additive-only migrations | Proposed | **Yes** | `database/schema/mysql-schema.sql` sentinel workflow; 6 additive fixes; P12's 2 additive tables; no destructive op ever run | **ACCEPT** | Guardrails enforced throughout |
+| 001 | Framework: Laravel | **Accepted** (2026-08-24) | **Yes** | Whole codebase on Laravel 12 (P0–P12); hosting PHP 8.3+ owner-confirmed | **ACCEPT** | Decision fully executed; fallback condition moot |
+| 002 | Auth & sessions (username + single-device) | **Accepted** (2026-08-24) | **Yes** | P1: username provider, `EnsureSingleDevice` w/ `hash_equals`, exemptions, force-logout; 6 auth tests green | **ACCEPT** | Contract ported and tested; no deviations |
+| 003 | Single ACL service | **Accepted** (2026-08-24) | **Yes** | `AccessControlService` sole authority; gates `page`/`program`/`action`; `page:`/`action:` middleware; grep shows zero username checks / magic ids; extended P2/P3/P7/P12 | **ACCEPT** | Strongest-evidenced ADR in the repo |
+| 004 | Scanner engine (config-driven) | **Accepted** (2026-08-24) | **Yes** | P4: 14 scanners via `config/scanner.php`; P5 payout variants same pattern; scanner/payout suites green | **ACCEPT** | Built and regression-covered |
+| 005 | Baseline + additive-only migrations | **Accepted** (2026-08-24) | **Yes** | `database/schema/mysql-schema.sql` sentinel workflow; 6 additive fixes; P12's 2 additive tables; no destructive op ever run | **ACCEPT** | Guardrails enforced throughout |
 | 006 | Front-end stack | **Superseded** (recorded) | Superseded by MODERNIZATION_PROPOSAL; Bootstrap deviation documented | Blade+Bootstrap shipped (P1–P7) | **KEEP AS-IS** (already superseded, not Proposed) | History correct; no action |
 | 007 | Security hardening (CSRF, throttling, secrets, errors) | Proposed | **Partial** | CSRF ✓ (framework global), secrets ✓ (.env), generic errors ✓; **login throttling ✗ (A.2)**; credential rotation pending cutover | **KEEP PROPOSED** → ACCEPT after A.2 + rotation ship in P8 | Two decision elements outstanding |
-| 008 | Audit & logging | Proposed | **Yes, with recorded deviation** | `AuditService` sole writer, v1 field contract, called from all write paths incl. P12 admin events; deviation: direct service calls instead of events/observers | **REVISE** (mechanism wording) → ACCEPT | Outcome (contract + coverage) met; mechanism differs from original text — amend text, don't rewrite history |
-| 009 | Reporting & exports (BOM CSV) | Proposed | **Yes (in-scope reports)** | P3 four export modes; P6 scholarship reports + BOM CSV; export tests green | **ACCEPT** | Ported per contract; remaining report parity tracked under module gates |
+| 008 | Audit & logging | **Accepted** (2026-08-24, revised) | **Yes, with recorded deviation** | `AuditService` sole writer, v1 field contract, called from all write paths incl. P12 admin events; deviation: direct service calls instead of events/observers | **REVISE** (mechanism wording) → ACCEPT | Outcome (contract + coverage) met; mechanism differs from original text — amend text, don't rewrite history |
+| 009 | Reporting & exports (BOM CSV) | **Accepted** (2026-08-24) | **Yes (in-scope reports)** | P3 four export modes; P6 scholarship reports + BOM CSV; export tests green | **ACCEPT** | Ported per contract; remaining report parity tracked under module gates |
 | 010 | Environment & deploy | Proposed | **Partial** | Git ✓, .env ✓, additive migrations ✓; scheduled backups + restore drill ✗ (P8/cutover items) | **KEEP PROPOSED** until backup schedule + restore drill executed | Operational half pending by definition |
 
 ## H. Remaining owner decisions
@@ -441,3 +441,92 @@ non-pilot pages, program-gating redesign. No cutover actions taken.
   006 Superseded.
 
 Cutover remains gated on a separate owner-approved execution pass per §B–§F.
+
+---
+
+## OWNER DECISIONS & PRE-FLIGHT — 2026-08-29 (READ-ONLY pass: no production actions)
+
+**Owner decisions (§H) approved 2026-08-29:**
+
+1. A.1–A.4 scope confirmed; **A.5 deferred** (no 429 behavior now).
+2. **Rollout order approved (§D):** clients.php → household.php →
+   all_transactions.php → scholars.php → register.php, one page at a time.
+3. **Grant strategy approved (§E default):** every current holder gets the full
+   non-VIEW catalog + the ALL-municipality marker; tighten later per user.
+4. **Super-admin (revised 2026-08-29 — authority re-scoped):** the intended
+   account is the **existing production super-admin account** — the developer
+   is NOT authorized to create, bootstrap, or modify production accounts, and
+   none is touched in this package. Q3 reconciliation confirms who actually
+   holds `'*'` today: if it returns the existing account, §F bootstrap is
+   **N/A** (no INSERT needed); if Q3 shows **0** `'*'` holders, §F becomes a
+   **DBA/administrator-executed** step using reviewed SQL the developer
+   supplies (never runs). Username is confirmed by the owner before any
+   eventual production execution.
+5. C.9-6 policy: **deferred until** the production count is known (if 0, moot).
+   ⚠️ Use the CAST-corrected Q6 from `docs/reconciliation_queries.sql` (raw
+   §C.9-6 compares `VARCHAR city_municipality` to `INT municipalities.id` →
+   false positives).
+6. Deferred P7 audit enhancements: **stay deferred**.
+7. Denial auditing: **not commissioned** (v1 parity).
+8. ADR statuses: aligned to `ARCHITECTURE_DECISION.md` (see §G).
+9. Staging: not yet available; **local rehearsal fallback performed 2026-08-29**
+   (below); the formal staging rehearsal remains required before cutover.
+
+**Local flip/rollback rehearsal (2026-08-29, on `main_system_test`):**
+
+- Threw away test `tests/Feature/TmpFlipRehearsalTest.php` (created, run,
+  deleted) that reads the **real config file** (no in-memory override).
+- With `config/authorization.php` set to `clients.php => 'enforcement' => true`:
+  page-holder without action rows → create **denied** (dashboard redirect +
+  `login_status=denied`, 0 rows); holder with `CREATE` row + ALL marker →
+  **allowed**; `'*'` super-admin → **unaffected**. (3 passed / 13 assertions.)
+- Reverted the file to `false` and re-ran: denied user **allowed again**
+  (rollback contract). (1 passed / 4 assertions.)
+- `git diff` on `config/authorization.php` after revert: **clean**; temp test
+  deleted; full suite and Pint re-verified green (see `IMPLEMENTATION_LOG.md`).
+- Note: `php artisan config:cache` was NOT exercised locally (caching config in
+  the dev/test environment would suppress the `phpunit.xml` `DB_DATABASE`
+  override and point tests at `main_system`). In production the flip step must
+  still re-run `config:cache` if the app caches config (§D step 4).
+
+**State after this pass:** enforcement flags all `false`; both pivot tables
+0 rows (tables themselves present on local schema); no grants inserted; no
+production SQL; production not connected to. §B items 3–6 and §C.9 remain
+**NOT YET EXECUTED** (production access + a fully-named approval pass still
+required).
+
+---
+
+## RESPONSIBILITY MATRIX & DBA HANDOFF — 2026-08-29 (authority re-scoped)
+
+**Authority reality:** the developer is **not** the production system/DB owner,
+holds **no** Hostinger SSH or direct production database access, and performs
+**no** production database operation. All production operations are owned by
+the production **administrator/owner**, who executes them under owner approval.
+The developer does not invent production credentials, usernames, SSH access,
+or database results.
+
+| Action / phase | Responsible party | Notes |
+|---|---|---|
+| Code/build/test verification | **Developer** | suite (264/1227/0), Pint, build |
+| Local flip/rollback rehearsal | **Developer** | done 2026-08-29 on `main_system_test` |
+| Documentation (plan, runbook, decision package, handoff) | **Developer** | this package + `docs/DBA_RECONCILIATION_HANDOFF.md` |
+| Deployment package (configs, reviewed SQL, migrations, release notes) | **Developer** | written only, never executed |
+| Smoke-test procedure definition | **Developer** | steps + expected results (§D step 5) |
+| Analysis of DBA-provided reconciliation results | **Developer** | readiness verdict + C.9-6 recommendation |
+| **Production backup** + backup/restore verification | **Administrator/Owner** | §B item 2; timings logged |
+| **Production DB reconciliation (Q1–Q7)** | **Administrator/Owner** | run `docs/DBA_RECONCILIATION_HANDOFF.md`, SELECT-only |
+| **Production migration** (sentinel seed, `migrate:install`, `php artisan migrate`) | **Administrator/Owner** | additive only; sentinel-before-migrate critical (§B item 3) |
+| **Production grants** (per §E, via P7/S2 admin screens) | **Administrator/Owner** | await §D order; developer never runs grants |
+| **Super-admin bootstrap** (§F) | **Administrator/Owner** | **only if Q3 returns 0** `'*'` holders; reviewed SQL supplied by developer, executed by DBA |
+| **Config-cache operations** (`config:cache` after flips) | **Administrator/Owner** | required only if production caches config (§D step 4) |
+| **Enforcement flag flips** (per page, §D order) | **Administrator/Owner** | one page at a time: clients → household → all_transactions → scholars → register |
+| **Rollback execution** (flag revert / re-point to v1 / restore backup) | **Administrator/Owner** | instant flag revert; escalation per `MIGRATION_PLANNING.md` §8 |
+| **Production server ops** (deploy, docroot switch, DNS, v1 archive, cred rotation, backup schedule) | **Administrator/Owner** | `MIGRATION_PLANNING.md` §7 |
+| Staging provisioning (Hostinger SSH, PHP 8.3+, rehearsal env) | **Administrator/Owner** | **OWNER/ADMIN ACTION REQUIRED** — not available, no workaround |
+| Staging rehearsal flip + rollback | **Administrator/Owner** (with developer-prepared procedure) | local fallback already performed by developer |
+
+**Developer never:** connects to production, runs production SQL, executes
+migrations/grants/flips, or performs production server operations.
+**Administrator/owner never** needs to: write v2 code or run the local suite
+(read-only handoff is self-contained SQL).

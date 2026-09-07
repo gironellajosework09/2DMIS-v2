@@ -193,6 +193,25 @@ class AccessControlService
     }
 
     /**
+     * The Municipality models a user may filter on (ACL-scoped option list).
+     * Super-admins / all-municipality users see every municipality; scoped
+     * users see only their effective municipality set. Used to render
+     * FilterChips municipality/barangay option lists so a restricted user
+     * is never offered an out-of-scope value (Phase 2C).
+     *
+     * @return Collection<int, Municipality>
+     */
+    public function accessibleMunicipalities(User $user): Collection
+    {
+        $ids = $this->effectiveMunicipalityIds($user);
+
+        return Municipality::query()
+            ->whereIn('id', $ids)
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
      * Record-level scope check for single-ID / write endpoints (P10 §12.B.3,
      * P11 §19). The record's municipality is resolved from the DB row by the
      * controller (via App\Support\RecordMunicipality), never from the request.

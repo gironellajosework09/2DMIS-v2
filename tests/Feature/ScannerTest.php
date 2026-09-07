@@ -68,6 +68,61 @@ class ScannerTest extends TestCase
             ->assertSessionHas('login_status', 'denied');
     }
 
+    public function test_scanner_engine_hub_lists_only_permitted_scanners(): void
+    {
+        $this->logInAs($this->scannerUser('scanner_ceap.php'));
+
+        $this->get(route('scanners.index'))
+            ->assertOk()
+            ->assertSee('CEAP Scholarship')
+            ->assertDontSee('TUPAD Cash for Work')
+            ->assertDontSee('Generic Transaction')
+            ->assertDontSee('CEDSSG Scholarship');
+
+        // ceap is the only permitted scanner: the hub lists exactly one card.
+        $response = $this->get(route('scanners.index'));
+        $this->assertSame(1, substr_count($response->getContent(), '>CEAP Scholarship<'));
+    }
+
+    public function test_scanner_engine_hub_lists_every_scanner_for_super_admin(): void
+    {
+        $user = User::factory()->create(['username' => 'root']);
+        Permission::query()->create([
+            'user_id' => $user->id,
+            'page_name' => '*',
+            'can_access' => true,
+        ]);
+
+        $this->logInAs($user);
+
+        $this->get(route('scanners.index'))
+            ->assertOk()
+            ->assertSee('CEAP Scholarship')
+            ->assertSee('New Scholars (Exam)')
+            ->assertSee('Payout Attendance')
+            ->assertSee('Unpaid Payout Attendance');
+    }
+
+    public function test_scanner_engine_hub_shows_empty_state_without_scanner_permissions(): void
+    {
+        $user = User::factory()->create(['username' => 'plain']);
+        Permission::query()->create([
+            'user_id' => $user->id,
+            'page_name' => 'clients.php',
+            'can_access' => true,
+        ]);
+        $this->logInAs($user);
+
+        $this->get(route('scanners.index'))
+            ->assertOk()
+            ->assertSee('No scanners are available');
+    }
+
+    public function test_scanner_engine_hub_requires_login(): void
+    {
+        $this->get(route('scanners.index'))->assertRedirect(route('login'));
+    }
+
     public function test_all_scanner_pages_load_for_super_admin(): void
     {
         $user = User::factory()->create(['username' => 'root']);

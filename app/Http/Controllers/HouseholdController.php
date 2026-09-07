@@ -9,6 +9,7 @@ use App\Models\Household;
 use App\Models\Municipality;
 use App\Services\AccessControlService;
 use App\Services\HouseholdService;
+use App\Support\FilterConfig;
 use App\Support\RecordMunicipality;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,10 +22,16 @@ class HouseholdController extends Controller
         private readonly AccessControlService $acl,
     ) {}
 
-    public function index()
+    public function index(Request $request)
     {
         return view('households.index', [
             'municipalities' => Municipality::query()->orderBy('name')->get(),
+            'filterChips' => FilterConfig::geography(
+                $request,
+                $this->acl,
+                'households-filters',
+                'household.php',
+            ),
         ]);
     }
 
@@ -62,7 +69,11 @@ class HouseholdController extends Controller
             ->orderByRaw('CASE WHEN id = ? THEN 0 ELSE 1 END, lastname, firstname', [$household->head_household])
             ->get(['id', 'full_name', 'age', 'sex']);
 
-        return view('households.show', compact('household', 'members'));
+        return view('households.show', [
+            'household' => $household,
+            'members' => $members,
+            'panel' => $request->boolean('panel'),
+        ]);
     }
 
     public function destroy(Request $request, Household $household): JsonResponse
@@ -93,8 +104,8 @@ class HouseholdController extends Controller
         $start = $request->integer('start', 0);
         $length = $request->integer('length', 25);
         $searchValue = trim((string) $request->input('search.value', ''));
-        $municipalityFilter = $request->integer('municipality', 0);
-        $barangayFilter = $request->integer('barangay', 0);
+        $municipalityFilter = trim((string) $request->input('municipality', ''));
+        $barangayFilter = trim((string) $request->input('barangay', ''));
 
         $orderColumnIndex = (int) $request->input('order.0.column', 0);
         if ($orderColumnIndex < 0 || $orderColumnIndex >= count($columns)) {
@@ -120,11 +131,11 @@ class HouseholdController extends Controller
 
         $totalCount = (clone $query)->count();
 
-        if ($municipalityFilter > 0) {
-            $query->where('c.city_municipality', $municipalityFilter);
+        if ($municipalityFilter !== '') {
+            FilterConfig::applyMultiValue($query, 'c.city_municipality', $municipalityFilter);
         }
-        if ($barangayFilter > 0) {
-            $query->where('c.barangay', $barangayFilter);
+        if ($barangayFilter !== '') {
+            FilterConfig::applyMultiValue($query, 'c.barangay', $barangayFilter);
         }
         if ($searchValue !== '') {
             $like = '%'.$searchValue.'%';
@@ -146,6 +157,7 @@ class HouseholdController extends Controller
         foreach ($rows as $row) {
             $memberCount = (int) $row->member_count;
             $data[] = [
+                'id' => (int) $row->id,
                 'household_id' => e($row->household_id),
                 'head_name' => e($row->full_name),
                 'municipality' => e($row->municipality_name ?? ''),

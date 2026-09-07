@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Barangay;
+use App\Models\Municipality;
+use App\Support\FilterConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,13 +61,44 @@ class ReportController extends Controller
         'submitted',
     ];
 
-    public function scholarship(): View
+    public function scholarship(Request $request): View
     {
-        $municipalities = DB::table('tbl_municipalities')->orderBy('name')->get(['id', 'name']);
+        // This report's feed is NOT municipality-scoped (matches v1), so the
+        // option lists stay unscoped too — otherwise restricted users would
+        // see zero municipality options while the feed still shows all rows.
+        $municipalities = Municipality::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        $barangays = Barangay::query()
+            ->orderBy('name')
+            ->get(['id', 'name', 'municipality_id']);
 
         return view('scholarship_reports.index', [
             'municipalities' => $municipalities,
             'programs' => self::SCHOLAR_PROGRAMS,
+            'filterChips' => [
+                'id' => 'scholarship-filters',
+                'categories' => [
+                    FilterConfig::municipalityCategory($municipalities, $request, 'scholarship.php'),
+                    FilterConfig::barangayCategory($barangays, $request),
+                    FilterConfig::programCategory($request, self::SCHOLAR_PROGRAMS),
+                    [
+                        'key' => 'submitted',
+                        'label' => 'Submitted',
+                        'searchable' => false,
+                        'feedParam' => 'submitted',
+                        'options' => [
+                            ['value' => 'Yes', 'label' => 'Yes'],
+                            ['value' => 'No', 'label' => 'No'],
+                        ],
+                        // Feed-ignored (documented v1 behavior); honored by export.
+                        'selected' => FilterConfig::selectedValues($request, 'submitted'),
+                    ],
+                ],
+                'dateRanges' => [
+                    FilterConfig::dateRange('Date', 'date_from', 'date_to', $request),
+                ],
+            ],
         ]);
     }
 
@@ -157,15 +191,15 @@ class ReportController extends Controller
             ->whereIn('tx.program', self::SCHOLAR_PROGRAMS);
 
         if ($municipality !== '') {
-            $query->where('c.city_municipality', $municipality);
+            FilterConfig::applyMultiValue($query, 'c.city_municipality', $municipality);
         }
 
         if ($barangay !== '') {
-            $query->where('c.barangay', $barangay);
+            FilterConfig::applyMultiValue($query, 'c.barangay', $barangay);
         }
 
         if ($program !== '') {
-            $query->where('tx.program', $program);
+            FilterConfig::applyMultiValue($query, 'tx.program', $program);
         }
 
         if ($dateFrom !== '') {

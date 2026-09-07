@@ -3,136 +3,475 @@
 @section('title', 'Clients — 2D MIS')
 
 @push('styles')
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="{{ asset('css/datatables.css') }}">
     <style>
-        table.dataTable td {
-            font-size: 0.8rem;
+        /* ── Clients screen scope: token skin over the DataTables
+           Bootstrap integration. Selectors are prefixed with
+           #clients-screen — nothing here can leak to other screens. ── */
+        #clients-screen table.dataTable {
+            font-size: 0.875rem;
         }
 
-        table.dataTable th {
-            font-size: 0.85rem;
+        #clients-screen table.dataTable thead th {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            background-color: var(--color-navy);
+            color: #fff;
+            border-bottom: 0;
+            white-space: nowrap;
+            text-transform: uppercase;
+            padding-top: 0.625rem;
+            padding-bottom: 0.625rem;
         }
 
-        .actions-col {
-            width: 170px !important;
-            max-width: 170px !important;
+        #clients-screen table.dataTable tbody td {
+            padding-top: 0.625rem;
+            padding-bottom: 0.625rem;
+            vertical-align: middle;
+        }
+
+        #clients-screen table.dataTable tbody tr {
+            cursor: pointer;
+        }
+
+        #clients-screen table.dataTable tbody tr:nth-child(odd) td {
+            background-color: rgb(15 27 45 / 0.02);
+        }
+
+        #clients-screen table.dataTable tbody tr:hover td {
+            background-color: rgb(37 99 235 / 0.06);
+        }
+
+        #clients-screen table.dataTable tbody tr:focus-visible {
+            outline: 2px solid var(--ui-focus-ring);
+            outline-offset: -2px;
+        }
+
+        /* Client cell: name over a muted "Client ID" caption line */
+        #clients-screen .client-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+        }
+
+        #clients-screen .client-cell-name {
+            font-weight: 600;
+            color: var(--color-ink);
+        }
+
+        #clients-screen .client-cell-id {
+            font-size: 0.72rem;
+            color: var(--color-ink-muted);
+        }
+
+        /* Actions column: quiet icon buttons, never a row-click target */
+        #clients-screen .actions-col {
+            width: 112px;
+            min-width: 112px;
+            max-width: 112px;
             text-align: center;
             white-space: nowrap;
         }
 
-        .actions-col .btn {
-            padding: 2px 6px;
-            font-size: 11px;
-        }
-
-        .actions-col form {
+        #clients-screen .actions-col form {
             display: inline;
         }
 
-        #clientsTable tbody tr {
+        #clients-screen .actions-col .icon-btn {
+            margin: 0 2px;
+            vertical-align: middle;
+        }
+
+        /* Segment filter buttons (Municipality / Barangay / Program / Category):
+           pill-shaped pills in a shared filter toolbar. */
+        #clients-screen .filter-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px;
+            background: var(--color-bg);
+            border: 1px solid var(--color-line);
+            border-radius: 9999px;
+        }
+
+        #clients-screen .seg-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.45rem 0.9rem;
+            border-radius: 9999px;
+            border: 1px solid transparent;
+            background: transparent;
+            color: var(--color-ink-secondary);
+            font-size: 0.82rem;
+            font-weight: 600;
             cursor: pointer;
+            white-space: nowrap;
+            transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        #clientDetailsPanel {
-            width: min(680px, 94vw);
+        #clients-screen .seg-btn .seg-btn-icon {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            stroke: currentColor;
         }
 
-        #clientDetailsPanel .offcanvas-body {
-            overflow-y: auto;
+        #clients-screen .seg-btn:hover {
+            background: var(--color-surface);
+            color: var(--color-navy);
+        }
+
+        #clients-screen .seg-btn[aria-pressed="true"],
+        #clients-screen .seg-btn.is-active {
+            background: var(--color-surface);
+            border-color: var(--color-navy);
+            color: var(--color-navy);
+        }
+
+        #clients-screen .seg-btn:focus-visible {
+            outline: 2px solid var(--ui-focus-ring);
+            outline-offset: 2px;
+        }
+
+        #clients-screen .seg-count {
+            display: inline-grid;
+            place-items: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: var(--color-gold);
+            color: var(--color-navy);
+            font-size: 0.68rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        /* The segmented buttons replace the shared FilterChips toggle; the
+           popover, chips row and Clear All stay component-owned. */
+        #clients-screen .filter-chips-toolbar {
+            display: none;
+        }
+
+        /* DataTables chrome (length/info/pagination) aligned to tokens. */
+        #clients-screen .dataTables_wrapper .dataTables_length select,
+        #clients-screen .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius-control);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        #clients-screen .dataTables_wrapper .dataTables_paginate .page-item.active .page-link {
+            background-color: var(--color-navy);
+            border-color: var(--color-navy);
+        }
+
+        #clients-screen .page-link {
+            color: var(--color-navy);
+        }
+
+        /* ── Filter popover reliability ──
+           The shared FilterChips menu is absolutely positioned inside the
+           screen's .data-card, whose Tailwind `overflow-hidden` clips it
+           (rounded-corner clipping) and makes the choices unreliable. Release
+           the clip for the clients card only and lift the menu above the table
+           chrome so every segment opens visibly. */
+        #clients-screen .data-card {
+            overflow: visible;
+        }
+
+        #clients-screen .filter-chips {
+            position: relative;
+        }
+
+        #clients-screen .filter-chips .filter-multi-menu {
+            z-index: 1080;
+            left: 0;
+        }
+
+        /* Modal validation feedback: highlight invalid fields in the modal
+           body (server-driven, modal-native — no native browser popups). */
+        #clientFormModalBody .form-control.is-invalid,
+        #clientFormModalBody .form-select.is-invalid {
+            border-color: var(--color-red, #dc2626);
+            box-shadow: 0 0 0 0.15rem rgb(220 38 38 / 0.12);
+        }
+
+        /* ── Pagination / entries presentation ──
+           Top row: "Show entries" left + compact windowed pager right, all on
+           one line. Bottom row: normal-size admin "Showing X to Y of Z
+           entries" text + the same pager. windowing already uses a 5-number
+           sliding window (numbers_length=5) with ellipsis from DataTables. */
+        #clients-screen .dataTables_wrapper {
+            position: relative;
+        }
+
+        #clients-screen .dataTables_wrapper .dataTables_info {
+            font-size: 0.8125rem;
+            color: var(--color-ink-muted);
+            padding-top: 0.75rem;
+        }
+
+        #clients-screen .dataTables_wrapper .dataTables_length {
+            font-size: 0.8125rem;
+            color: var(--color-ink-muted);
+            padding-top: 0.75rem;
+        }
+
+        #clients-screen .dataTables_wrapper .dataTables_length select {
+            margin: 0 0.25rem;
+        }
+
+        #clients-screen .dataTables_wrapper .dataTables_paginate {
+            padding-top: 0.75rem;
+        }
+
+        #clients-screen .dataTables_wrapper .page-link {
+            font-size: 0.8125rem;
+            min-width: 32px;
+            text-align: center;
+        }
+
+        /* Top chrome (entry count) and bottom chrome (info + single pager)
+           each sit on one horizontal line, aligned around the table. */
+        #clients-screen .dataTables_wrapper .top-chrome,
+        #clients-screen .dataTables_wrapper .bottom-chrome {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            flex-wrap: wrap;
         }
     </style>
 @endpush
 
 @section('content')
-    <div class="card shadow-lg border-0 p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="mb-0">Clients</h3>
-            <div class="d-flex gap-2">
-                <a href="{{ route('duplicates.index') }}" class="btn btn-danger btn-sm">Remove Duplicates</a>
-                <a href="{{ route('clients.create') }}" class="btn btn-success btn-sm">+ Add Client</a>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Clients'],
+        ],
+    ])
+
+    @include('partials.page-header', [
+        'title' => 'Client Registry',
+        'subtitle' => 'Click any row to open the resident details panel.',
+        'actions' => '
+            <button type="button" class="btn-gold" onclick="openAddClientModal()">+ Add Client</button>
+            <div class="btn-group" x-data="{ open: false }" @click.outside="open = false" @keydown.escape="open = false">
+                <button type="button" class="btn-subtle dropdown-toggle" @click="open = !open" :aria-expanded="open.toString()">
+                    Export CSV
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" :class="{ \'show\': open }">
+                    <li><button type="button" class="dropdown-item" data-clients-export="filter">Export Current Filter</button></li>
+                    <li><button type="button" class="dropdown-item" data-clients-export="all">Export All Clients</button></li>
+                </ul>
+            </div>',
+    ])
+
+    <div class="pointer-events-none fixed inset-x-0 top-[76px] z-[1100] flex flex-col items-end gap-2 px-[1rem] sm:px-[1.75rem]" id="clientsToastStack" aria-live="polite"></div>
+
+    @if (session('success'))
+        {{-- Same persistent toast pattern as the layout flash channel:
+             manual dismiss, live-region semantics, no silent expiry.
+             Phase 9: no Bootstrap Toast JS — revealed with `.show` by the
+             wireFlashToast() helper, close handled manually. --}}
+        <div class="pointer-events-none fixed inset-x-0 top-20 z-[1100] flex flex-col items-end gap-2 px-[1rem] sm:px-[1.75rem]" aria-live="polite">
+            <div class="toast pointer-events-auto flex w-full max-w-[420px] items-start gap-[12px] rounded-panel bg-surface p-[1rem] shadow-pop ring-1 ring-line"
+                 role="status">
+                <span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-teal/[0.12] text-teal" aria-hidden="true">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>
+                </span>
+                <div class="min-w-0 flex-1 text-dense leading-snug text-ink">{{ session('success') }}</div>
+                <button type="button" class="btn-close shrink-0" aria-label="Close"></button>
             </div>
         </div>
+    @endif
 
-        @if (session('success'))
-            <div class="alert alert-success alert-dismissible fade show" role="alert">
-                {{ session('success') }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            </div>
-        @endif
+    <div id="clients-screen">
+        <section class="data-card" aria-label="Client registry">
+            <div class="data-card-body flex flex-col gap-[14px]">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="filter-toolbar flex flex-wrap items-center gap-2">
+                        <button type="button" class="seg-btn" data-filter-segment="municipality"
+                                title="Filter by municipality" aria-label="Filter by municipality" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" class="seg-btn-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+                            </svg>
+                            Municipality <span class="seg-count" hidden aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="seg-btn" data-filter-segment="barangay"
+                                title="Filter by barangay" aria-label="Filter by barangay" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" class="seg-btn-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+                            </svg>
+                            Barangay <span class="seg-count" hidden aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="seg-btn" data-filter-segment="program"
+                                title="Filter by program" aria-label="Filter by program" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" class="seg-btn-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+                            </svg>
+                            Programs <span class="seg-count" hidden aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="seg-btn" data-filter-segment="category"
+                                title="Filter by category" aria-label="Filter by category" aria-pressed="false">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" class="seg-btn-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
+                            </svg>
+                            Category <span class="seg-count" hidden aria-hidden="true"></span>
+                        </button>
+                        <button type="button" class="filter-clear-all" id="clientsClearAll" hidden
+                                aria-label="Clear all filters">Clear All</button>
+                    </div>
+                    <div class="min-w-0 flex-1 basis-56 max-w-md">
+                        <div class="relative">
+                            <svg viewBox="0 0 24 24" aria-hidden="true" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;stroke:var(--color-ink-muted);fill:none;stroke-width:2;pointer-events:none;">
+                                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                            </svg>
+                            <input type="search" id="clientsSearch" placeholder="Search name, precinct no., municipality, barangay..."
+                                   aria-label="Search clients"
+                                   class="w-full pl-10 pr-4 py-2 text-sm border border-[#e2e5ea] rounded-full focus:border-[#fcd116] focus:ring-2 focus:ring-[#fcd116]/30 focus:bg-white outline-none transition-all duration-200"
+                                   style="font-family:inherit;color:var(--color-ink);background:var(--color-bg);">
+                        </div>
+                    </div>
+                </div>
 
-        <div class="dt-filters d-flex flex-wrap align-items-end gap-3">
-            <div class="flex-fill" style="min-width:200px;">
-                <label class="form-label mb-1">Municipality</label>
-                <select id="filterMunicipality" class="form-select form-select-sm">
-                    <option value="">All Municipalities</option>
-                    @foreach ($municipalities as $municipality)
-                        <option value="{{ $municipality->id }}">{{ $municipality->name }}</option>
-                    @endforeach
-                </select>
+                @include('partials.filter-chips', ['filterChips' => $filterChips])
             </div>
-            <div class="flex-fill" style="min-width:200px;">
-                <label class="form-label mb-1">Barangay</label>
-                <select id="filterBarangay" class="form-select form-select-sm">
-                    <option value="">All Barangays</option>
-                </select>
-            </div>
-            <div class="ms-auto d-flex align-items-end gap-2">
-                <button id="applyFilters" class="btn btn-primary btn-sm w-100 w-md-auto">Filter</button>
-                <button id="resetFilters" class="btn btn-secondary btn-sm w-100 w-md-auto">Reset</button>
-            </div>
-        </div>
 
-        <div class="table-responsive">
-            <table id="clientsTable" class="table table-striped table-bordered table-sm w-100" style="font-size:12px;">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Full Name</th>
-                        <th>Lastname</th>
-                        <th>Firstname</th>
-                        <th>Middlename</th>
-                        <th>Extension</th>
-                        <th>Precinct No</th>
-                        <th>Region</th>
-                        <th>Province</th>
-                        <th>Municipality</th>
-                        <th>Barangay</th>
-                        <th>House No</th>
-                        <th>Mobile</th>
-                        <th>Birthdate</th>
-                        <th>Age</th>
-                        <th>Sex</th>
-                        <th>Civil Status</th>
-                        <th>Occupation</th>
-                        <th>Income</th>
-                        <th>Voter ID</th>
-                        <th class="actions-col">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {{-- Loaded via AJAX (server-side DataTables) --}}
-                </tbody>
-            </table>
-        </div>
+            <div class="overflow-x-auto px-[1.25rem] pb-[1.25rem]" tabindex="0" aria-label="Client table, scrolls horizontally on narrow screens">
+                <table id="clientsTable" class="table table-sm" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>Client</th>
+                            <th>Precinct No</th>
+                            <th>Municipality</th>
+                            <th>Barangay</th>
+                            <th>Category</th>
+                            <th class="actions-col"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{-- Loaded via AJAX (server-side DataTables) --}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 
-    <div class="offcanvas offcanvas-end" tabindex="-1" id="clientDetailsPanel" aria-labelledby="clientDetailsTitle">
-        <div class="offcanvas-header border-bottom">
-            <h5 class="offcanvas-title" id="clientDetailsTitle">Client Details</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-        </div>
-        <div class="offcanvas-body" id="clientDetailsBody">
-            <div class="p-5 text-center text-muted">
-                <p class="mb-0">Click a client row to view its details.</p>
-            </div>
-        </div>
-    </div>
+    @include('partials.confirm-modal')
+
+    {{-- Add/Edit Client Modal — Tailwind + Alpine.js (Phase 8). Kept in its
+         own partial so Blade compiles its Alpine @directives in isolation
+         (large-file PCRE interaction otherwise left a later @if un-compiled). --}}
+    @include('partials.client-form-modal')
+
+    {{-- Validation / feedback modal — separate from the client form so the
+         user can review errors/messages, dismiss, and return to the
+         (still-editable) form without losing entered values. Reuses the shared
+         modal idiom (Tailwind + Alpine, Phase 9 → partial). Supports
+         INFO / WARNING / ERROR. The footer actions area is dynamic
+         (#clientFeedbackActions); the Back to form button closes back to the
+         edit modal. --}}
+    @include('partials.client-feedback-modal')
 @endsection
 
 @push('scripts')
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="{{ asset('js/components/DetailsPanel.js') }}"></script>
+    <script src="{{ asset('js/components/FilterChips.js') }}"></script>
+
+    {{-- Alpine store + component for the client form modal (Phase 8).
+         The store holds shared state; window.openAddClientModal / openEditModal /
+         closeClientModal call store methods so imperative callers stay
+         framework-agnostic. --}}
+    <script>
+    (function () {
+        document.addEventListener('alpine:init', function () {
+            Alpine.store('clientFormModal', {
+                open: false,
+                title: 'Add Client',
+                subtitle: 'Register a new client in the registry',
+                submitLabel: 'Add Client',
+                _prevFocus: null,
+
+                show: function (mode, id) {
+                    var isEdit = mode === 'edit';
+                    this.title = isEdit ? 'Edit Client' : 'Add Client';
+                    this.subtitle = isEdit ? 'Update client information' : 'Register a new client in the registry';
+                    this.submitLabel = isEdit ? 'Save Client' : 'Add Client';
+                    this._prevFocus = document.activeElement;
+                    document.body.style.overflow = 'hidden';
+                    this.open = true;
+
+                    // Load form via AJAX
+                    var self = this;
+                    var body = document.getElementById('clientFormModalBody');
+                    if (body) {
+                        body.innerHTML = '<div class="flex items-center justify-center py-[2rem] text-ink-muted"><span>Loading form...</span></div>';
+                        var url = isEdit
+                            ? '{{ route("clients.edit", "__ID__") }}'.replace('__ID__', id) + '?modal=1'
+                            : '{{ route("clients.create") }}?modal=1';
+                        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                            .then(function (r) { return r.text(); })
+                            .then(function (html) {
+                                body.innerHTML = html;
+                                if (isEdit && id) {
+                                    var form = body.querySelector('form');
+                                    if (form) form.dataset.clientId = id;
+                                }
+                                body.querySelectorAll('script').forEach(function (old) {
+                                    var fresh = document.createElement('script');
+                                    fresh.textContent = old.textContent;
+                                    old.parentNode.replaceChild(fresh, old);
+                                });
+                            })
+                            .catch(function () {
+                                body.innerHTML = '<div class="flex items-center justify-center py-[2rem] text-danger">Failed to load form.</div>';
+                            });
+                    }
+                },
+
+                hide: function () {
+                    this.open = false;
+                    document.body.style.overflow = '';
+                    if (this._prevFocus && typeof this._prevFocus.focus === 'function') {
+                        this._prevFocus.focus();
+                    }
+                    this._prevFocus = null;
+                    // Reset body to loading state
+                    var body = document.getElementById('clientFormModalBody');
+                    if (body) {
+                        body.innerHTML = '<div class="flex items-center justify-center py-[2rem] text-ink-muted"><span>Loading form...</span></div>';
+                    }
+                }
+            });
+        });
+
+        window.clientFormModalComponent = function () {
+            return {
+                handleTab: function (e) {
+                    var dlg = document.getElementById('clientFormModal');
+                    if (!dlg) return;
+                    var focusables = dlg.querySelectorAll('button:not([disabled]), [href], input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+                    if (!focusables.length) return;
+                    var first = focusables[0];
+                    var last = focusables[focusables.length - 1];
+                    if (e.shiftKey && document.activeElement === first) { last.focus(); }
+                    else if (!e.shiftKey && document.activeElement === last) { first.focus(); }
+                }
+            };
+        };
+    })();
+    </script>
+
     <script>
         $(document).ready(function() {
             $.ajaxSetup({
@@ -141,44 +480,78 @@
                 }
             });
 
+            // Compact pager: prev + a 5-number sliding window + next (DataTables
+            // 1.13 emits ellipsis tokens for out-of-window ranges automatically
+            // via its number callback).
+            $.fn.dataTable.ext.pager.numbers_length = 5;
+            $.fn.dataTable.ext.pager.compact = function(display, page, pages) {
+                return ['previous']
+                    .concat($.fn.dataTable.ext.pager.numbers(display, page, pages))
+                    .concat(['next']);
+            };
+
+            function categoryBadge(cat) {
+                var cls = 'is-neutral';
+                if (cat.indexOf('SENIOR') === 0) cls = 'is-paid';
+                else if (cat.indexOf('MINOR') === 0) cls = 'is-pending';
+                else if (cat.indexOf('YOUTH') === 0) cls = 'is-pending';
+                return '<span class="status-badge ' + cls + '">'
+                    + $('<div>').text(cat).html()
+                    + '</span>';
+            }
+
             var table = $('#clientsTable').DataTable({
                 processing: true,
                 serverSide: true,
+                autoWidth: false,
+                pagingType: 'compact',
+                // Single-search contract: 'f' (DataTables built-in filter box)
+                // is omitted — the workspace owns #clientsSearch. Chrome is
+                // split so the pagination control appears ONCE (bottom row):
+                // "Show entries" above the table, then info + the compact
+                // pager below it. (Previously "lp" + "ip" rendered the pager
+                // twice — a redundant, confusing duplicate control.)
+                dom: "<'top-chrome'l>rt<'bottom-chrome'ip>",
                 ajax: {
                     url: '{{ route('clients.data') }}',
                     type: 'POST',
                     data: function(d) {
-                        d.municipality = $('#filterMunicipality').val();
-                        d.barangay = $('#filterBarangay').val();
+                        var p = (window.clientFilters && window.clientFilters.getParams)
+                            ? window.clientFilters.getParams()
+                            : {};
+                        d.municipality = p.municipality || '';
+                        d.barangay = p.barangay || '';
+                        d.program = p.program || '';
+                        d.category = p.category || '';
+                        d.search = $('#clientsSearch').val();
                     }
                 },
                 columns: [
-                    { data: "id" },
-                    { data: "fullname" },
-                    { data: "lastname" },
-                    { data: "firstname" },
-                    { data: "middlename" },
-                    { data: "extension" },
-                    { data: "precinct" },
-                    { data: "region" },
-                    { data: "province" },
-                    { data: "municipality" },
-                    { data: "barangay" },
-                    { data: "house_no" },
-                    { data: "mobile" },
-                    { data: "birthdate" },
-                    { data: "age" },
-                    { data: "sex" },
-                    { data: "civil_status" },
-                    { data: "occupation" },
-                    { data: "income" },
-                    { data: "voter_id" },
-                    { data: "actions" }
+                    {
+                        data: 'fullname',
+                        render: function(data, type, row) {
+                            if (type === 'sort' || type === 'type') return data;
+                            return '<div class="client-cell">'
+                                + '<span class="client-cell-name">' + $('<div>').text(data).html() + '</span>'
+                                + '<span class="client-cell-id">Client ID: ' + $('<div>').text(row.client_id_label || '').html() + '</span>'
+                                + '</div>';
+                        }
+                    },
+                    { data: 'precinct' },
+                    { data: 'municipality' },
+                    { data: 'barangay' },
+                    {
+                        data: 'category',
+                        sortable: false,
+                        render: function(data) {
+                            return categoryBadge(data || '');
+                        }
+                    },
+                    { data: 'actions', orderable: false }
                 ],
                 columnDefs: [{
-                    targets: [2, 3, 4, 5, 7, 8, 11, 12, 13, 14, 15, 16, 17, 18, 19],
-                    visible: false,
-                    searchable: true
+                    targets: 5,
+                    className: 'actions-col'
                 }],
                 order: [
                     [0, 'asc']
@@ -186,9 +559,87 @@
                 pageLength: 25,
                 lengthMenu: [25, 50, 100],
                 createdRow: function(row, data) {
-                    $(row).attr('data-id', data.id);
+                    $(row).attr({
+                        'data-id': data.id,
+                        'tabindex': 0,
+                        'aria-label': 'Client ' + data.fullname + ', open details'
+                    });
                 }
             });
+
+            window.clientsTable = table;
+
+            // FilterChips — shared Phase 2C component (server-side DataTables feed).
+            // excludeClose: the per-filter pills live outside the FilterChips
+            // host, so the shared "click outside closes" handler must treat
+            // them as part of the popover surface (otherwise the menu closes on
+            // the very click that opens it).
+            if (window.FilterChips) {
+                window.clientFilters = FilterChips.init({
+                    id: 'clients-filters',
+                    host: document.querySelector('[data-filter-host="clients-filters"]'),
+                    excludeClose: ['[data-filter-segment]'],
+                    onApply: function() {
+                        refreshSegmentCounts();
+                        table.draw();
+                    }
+                });
+                // Sync the Clear All visibility for a deep-link/refresh restore
+                // (init hydrates from the URL but does not fire onApply).
+                refreshSegmentCounts();
+            }
+
+            function refreshSegmentCounts() {
+                var p = (window.clientFilters && window.clientFilters.getParams)
+                    ? window.clientFilters.getParams()
+                    : {};
+                var totalActive = 0;
+                ['municipality', 'barangay', 'program', 'category'].forEach(function(key) {
+                    var btn = document.querySelector('[data-filter-segment="' + key + '"]');
+                    var badge = btn ? btn.querySelector('.seg-count') : null;
+                    if (!btn) return;
+                    var count = (p[key] || '').split(',').filter(Boolean).length;
+                    totalActive += count;
+                    if (badge) {
+                        badge.textContent = String(count);
+                        badge.hidden = count === 0;
+                    }
+                    if (count > 0) {
+                        btn.classList.add('is-active');
+                        btn.setAttribute('aria-pressed', 'true');
+                    } else {
+                        btn.classList.remove('is-active');
+                        btn.setAttribute('aria-pressed', 'false');
+                    }
+                });
+                var clearAllBtn = document.getElementById('clientsClearAll');
+                if (clearAllBtn) clearAllBtn.hidden = totalActive === 0;
+            }
+
+            function openFilterSegment(key) {
+                if (!window.clientFilters || typeof window.clientFilters.openCategory !== 'function') {
+                    return;
+                }
+                // openCategory reveals ONLY the clicked category's section, so
+                // each pill opens a focused, self-contained popover for its own
+                // options (Municipality pills -> municipality options, etc.).
+                window.clientFilters.openCategory(key);
+            }
+
+            document.querySelectorAll('[data-filter-segment]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    openFilterSegment(btn.getAttribute('data-filter-segment'));
+                });
+            });
+
+            var clientsClearAllBtn = document.getElementById('clientsClearAll');
+            if (clientsClearAllBtn) {
+                clientsClearAllBtn.addEventListener('click', function() {
+                    if (window.clientFilters && typeof window.clientFilters.clearAll === 'function') {
+                        window.clientFilters.clearAll();
+                    }
+                });
+            }
 
             function executeScripts(container) {
                 container.querySelectorAll('script').forEach(function(oldScript) {
@@ -198,71 +649,451 @@
                 });
             }
 
-            window.openClientPanel = function(id) {
-                var body = document.getElementById('clientDetailsBody');
-                var offcanvas = document.getElementById('clientDetailsPanel');
-                var url = '{{ route('clients.show', '__ID__') }}'.replace('__ID__', id) + '?panel=1';
-                var instance = bootstrap.Offcanvas.getOrCreateInstance(offcanvas);
+            function panelUrl(id) {
+                return '{{ route('clients.show', '__ID__') }}'.replace('__ID__', id) + '?panel=1';
+            }
 
-                document.getElementById('clientDetailsTitle').textContent = 'Client #' + id;
-                body.innerHTML = '<div class="p-5 text-center text-muted">' +
-                    '<div class="spinner-border text-secondary" role="status"></div>' +
-                    '<p class="mt-3 mb-0">Loading client details…</p></div>';
-                instance.show();
-
-                fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                    .then(function(response) {
-                        if (!response.ok) {
-                            throw new Error('Failed to load client details');
-                        }
-                        return response.text();
-                    })
-                    .then(function(html) {
-                        body.innerHTML = html;
-                        executeScripts(body);
-                    })
-                    .catch(function() {
-                        body.innerHTML = '<div class="p-5 text-center text-danger">' +
-                            'Failed to load client details.</div>';
-                    });
-            };
-
+            // Row click -> shared details panel
             $('#clientsTable tbody').on('click', 'tr', function(e) {
                 if ($(e.target).closest('.actions-col').length) {
                     return;
                 }
                 var id = $(this).data('id');
                 if (id) {
-                    openClientPanel(id);
+                    window.DetailsPanel.load('clients', id, { url: panelUrl(id) });
                 }
             });
 
-            $('#applyFilters').on('click', function() {
-                table.draw();
+            // Actions-column View icon -> open the details panel
+            $('#clientsTable tbody').on('click', '[data-view-client]', function(e) {
+                e.stopPropagation();
+                var id = $(this).data('view-client');
+                if (!id) return;
+                window.DetailsPanel.load('clients', id, { url: panelUrl(id) });
             });
 
-            $('#filterMunicipality').on('change', function() {
-                var selectedId = $(this).val();
-                var barangaySelect = $('#filterBarangay');
-                barangaySelect.html('<option value="">All Barangays</option>');
+            // Actions-column Edit icon -> open the edit modal. preventDefault
+            // is essential: the action is an <a href="{clients.edit}"> (kept
+            // for full-page parity), and without it the browser navigates to
+            // /clients/{id}/edit right after the modal opens.
+            $('#clientsTable tbody').on('click', '[data-edit-client]', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                var id = $(this).data('edit-client');
+                if (!id) return;
+                openEditModal(id);
+            });
 
-                if (selectedId) {
-                    fetch('{{ route('geography.barangays') }}?municipality_id=' + selectedId)
-                        .then(r => r.json())
-                        .then(data => {
-                            data.forEach(function(b) {
-                                var safeName = $('<div/>').text(b.name).html();
-                                barangaySelect.append('<option value="' + b.id + '">' + safeName + '</option>');
+            // DetailsPanel Edit button -> open the edit modal
+            document.addEventListener('click', function(e) {
+                var btn = e.target.closest('[data-edit-client-modal]');
+                if (!btn) return;
+                var id = btn.getAttribute('data-edit-client-modal');
+                if (!id) return;
+                window.DetailsPanel.close(false);
+                openEditModal(id);
+            });
+
+            // Actions-column legacy "View" target kept wired (any tooling that
+            // still calls it opens the same panel).
+            window.openClientPanel = function(id) {
+                if (!id) return;
+                window.DetailsPanel.load('clients', id, { url: panelUrl(id) });
+            };
+
+            // Keyboard twin of the row-click handler (Enter / Space).
+            $('#clientsTable tbody').on('keydown', 'tr[tabindex]', function(e) {
+                if (e.key !== 'Enter' && e.key !== ' ') {
+                    return;
+                }
+                if ($(e.target).closest('.actions-col').length) {
+                    return;
+                }
+                e.preventDefault();
+                var id = $(this).data('id');
+                if (id) {
+                    window.DetailsPanel.load('clients', id, { url: panelUrl(id) });
+                }
+            });
+
+            // Toolbar search
+            $('#clientsSearch').on('input', function() {
+                clearTimeout(this.searchTimer);
+                this.searchTimer = setTimeout(() => {
+                    table.search(this.value).draw();
+                }, 250);
+            });
+
+            // Municipality -> barangay cascade + clear-per-category all live
+            // inside the shared FilterChips component (data-filter-depends).
+            // There is intentionally NO global Reset: each filter owns its own
+            // Clear action inside the FilterChips popover.
+
+            // CSV export: mirror the active filter params (Export Current
+            // Filter) or export the full scope (Export All).
+            document.querySelectorAll('[data-clients-export]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var mode = btn.getAttribute('data-clients-export');
+                    if (mode === 'all') {
+                        window.location.href = '{{ route('clients.export') }}?export_all=1';
+                        return;
+                    }
+                    var p = (window.clientFilters && window.clientFilters.getParams)
+                        ? window.clientFilters.getParams()
+                        : {};
+                    var query = new URLSearchParams({
+                        municipality: p.municipality || '',
+                        barangay: p.barangay || '',
+                        program: p.program || '',
+                        category: p.category || '',
+                        search: $('#clientsSearch').val()
+                    }).toString();
+                    window.location.href = '{{ route('clients.export') }}?' + query;
+                });
+            });
+
+            // Post-panel-save / post-panel-delete refresh + toast.
+            // Tailwind + Alpine migration (Phase 9): no Bootstrap Toast JS — the
+            // element is revealed with `.show` + manually dismissed. Autohide is
+            // false by contract (persistent until the user closes).
+            function showToast(message) {
+                var stack = document.getElementById('clientsToastStack');
+                if (!stack || !message) return;
+                var el = document.createElement('div');
+                el.className = 'toast pointer-events-auto flex w-full max-w-[420px] items-start gap-[12px] rounded-panel bg-surface p-[1rem] shadow-pop ring-1 ring-line';
+                el.setAttribute('role', 'status');
+                el.innerHTML = '<span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-teal/[0.12] text-teal" aria-hidden="true">'
+                    + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>'
+                    + '</span>'
+                    + '<div class="min-w-0 flex-1 text-dense leading-snug text-ink">' + $('<div>').text(message).html() + '</div>'
+                    + '<button type="button" class="btn-close shrink-0" aria-label="Close"></button>';
+                stack.appendChild(el);
+                el.classList.add('show');
+                el.querySelector('button[aria-label="Close"]').addEventListener('click', function() {
+                    el.remove();
+                });
+            }
+
+            document.addEventListener('details:updated', function(e) {
+                table.draw();
+                if (e.detail && e.detail.message) showToast(e.detail.message);
+            });
+
+            document.addEventListener('details:deleted', function(e) {
+                table.draw();
+                if (e.detail && e.detail.message) showToast(e.detail.message);
+            });
+
+            document.addEventListener('details:error', function(e) {
+                if (e.detail && e.detail.message) showToast(e.detail.message);
+            });
+
+            // Reveal the server-rendered success toast (no Bootstrap Toast JS;
+            // the element is shown with `.show` and dismissed manually).
+            function wireFlashToast(stack) {
+                if (!stack) return;
+                stack.classList.add('show');
+                var closeBtn = stack.querySelector('button[aria-label="Close"]');
+                if (closeBtn) closeBtn.addEventListener('click', function() { stack.remove(); });
+            }
+            document.querySelectorAll('.toast').forEach(wireFlashToast);
+
+            // Table Delete: confirm via uiConfirm, then submit as JSON so the
+            // registry refreshes in place (no page navigation). ACL/CSRF/logic
+            // stay on the existing destroy endpoint; only presentation changes.
+            $('#clientsTable tbody').on('click', '[data-confirm]', function(e) {
+                e.stopPropagation();
+                var form = this.closest('form');
+                if (!form || !window.uiConfirm) return;
+                e.preventDefault();
+                window.uiConfirm({
+                    message: this.getAttribute('data-confirm') || 'Are you sure?',
+                    confirmLabel: 'Delete'
+                }).then(function(ok) {
+                    if (!ok) return;
+                    fetch(form.getAttribute('action'), {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                        },
+                        body: new FormData(form)
+                    })
+                    .then(function(r) { return r.json().catch(function() { return {}; }); })
+                    .then(function(res) {
+                        if (res.success) {
+                            if (DetailsPanel.isOpen()) {
+                                var ent = DetailsPanel.getCurrentEntity();
+                                if (ent && ent.id == form.closest('tr').getAttribute('data-id')) {
+                                    DetailsPanel.close();
+                                }
+                            }
+                            table.draw();
+                            showToast(res.message || 'Client deleted successfully.');
+                        } else {
+                            showToast(res.message || 'Could not delete client.');
+                        }
+                    })
+                    .catch(function() { showToast('Could not delete client.'); });
+                });
+            });
+
+            // Client form modal — Alpine.js store bridge (Phase 8)
+            // The modal markup uses x-data="clientFormModalComponent()" which
+            // reads from Alpine.store('clientFormModal'). These window.* functions
+            // let imperative callers (details panel, row actions, form submission
+            // handler) control the Alpine store without knowing about Alpine.
+            window.openAddClientModal = function() {
+                Alpine.store('clientFormModal').show('add');
+            };
+
+            window.openEditModal = function(id) {
+                Alpine.store('clientFormModal').show('edit', id);
+            };
+
+            window.closeClientModal = function() {
+                Alpine.store('clientFormModal').hide();
+            };
+
+            // Modal-native duplicate / identity warning. Presented in the shared
+            // FEEDBACK modal (not embedded inside the edit modal) so the user
+            // can review the existing record and explicitly choose whether to
+            // continue — while the edit modal stays open underneath with their
+            // entered values intact. No browser alert()/confirm(). The
+            // duplicate detection business rule (name+birthdate gate) is
+            // unchanged — only the presentation moved to the feedback modal.
+            function showDuplicateWarning(matches, form, body) {
+                var warn = document.createElement('div');
+                warn.innerHTML = '<div class="flex items-start gap-2">'
+                    + '<svg viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px;stroke:var(--color-amber);fill:none;stroke-width:2;margin-top:2px;flex-shrink:0;">'
+                    + '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>'
+                    + '<div class="min-w-0">'
+                    + '<p class="mb-1 font-semibold text-ink">Possible existing client found</p>'
+                    + '<p class="mb-2 text-dense leading-snug text-ink-secondary">'
+                    + $('<div>').text((matches[0] && matches[0].full_name) || 'A similar client').html()
+                    + ' appears to already exist in the client registry.</p>'
+                    + '<ul class="mb-0 space-y-1 pl-4">';
+                matches.forEach(function(m) {
+                    warn.innerHTML += '<li class="text-dense text-ink-secondary">'
+                        + $('<div>').text(m.full_name + (m.birthdate ? ' — born ' + m.birthdate + (m.sex ? ' (' + m.sex + ')' : '') : '')).html()
+                        + '</li>';
+                });
+                warn.innerHTML += '</ul></div></div>';
+
+                var actions = document.createElement('div');
+                var reviewBtn = document.createElement('button');
+                reviewBtn.type = 'button';
+                reviewBtn.className = 'btn-navy';
+                reviewBtn.textContent = 'Review existing client';
+                var continueBtn = document.createElement('button');
+                continueBtn.type = 'button';
+                continueBtn.className = 'btn-gold';
+                continueBtn.textContent = 'This is a different person — Continue';
+                actions.appendChild(reviewBtn);
+                actions.appendChild(continueBtn);
+
+                var fbStore = Alpine.store('clientFeedbackModal');
+                reviewBtn.addEventListener('click', function() {
+                    var first = matches[0];
+                    fbStore.hide();
+                    window.closeClientModal();
+                    if (first && first.id) {
+                        window.DetailsPanel.load('clients', first.id, {
+                            url: panelUrl(first.id)
+                        });
+                    }
+                });
+
+                continueBtn.addEventListener('click', function() {
+                    fbStore.hide();
+                    if (!form.querySelector('input[name="duplicate_confirm"]')) {
+                        var input = document.createElement('input');
+                        input.type = 'hidden';
+                        input.name = 'duplicate_confirm';
+                        input.value = '1';
+                        form.appendChild(input);
+                    }
+                    form.requestSubmit();
+                });
+
+                fbStore.show({ title: 'Possible duplicate', type: 'warning', body: warn, actions: actions });
+                reviewBtn.focus();
+            }
+
+            // One reusable feedback modal. Shows INFO / WARNING / ERROR
+            // messages (duplicate warning, validation errors, photo errors)
+            // while keeping the edit modal open underneath. Closes back to
+            // the still-editable form. setFeedbackType highlights a title.
+            function setFeedbackContent(title, type, html, extraOnHidden) {
+                var body = document.createElement('div');
+                body.appendChild(html);
+                Alpine.store('clientFeedbackModal').show({
+                    title: title,
+                    type: type,
+                    body: body,
+                    // On close, return focus to the underlying form's first
+                    // focusable (launching the open form modal as before).
+                    onHidden: function() {
+                        var first = formBody.querySelector('input, select, textarea, button');
+                        if (first && first.focus) first.focus();
+                        if (typeof extraOnHidden === 'function') extraOnHidden();
+                    }
+                });
+            }
+
+            var formBody = document.getElementById('clientFormModalBody');
+
+            // Validate a selected photo file client-side (type + 1MB). Returns
+            // an error string or null when acceptable. Mirrors the server rules
+            // so invalid files are never silently swallowed on the update path.
+            function photoValidationError(input) {
+                var f = input && input.files && input.files[0];
+                if (!f) return null;
+                var allowed = ['image/jpeg', 'image/png', 'image/gif'];
+                if (allowed.indexOf(f.type) === -1) {
+                    return 'Only JPG, PNG, or GIF images are allowed.';
+                }
+                if (f.size > 1024 * 1024) {
+                    return 'Photo must be 1MB or smaller.';
+                }
+                return null;
+            }
+
+            // Handle modal form submissions
+            formBody.addEventListener('submit', function(e) {
+                var form = e.target;
+                if (!(form instanceof HTMLFormElement)) return;
+                e.preventDefault();
+
+                // Client-side photo gate BEFORE any network call. If the user
+                // picked an invalid / oversized file, surface it in the feedback
+                // modal and keep the edit modal open — never silently ignore it.
+                var photoInput = form.querySelector('input[name="photo"]');
+                var photoFile = photoInput && photoInput.files && photoInput.files[0];
+                var photoErr = photoValidationError(photoInput);
+                if (photoErr) {
+                    var warnP = document.createElement('p');
+                    warnP.className = 'mb-0 font-medium text-red';
+                    warnP.textContent = photoErr;
+                    setFeedbackContent('Photo error', 'error', warnP);
+                    return;
+                }
+
+                var submitBtn = form.querySelector('button[type="submit"]')
+                    || document.getElementById('clientFormSubmit');
+                if (submitBtn) submitBtn.disabled = true;
+                var body = document.getElementById('clientFormModalBody');
+                fetch(form.action, {
+                    method: form.method || 'POST',
+                    body: new FormData(form),
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(function(r) {
+                    return r.json().catch(function() { return {}; });
+                })
+                .then(function(data) {
+                    if (data.success) {
+                        // If the edit form carried a new photo, push it to the
+                        // existing clients.photo.store endpoint now that the
+                        // client update succeeded (that route is gated by the
+                        // same action:clients.php,edit ACL the update just passed).
+                        // The photo POST is awaited so the details re-fetch (which
+                        // resolves the current photo from storage) happens AFTER the
+                        // new photo row is saved — otherwise the panel could reload
+                        // the pre-upload photo and make the upload look as if it
+                        // never applied.
+                        var photoPost = Promise.resolve();
+                        if (photoFile && form.dataset.clientId) {
+                            var fd = new FormData();
+                            fd.append('client_id', form.dataset.clientId);
+                            fd.append('photo', photoFile);
+                            photoPost = fetch('{{ route("clients.photo.store") }}', {
+                                method: 'POST',
+                                body: fd,
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest',
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                                }
+                            }).then(function(r) {
+                                // Surface a server-side photo failure instead of
+                                // silently ignoring it (the previous failure mode
+                                // that made uploads "look" successful without
+                                // updating the photo).
+                                if (!r.ok) {
+                                    throw new Error('photo_upload_failed');
+                                }
                             });
-                        })
-                        .catch(err => console.error('Failed to load barangays', err));
-                }
-            });
-
-            $('#resetFilters').on('click', function() {
-                $('#filterMunicipality').val('');
-                $('#filterBarangay').html('<option value="">All Barangays</option>').val('');
-                table.draw();
+                        }
+                        photoPost
+                            .then(function() {
+                                window.closeClientModal();
+                                table.draw();
+                                showToast(data.message || 'Client saved successfully.');
+                                if (DetailsPanel.isOpen()) {
+                                    var ent = DetailsPanel.getCurrentEntity();
+                                    if (ent && ent.id && ent.id == form.dataset.clientId) {
+                                        DetailsPanel.load('clients', ent.id, { url: panelUrl(ent.id) });
+                                    }
+                                }
+                            })
+                            .catch(function() {
+                                // Client saved but the photo upload failed. Tell
+                                // the user rather than silently pretending success.
+                                var errP = document.createElement('p');
+                                errP.className = 'mb-0 text-ink-secondary';
+                                errP.textContent = 'Client was saved, but the photo could not be uploaded. Please try again from Edit.';
+                                setFeedbackContent('Photo not saved', 'error', errP);
+                            });
+                    } else if (data.errors) {
+                        // Validation feedback goes to its own feedback modal so
+                        // the user can review all errors and return to the
+                        // (still-open, still-editable) form without losing input.
+                        var list = document.createElement('ul');
+                        list.className = 'list-disc list-inside mb-0 space-y-1';
+                        Object.keys(data.errors).forEach(function(k) {
+                            data.errors[k].forEach(function(msg) {
+                                var li = document.createElement('li');
+                                li.textContent = msg;
+                                list.appendChild(li);
+                            });
+                            var field = form.querySelector('[name="' + k + '"]');
+                            if (field) {
+                                field.classList.add('is-invalid');
+                                (field.closest('.field-wrapper') || field).addEventListener('input', function() {
+                                    field.classList.remove('is-invalid');
+                                }, { once: true });
+                            }
+                        });
+                        var firstKey = Object.keys(data.errors)[0];
+                        var firstField = firstKey ? form.querySelector('[name="' + firstKey + '"]') : null;
+                        if (firstField && firstField.focus) {
+                            // Focus the first invalid field once the feedback
+                            // modal closes (mirrors the old hidden.bs.modal
+                            // handler; runs after the default focus return so
+                            // it wins as before).
+                            setFeedbackContent('Please correct the following', 'error', list, function() {
+                                firstField.focus();
+                            });
+                        } else {
+                            setFeedbackContent('Please correct the following', 'error', list);
+                        }
+                    } else if (data.duplicate_warning) {
+                        showDuplicateWarning(data.duplicate_warning, form, body);
+                    }
+                })
+                .catch(function() {
+                    var errDiv = document.createElement('div');
+                    errDiv.className = 'form-errors mb-4 p-3 rounded-panel bg-danger/10 text-danger';
+                    errDiv.textContent = 'An error occurred. Please try again.';
+                    var existingErr = body.querySelector('.form-errors');
+                    if (existingErr) existingErr.remove();
+                    body.insertBefore(errDiv, body.firstChild);
+                })
+                .finally(function() {
+                    if (submitBtn) submitBtn.disabled = false;
+                });
             });
         });
     </script>

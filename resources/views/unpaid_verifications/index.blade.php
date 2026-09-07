@@ -2,134 +2,147 @@
 
 @section('title', 'Unpaid Verifications — 2D MIS')
 
+{{-- Phase 1: Prototype-aligned Unpaid Verifications with shared details panel --}}
 @push('styles')
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="{{ asset('css/datatables.css') }}">
     <style>
-        table.dataTable {
-            font-size: 0.75rem !important;
+        /* ── Unpaid verifications scope: token skin over the DataTables
+           Bootstrap integration. Prefixed with #unpaid-screen —
+           nothing here can leak to other screens. ── */
+        #unpaid-screen table.dataTable td {
+            font-size: 0.8rem;
         }
 
-        table.dataTable td {
-            font-size: 0.75rem !important;
-            padding: 4px 6px !important;
+        #unpaid-screen table.dataTable th {
+            font-size: 0.85rem;
+            background-color: var(--color-navy);
+            color: #fff;
+            border-bottom: 0;
+            white-space: nowrap;
         }
 
-        .dt-filters {
-            gap: .5rem;
-            align-items: center;
-            margin-bottom: .75rem;
+        #unpaid-screen table.dataTable tbody tr {
+            cursor: pointer;
         }
 
-        .dt-filters .form-select {
-            min-width: 180px;
+        #unpaid-screen table.dataTable tbody tr:nth-child(odd) td {
+            background-color: rgb(15 27 45 / 0.02);
         }
 
-        .actions-col {
-            width: 90px !important;
-            max-width: 90px !important;
+        #unpaid-screen table.dataTable tbody tr:hover td {
+            background-color: rgb(37 99 235 / 0.06);
+        }
+
+        #unpaid-screen .actions-col {
+            width: 170px;
+            max-width: 170px;
             text-align: center;
             white-space: nowrap;
         }
 
-        .actions-col .btn {
-            padding: 2px 5px;
-            font-size: 10px;
+        #unpaid-screen .actions-col .btn {
+            padding: 2px 6px;
+            font-size: 11px;
+        }
+
+        #unpaid-screen .dataTables_wrapper .dataTables_length select,
+        #unpaid-screen .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius-control);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        #unpaid-screen .dataTables_wrapper .dataTables_paginate .page-item.active .page-link {
+            background-color: var(--color-navy);
+            border-color: var(--color-navy);
+        }
+
+        #unpaid-screen .page-link {
+            color: var(--color-navy);
         }
     </style>
 @endpush
 
 @section('content')
-    <div class="card shadow-lg border-0 p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="mb-0">Unpaid Grantees</h3>
-        </div>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Unpaid Grantees'],
+        ],
+    ])
 
-        <div class="dt-filters d-flex flex-wrap align-items-end gap-3 mb-3">
-            <div style="min-width:200px;">
-                <label class="form-label mb-1">Municipality</label>
-                <select id="filterMunicipality" class="form-select form-select-sm">
-                    <option value="">All Municipalities</option>
-                    @foreach ($municipalities as $municipality)
-                        <option value="{{ $municipality->id }}">{{ $municipality->name }}</option>
-                    @endforeach
-                </select>
-            </div>
+    @include('partials.page-header', [
+        'title' => 'Unpaid Grantees',
+        'subtitle' => 'Self-service verification submissions from unpaid beneficiaries.',
+    ])
 
-            <div>
-                <label class="form-label mb-1">Date Start</label>
-                <input type="date" id="date_start" class="form-control form-control-sm">
-            </div>
+    <div id="unpaid-screen">
+        <section class="data-card" aria-label="Unpaid verification records">
+            <div class="data-card-body flex flex-col gap-[14px]">
+                @include('partials.filter-chips', ['filterChips' => $filterChips])
 
-            <div>
-                <label class="form-label mb-1">Date End</label>
-                <input type="date" id="date_end" class="form-control form-control-sm">
-            </div>
-
-            <div class="ms-auto d-flex align-items-end gap-2">
-                <button id="applyFilters" class="btn btn-primary btn-sm">Filter</button>
-                <button id="resetFilters" class="btn btn-secondary btn-sm">Reset</button>
-                <button id="exportCsv" class="btn btn-success btn-sm">Export CSV</button>
-            </div>
-        </div>
-
-        <div class="table-responsive">
-            <table id="unpaidTable" class="table table-striped table-bordered table-sm w-100">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Client Name</th>
-                        <th>Municipality</th>
-                        <th>Proxy?</th>
-                        <th>Proxy Name</th>
-                        <th>Relationship</th>
-                        <th>Phone</th>
-                        <th>Birthdate</th>
-                        <th>Gender</th>
-                        <th>Occupation</th>
-                        <th>Monthly Income</th>
-                        <th>Submitted At</th>
-                        <th class="actions-col">Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Verification Details</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="viewBody">Loading...</div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <div class="flex flex-wrap items-end gap-2">
+                    <button id="resetFilters" class="btn-subtle w-full lg:w-auto">Reset</button>
+                    <button id="exportCsv" class="btn-gold w-full lg:w-auto">Export CSV</button>
                 </div>
             </div>
-        </div>
+
+            <div class="overflow-x-auto px-[1.25rem] pb-[1.25rem]" tabindex="0" aria-label="Unpaid verification table, scrolls horizontally on narrow screens">
+                <table id="unpaidTable" class="table table-sm" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Client Name</th>
+                            <th>Municipality</th>
+                            <th>Proxy?</th>
+                            <th>Proxy Name</th>
+                            <th>Relationship</th>
+                            <th>Phone</th>
+                            <th>Birthdate</th>
+                            <th>Gender</th>
+                            <th>Occupation</th>
+                            <th>Monthly Income</th>
+                            <th>Submitted At</th>
+                            <th class="actions-col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{-- Loaded via AJAX (server-side DataTables) --}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
+
+    @include('partials.record-view-modal', ['title' => 'Verification Details'])
+
+    @include('partials.confirm-modal')
 @endsection
 
 @push('scripts')
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
-    <script>
+    <script src="{{ asset('js/components/DetailsPanel.js') }}"></script>
+    <script src="{{ asset('js/components/FilterChips.js') }}"></script>    <script>
         $(document).ready(function() {
             var dataUrl = '{{ route('unpaid-verifications.data') }}';
 
             var table = $('#unpaidTable').DataTable({
                 processing: true,
                 serverSide: true,
+                autoWidth: false,
                 ajax: {
                     url: dataUrl,
                     type: 'POST',
                     data: function(d) {
-                        d.municipality = $('#filterMunicipality').val();
-                        d.date_start = $('#date_start').val();
-                        d.date_end = $('#date_end').val();
+                        var p = (window.unpaidFilters && window.unpaidFilters.getParams)
+                            ? window.unpaidFilters.getParams()
+                            : {};
+                        d.municipality = p.municipality || '';
+                        d.date_start = p.date_start || '';
+                        d.date_end = p.date_end || '';
                     }
                 },
                 columns: [
@@ -151,9 +164,9 @@
                         searchable: false,
                         className: 'actions-col',
                         render: function(row) {
-                            return '<div class="btn-group">' +
-                                '<button class="btn btn-sm btn-primary view-btn" data-id="' + row.id + '">View</button>' +
-                                '<button class="btn btn-sm btn-danger delete-btn" data-id="' + row.id + '">Delete</button>' +
+                            return '<div class="inline-flex gap-1">' +
+                                '<button class="btn-subtle view-btn" data-id="' + row.id + '">View</button>' +
+                                '<button class="btn-outline-red delete-btn" data-id="' + row.id + '">Delete</button>' +
                                 '</div>';
                         }
                     }
@@ -162,27 +175,70 @@
                 order: [[0, 'desc']],
                 pageLength: 25,
                 lengthMenu: [25, 50, 100],
-                scrollX: true
+                scrollX: true,
+                createdRow: function(row, data) {
+                    $(row).attr({
+                        'data-id': data.id,
+                        'tabindex': 0,
+                        'aria-label': 'Unpaid verification ' + data.id + ', open details'
+                    });
+                }
             });
 
-            $('#applyFilters').on('click', function() {
-                table.draw();
-            });
+            // FilterChips — shared Phase 2C component (server-side DataTables feed).
+            if (window.FilterChips) {
+                window.unpaidFilters = FilterChips.init({
+                    id: 'unpaid-filters',
+                    host: document.querySelector('[data-filter-host="unpaid-filters"]'),
+                    onApply: function() { table.draw(); }
+                });
+            }
 
             $('#resetFilters').on('click', function() {
-                $('#filterMunicipality').val('');
-                $('#date_start').val('');
-                $('#date_end').val('');
+                if (window.unpaidFilters && window.unpaidFilters.clearAll) {
+                    window.unpaidFilters.clearAll();
+                }
                 table.draw();
             });
 
             $('#exportCsv').on('click', function() {
+                var p = (window.unpaidFilters && window.unpaidFilters.getParams)
+                    ? window.unpaidFilters.getParams()
+                    : {};
                 var query = new URLSearchParams({
-                    municipality: $('#filterMunicipality').val() || '',
-                    date_start: $('#date_start').val() || '',
-                    date_end: $('#date_end').val() || ''
+                    municipality: p.municipality || '',
+                    date_start: p.date_start || '',
+                    date_end: p.date_end || ''
                 }).toString();
                 window.location.href = '{{ route('unpaid-verifications.export') }}?' + query;
+            });
+
+            // Row click -> shared details panel
+            $('#unpaidTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).closest('.actions-col').length) {
+                    return;
+                }
+                var id = $(this).data('id');
+                if (id) {
+                    window.DetailsPanel.load('unpaid', id, {
+                        url: dataUrl,
+                        method: 'POST'
+                    });
+                }
+            });
+
+            // Keyboard twin (Enter / Space)
+            $('#unpaidTable tbody').on('keydown', 'tr[tabindex]', function(e) {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                if ($(e.target).closest('.actions-col').length) return;
+                e.preventDefault();
+                var id = $(this).data('id');
+                if (id) {
+                    window.DetailsPanel.load('unpaid', id, {
+                        url: dataUrl,
+                        method: 'POST'
+                    });
+                }
             });
 
             $('#unpaidTable').on('click', '.view-btn', function() {
@@ -215,7 +271,7 @@
                                 <dt class="col-sm-4">Created At</dt><dd class="col-sm-8">${d.created_at}</dd>
                             </dl>`;
                             $('#viewBody').html(html);
-                            new bootstrap.Modal('#viewModal').show();
+                            window.uiViewModal.show();
                         } else {
                             alert('Unable to load record.');
                         }
@@ -224,26 +280,32 @@
 
             $('#unpaidTable').on('click', '.delete-btn', function() {
                 var id = $(this).data('id');
-                if (!confirm('Are you sure you want to delete this record?')) return;
 
-                fetch(dataUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        },
-                        body: 'delete_id=' + encodeURIComponent(id)
-                    })
-                    .then(r => r.json())
-                    .then(resp => {
-                        if (resp.success) {
-                            alert('Record deleted successfully.');
-                            table.ajax.reload(null, false);
-                        } else {
-                            alert('Failed to delete record.');
-                        }
-                    })
-                    .catch(() => alert('Error deleting record.'));
+                window.uiConfirm({
+                    title: 'Delete verification',
+                    message: 'Are you sure you want to delete this record? This cannot be undone.',
+                    confirmLabel: 'Delete'
+                }).then(function(ok) {
+                    if (!ok) return;
+
+                    fetch(dataUrl, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: 'delete_id=' + encodeURIComponent(id)
+                        })
+                        .then(r => r.json())
+                        .then(resp => {
+                            if (resp.success) {
+                                table.ajax.reload(null, false);
+                            } else {
+                                alert('Failed to delete record.');
+                            }
+                        })
+                        .catch(() => alert('Error deleting record.'));
+                });
             });
         });
     </script>

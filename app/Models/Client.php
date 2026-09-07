@@ -82,6 +82,18 @@ class Client extends Model
         return $this->hasMany(ClientPhoto::class, 'client_id');
     }
 
+    /**
+     * The client's current profile photo. tbl_client_photos accumulates one
+     * row per upload, so the "current" photo is the most recently added row
+     * (highest id), not photos.first() (which is the oldest). PhotoService
+     * appends a new row per upload; every display point reads this helper so
+     * a fresh upload is shown immediately.
+     */
+    public function currentPhoto(): ?ClientPhoto
+    {
+        return $this->photos()->orderByDesc('id')->first();
+    }
+
     public function familyMembers(): HasMany
     {
         return $this->hasMany(FamilyMember::class, 'client_id');

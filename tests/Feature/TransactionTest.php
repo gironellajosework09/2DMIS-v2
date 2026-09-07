@@ -69,6 +69,32 @@ class TransactionTest extends TestCase
             ->assertSessionHas('login_status', 'denied');
     }
 
+    public function test_transactions_success_flash_renders_migrated_alpine_toast(): void
+    {
+        $this->logInAs($this->transactionsUser());
+
+        $this->withSession(['success' => 'Transaction added successfully!'])
+            ->get(route('transactions.index'))
+            ->assertOk()
+            ->assertSee('Transaction added successfully!')
+            ->assertSee('x-data="{ open: true }"', false)
+            ->assertSee('x-show="open"', false)
+            ->assertSee('@click="open = false"', false)
+            ->assertSee('role="status"', false)
+            ->assertDontSee('data-bs-dismiss="toast"', false)
+            ->assertDontSee('data-bs-autohide', false);
+    }
+
+    public function test_transactions_success_flash_absent_renders_no_toast(): void
+    {
+        $this->logInAs($this->transactionsUser());
+
+        $this->get(route('transactions.index'))
+            ->assertOk()
+            ->assertDontSee('x-data="{ open: true }"', false)
+            ->assertDontSee('role="status"', false);
+    }
+
     public function test_transactions_pages_load_for_permitted_user(): void
     {
         $client = $this->client();

@@ -2,134 +2,141 @@
 
 @section('title', $config['title'].' — 2D MIS')
 
+{{-- Phase 1: Prototype-aligned Payouts with shared details panel --}}
 @push('styles')
-    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
+    <link rel="stylesheet" href="{{ asset('css/datatables.css') }}">
     <style>
-        table.dataTable td {
+        /* ── Payouts scope: token skin over the DataTables Bootstrap
+           integration. Prefixed with #payouts-screen —
+           nothing here can leak to other screens. ── */
+        #payouts-screen table.dataTable td {
+            font-size: 0.8rem;
+        }
+
+        #payouts-screen table.dataTable th {
             font-size: 0.85rem;
+            background-color: var(--color-navy);
+            color: #fff;
+            border-bottom: 0;
+            white-space: nowrap;
         }
 
-        table.dataTable th {
-            font-size: 0.9rem;
+        #payouts-screen table.dataTable tbody tr {
+            cursor: pointer;
         }
 
-        .dt-filters {
-            gap: .5rem;
-            align-items: center;
-            margin-bottom: .75rem;
+        #payouts-screen table.dataTable tbody tr:nth-child(odd) td {
+            background-color: rgb(15 27 45 / 0.02);
         }
 
-        .dt-filters .form-select {
-            min-width: 180px;
+        #payouts-screen table.dataTable tbody tr:hover td {
+            background-color: rgb(37 99 235 / 0.06);
         }
 
-        .actions-col {
-            width: 100px !important;
-            max-width: 100px !important;
+        #payouts-screen .actions-col {
+            width: 100px;
+            max-width: 100px;
             text-align: center;
             white-space: nowrap;
         }
 
-        .actions-col .btn {
+        #payouts-screen .actions-col .btn {
             padding: 2px 6px;
             font-size: 11px;
+        }
+
+        #payouts-screen .dataTables_wrapper .dataTables_length select,
+        #payouts-screen .dataTables_wrapper .dataTables_filter input {
+            border: 1px solid var(--color-line);
+            border-radius: var(--radius-control);
+            padding: 0.25rem 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        #payouts-screen .dataTables_wrapper .dataTables_paginate .page-item.active .page-link {
+            background-color: var(--color-navy);
+            border-color: var(--color-navy);
+        }
+
+        #payouts-screen .page-link {
+            color: var(--color-navy);
         }
     </style>
 @endpush
 
 @section('content')
-    <div class="card shadow-lg border-0 p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h3 class="mb-0">{{ $config['title'] }}</h3>
-            <a href="{{ route($config['scanner_route']) }}" class="btn btn-primary btn-sm">{{ $config['scanner_label'] }}</a>
-        </div>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => $config['title']],
+        ],
+    ])
 
-        <div class="dt-filters d-flex flex-wrap align-items-end gap-3 mb-3">
-            <div style="min-width:200px;">
-                <label class="form-label mb-1">Municipality</label>
-                <select id="filterMunicipality" class="form-select form-select-sm">
-                    <option value="">All Municipalities</option>
-                    @foreach ($municipalities as $municipality)
-                        <option value="{{ $municipality->id }}">{{ $municipality->name }}</option>
-                    @endforeach
-                </select>
-            </div>
+    @php
+        $scannerRoute = $config['scanner_route'];
+        $scannerLabel = $config['scanner_label'];
+    @endphp
+    @include('partials.page-header', [
+        'title' => $config['title'],
+        'subtitle' => 'Payout attendance records with filtering.',
+        'actions' => '
+            <a href="{{ route($scannerRoute) }}" class="btn-gold no-underline">{{ $scannerLabel }}</a>',
+    ])
 
-            <div style="min-width:180px;">
-                <label class="form-label mb-1">Program</label>
-                <select id="filterProgram" class="form-select form-select-sm">
-                    <option value="">All Programs</option>
-                    @foreach ($config['programs'] as $program)
-                        <option value="{{ $program }}">{{ $program }}</option>
-                    @endforeach
-                </select>
-            </div>
+    <div id="payouts-screen">
+        <section class="data-card" aria-label="Payout attendance">
+            <div class="data-card-body flex flex-col gap-[14px]">
+                @include('partials.filter-chips', ['filterChips' => $filterChips])
 
-            <div>
-                <label class="form-label mb-1">Scanned Date Start</label>
-                <input type="date" id="scanned_start" class="form-control form-control-sm">
-            </div>
-
-            <div>
-                <label class="form-label mb-1">Scanned Date End</label>
-                <input type="date" id="scanned_end" class="form-control form-control-sm">
-            </div>
-
-            <div class="ms-auto d-flex align-items-end gap-2">
-                <button id="applyFilters" class="btn btn-primary btn-sm">Filter</button>
-                <button id="resetFilters" class="btn btn-secondary btn-sm">Reset</button>
-            </div>
-        </div>
-
-        <div class="table-responsive">
-            <table id="scannedTable" class="table table-striped table-bordered table-sm w-100">
-                <thead class="table-dark">
-                    <tr>
-                        <th>ID</th>
-                        <th>Txn ID</th>
-                        <th>Program</th>
-                        <th>Full Name</th>
-                        <th>Municipality</th>
-                        @if ($config['seat_table'])
-                            <th>Section</th>
-                            <th>Box</th>
-                            <th>Row</th>
-                            <th>Seat</th>
-                        @endif
-                        <th>Scanned By</th>
-                        <th>Scanned At</th>
-                        <th class="actions-col">Actions</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-    </div>
-
-    <div class="modal fade" id="viewModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">{{ $config['modal_title'] }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body" id="viewBody">Loading...</div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <div class="flex items-end gap-2 max-lg:w-full">
+                    <button id="resetFilters" class="btn-subtle w-full lg:w-auto">Reset</button>
                 </div>
             </div>
-        </div>
+
+            <div class="overflow-x-auto px-[1.25rem] pb-[1.25rem]" tabindex="0" aria-label="Payout attendance table, scrolls horizontally on narrow screens">
+                <table id="scannedTable" class="table table-sm" style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Txn ID</th>
+                            <th>Program</th>
+                            <th>Full Name</th>
+                            <th>Municipality</th>
+                            @if ($config['seat_table'])
+                                <th>Section</th>
+                                <th>Box</th>
+                                <th>Row</th>
+                                <th>Seat</th>
+                            @endif
+                            <th>Scanned By</th>
+                            <th>Scanned At</th>
+                            <th class="actions-col">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{-- Loaded via AJAX (server-side DataTables) --}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
+
+    @include('partials.confirm-modal')
+    @include('partials.record-view-modal', ['title' => $config['modal_title']])
 @endsection
 
 @push('scripts')
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="{{ asset('js/components/DetailsPanel.js') }}"></script>
+    <script src="{{ asset('js/components/FilterChips.js') }}"></script>
     <script>
         $(document).ready(function() {
+            document.body.dataset.payoutVariant = '{{ $variant }}';
             var dataUrl = '{{ route('payout-attendance.'.$variant.'.data') }}';
             var showSeats = {{ $config['seat_table'] ? 'true' : 'false' }};
+            var showUrl = '{{ route('payout-attendance.'.$variant.'.show', '__ID__') }}';
 
             var columns = [
                 { data: 'id' },
@@ -166,34 +173,82 @@
             var table = $('#scannedTable').DataTable({
                 processing: true,
                 serverSide: true,
+                autoWidth: false,
                 ajax: {
                     url: dataUrl,
                     type: 'POST',
                     data: function(d) {
-                        d.municipality = $('#filterMunicipality').val();
-                        d.program = $('#filterProgram').val();
-                        d.scanned_start = $('#scanned_start').val();
-                        d.scanned_end = $('#scanned_end').val();
+                        var p = (window.payoutFilters && window.payoutFilters.getParams)
+                            ? window.payoutFilters.getParams()
+                            : {};
+                        d.municipality = p.municipality || '';
+                        d.program = p.program || '';
+                        d.scanned_start = p.scanned_start || '';
+                        d.scanned_end = p.scanned_end || '';
                     }
                 },
                 columns: columns,
-                columnDefs: [{ targets: columns.length - 1, orderable: false, searchable: false }],
+                columnDefs: [
+                    // UX-3 column consolidation: municipality + scanned-by move
+                    // to the DetailsPanel. Kept searchable/sortable (feed unchanged).
+                    { targets: [4, (showSeats ? 9 : 5)], visible: false, searchable: true },
+                    { targets: columns.length - 1, orderable: false, searchable: false }
+                ],
                 order: [[0, 'desc']],
                 pageLength: 25,
                 lengthMenu: [25, 50, 100],
-                scrollX: true
+                scrollX: true,
+                createdRow: function(row, data) {
+                    $(row).attr({
+                        'data-id': data.id,
+                        'tabindex': 0,
+                        'aria-label': 'Payout ' + data.id + ', open details'
+                    });
+                }
             });
 
-            $('#applyFilters').on('click', function() {
-                table.draw();
-            });
+            // FilterChips — shared Phase 2C component (server-side DataTables feed).
+            if (window.FilterChips) {
+                window.payoutFilters = FilterChips.init({
+                    id: 'payout-filters-{{ $variant }}',
+                    host: document.querySelector('[data-filter-host="payout-filters-{{ $variant }}"]'),
+                    onApply: function() { table.draw(); }
+                });
+            }
 
             $('#resetFilters').on('click', function() {
-                $('#filterMunicipality').val('');
-                $('#filterProgram').val('');
-                $('#scanned_start').val('');
-                $('#scanned_end').val('');
+                if (window.payoutFilters && window.payoutFilters.clearAll) {
+                    window.payoutFilters.clearAll();
+                }
                 table.draw();
+            });
+
+            // Row click -> shared details panel
+            $('#scannedTable tbody').on('click', 'tr', function(e) {
+                if ($(e.target).closest('.actions-col').length) {
+                    return;
+                }
+                var id = $(this).data('id');
+                if (id) {
+                    window.DetailsPanel.load('payouts', id, {
+                        url: showUrl.replace('__ID__', id) + '?panel=1',
+                        method: 'GET'
+                    });
+                }
+            });
+
+            // Keyboard twin (Enter / Space)
+            $('#scannedTable tbody').on('keydown', 'tr[tabindex]', function(e) {
+                if (e.key !== 'Enter' && e.key !== ' ') return;
+                if ($(e.target).closest('.actions-col').length) return;
+                e.preventDefault();
+                var id = $(this).data('id');
+                if (id) {
+                    window.DetailsPanel.load('payouts', id, {
+                        url: showUrl.replace('__ID__', id) + '?panel=1',
+                        method: 'GET'
+                    });
+                }
             });
 
             $('#scannedTable').on('click', '.view-btn', function() {
@@ -231,8 +286,7 @@
                                 <dt class="col-sm-4">Scanned Text</dt><dd class="col-sm-8"><pre style="white-space:pre-wrap;">${d.scanned_text}</pre></dd>
                             </dl>`;
                             $('#viewBody').html(html);
-                            var modal = new bootstrap.Modal(document.getElementById('viewModal'));
-                            modal.show();
+                            window.uiViewModal.show();
                         } else {
                             alert('Could not load details');
                         }
@@ -242,26 +296,31 @@
             $('#scannedTable').on('click', '.delete-btn', function() {
                 var id = $(this).data('id');
 
-                if (!confirm('Are you sure you want to delete this scanned payout?')) return;
+                window.uiConfirm({
+                    title: 'Delete scanned payout',
+                    message: 'Are you sure you want to delete this scanned payout?',
+                    confirmLabel: 'Delete'
+                }).then(function(ok) {
+                    if (!ok) return;
 
-                fetch(dataUrl, {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                            'Content-Type': 'application/x-www-form-urlencoded'
-                        },
-                        body: 'delete_id=' + encodeURIComponent(id)
-                    })
-                    .then(r => r.json())
-                    .then(resp => {
-                        if (resp.success) {
-                            alert('Scanned payout deleted successfully.');
-                            table.ajax.reload(null, false);
-                        } else {
-                            alert(resp.error || 'Failed to delete record.');
-                        }
-                    })
-                    .catch(() => alert('Error deleting record.'));
+                    fetch(dataUrl, {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                'Content-Type': 'application/x-www-form-urlencoded'
+                            },
+                            body: 'delete_id=' + encodeURIComponent(id)
+                        })
+                        .then(r => r.json())
+                        .then(resp => {
+                            if (resp.success) {
+                                table.ajax.reload(null, false);
+                            } else {
+                                alert(resp.error || 'Failed to delete record.');
+                            }
+                        })
+                        .catch(() => alert('Error deleting record.'));
+                });
             });
         });
     </script>

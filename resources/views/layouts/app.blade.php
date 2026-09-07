@@ -3,96 +3,114 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" href="{{ asset('favicon.ico') }}">
     <title>@yield('title', '2D MIS')</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    {{-- Phase 27: the Bootstrap 5.3.2 CDN stylesheet is removed; ui.css §4.8–4.10
+         now owns the last shared families (form-label, accordion, list-group,
+         utility + Reboot/type parity). --}}
+    @vite(['resources/css/app.css'])
+    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    {{-- Legacy content compatibility for unmigrated screens only.
+         Shell chrome is token/utility-driven since Batch B. --}}
     <style>
-        body {
-            font-family: 'Roboto', sans-serif;
-            background: #f8f9fa;
-            margin: 0;
-        }
-        .navbar {
-            z-index: 1030;
-        }
-        .sidebar {
-            height: 100vh;
-            width: 220px;
-            position: fixed;
-            top: 56px;
-            left: 0;
-            background: #212529;
-            padding-top: 10px;
-            overflow-y: auto;
-            z-index: 1020;
-            transition: margin-left 0.3s ease;
-        }
-        .sidebar.collapsed {
-            margin-left: -220px;
-        }
-        .sidebar a {
-            display: block;
-            color: #adb5bd;
-            padding: 12px 20px;
-            text-decoration: none;
-            font-size: 0.95rem;
-        }
-        .sidebar a:hover,
-        .sidebar a.active {
-            color: #fff;
-            background: #343a40;
-        }
-        .content {
-            margin-left: 220px;
-            padding: 76px 24px 24px;
-            transition: margin-left 0.3s ease;
-        }
-        .content.shifted {
-            margin-left: 0;
-        }
         .card {
             border-radius: 1rem;
         }
     </style>
     @stack('styles')
 </head>
-<body>
+<body class="bg-[#F0F2F5] font-body">
+<a href="#main-content" class="ui-skip-link">Skip to main content</a>
 
-@include('partials.navbar')
-@include('partials.sidebar')
+{{-- Shared shell catalog: single source of truth for the sidebar groups
+     and the topbar breadcrumb. Presentation data only — every access
+     check still runs inside the sidebar loops exactly as before. --}}
+@php
+    $shellSections = [
+        ['label' => 'Overview', 'items' => [
+            ['label' => 'Dashboard', 'icon' => 'grid', 'route' => 'dashboard', 'is' => ['dashboard']],
+        ]],
+        ['label' => 'Registry', 'items' => [
+            ['label' => 'Clients', 'icon' => 'users', 'page' => 'clients.php', 'route' => 'clients.index', 'is' => ['clients.*']],
+            ['label' => 'Households', 'icon' => 'home', 'page' => 'household.php', 'route' => 'households.index', 'is' => ['households.*']],
+        ]],
+        ['label' => 'Assistance', 'items' => [
+            ['label' => 'Scholars', 'icon' => 'cap', 'page' => 'scholars.php', 'route' => 'scholars.index', 'is' => ['scholars.*']],
+            // Key-only fallbacks: users who can open the reports/logs screen
+            // WITHOUT scholars.php keep a top-level link; scholars.php holders
+            // reach the same screens as Scholars tabs instead, so the top-level
+            // link is suppressed (the 'fallback' key is the scholars page).
+            ['label' => 'Scholarship Reports', 'icon' => 'award', 'page' => 'scholarship_reports.php', 'fallback' => 'scholars.php', 'route' => 'scholarship-reports.index', 'is' => ['scholarship-reports.*']],
+            ['label' => 'Update Logs', 'icon' => 'clock', 'page' => 'update_logs.php', 'fallback' => 'scholars.php', 'route' => 'update-logs.index', 'is' => ['update-logs.*']],
+            ['label' => 'All Transactions', 'icon' => 'file-text', 'page' => 'all_transactions.php', 'route' => 'transactions.index', 'is' => ['transactions.*']],
+            ['type' => 'scanner-engine'],
+            ['type' => 'payouts'],
+        ]],
+        ['label' => 'Administration', 'items' => [
+            ['type' => 'group', 'id' => 'admin-access-control', 'label' => 'Access Control', 'icon' => 'lock', 'children' => [
+                ['grouplabel' => 'Users'],
+                ['label' => 'Create User', 'icon' => 'user-plus', 'page' => 'register.php', 'route' => 'admin.users.create', 'is' => ['admin.users.create', 'admin.users.store']],
+                ['label' => 'User Management', 'icon' => 'shield', 'page' => '*', 'route' => 'admin.users.index', 'is' => ['admin.users.index', 'admin.users.reset-password', 'admin.users.show']],
+                ['grouplabel' => 'Permissions'],
+                ['label' => 'Manage Permissions', 'icon' => 'lock', 'page' => 'manage_permissions.php', 'route' => 'admin.permissions.pages', 'is' => ['admin.permissions.pages', 'admin.permissions.update-pages']],
+                ['label' => 'Action Permissions', 'icon' => 'check-square', 'page' => 'manage_permissions.php', 'route' => 'admin.permissions.actions', 'is' => ['admin.permissions.actions', 'admin.permissions.update-actions']],
+                ['grouplabel' => 'Scope'],
+                ['label' => 'Municipality Scope', 'icon' => 'map-pin', 'page' => 'manage_permissions.php', 'route' => 'admin.permissions.scopes', 'is' => ['admin.permissions.scopes', 'admin.permissions.update-scopes']],
+                ['label' => 'Manage Program Permissions', 'icon' => 'layers', 'page' => 'manage_program_permissions.php', 'route' => 'admin.program-permissions.pages', 'is' => ['admin.program-permissions.*']],
+                ['grouplabel' => 'Exemptions'],
+                ['label' => 'Multi-Device Exemptions', 'icon' => 'smartphone', 'page' => 'manage_multi_device_exemptions.php', 'route' => 'admin.exemptions.pages', 'is' => ['admin.exemptions.*']],
+                ['grouplabel' => 'Sessions'],
+                ['label' => 'Currently Logged Users', 'icon' => 'monitor', 'page' => 'currently_logged_users.php', 'route' => 'session.online', 'is' => ['session.online']],
+            ]],
+            ['label' => 'Audit Logs', 'icon' => 'activity', 'page' => 'audit_logs.php', 'route' => 'admin.audit-logs.index', 'is' => ['admin.audit-logs.*']],
+        ]],
+    ];
+@endphp
 
-<div class="content" id="content">
+@include('partials.sidebar', ['shellSections' => $shellSections])
+@include('partials.details-panel')
+
+ {{-- Flash feedback renders as a persistent toast (manual dismiss, no
+      auto-hide so it cannot be missed). Phase 19: Alpine state owns
+      visibility + dismissal (was bootstrap.Toast with autohide:false);
+      server flash contract unchanged — controllers still flash
+      `login_status` exactly as before. Validation errors below stay
+      inline Bootstrap alerts by contract. --}}
+<div class="pointer-events-none fixed inset-x-0 top-20 z-[1100] flex flex-col items-end gap-2 px-[1rem] sm:px-[1.75rem]" aria-live="polite">
     @if (session('login_status'))
-        <div class="alert alert-warning alert-dismissible fade show" role="alert">
-            {{ session('login_status') }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <div id="flashToast"
+             x-data="{ open: true }"
+             x-show="open"
+             class="pointer-events-auto flex w-full max-w-[420px] items-start gap-3 rounded-panel bg-surface p-[1rem] shadow-pop ring-1 ring-line"
+             role="status">
+            <span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-teal/[0.12] text-teal" aria-hidden="true">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <div class="min-w-0 flex-1 text-dense leading-snug text-ink">{{ session('login_status') }}</div>
+            <button type="button" class="btn-close shrink-0" @click="open = false" aria-label="Close"></button>
         </div>
     @endif
-
-    @if ($errors->any())
-        <div class="alert alert-danger alert-dismissible fade show" role="alert">
-            @foreach ($errors->all() as $error)
-                <div>{{ $error }}</div>
-            @endforeach
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        </div>
-    @endif
-
-    @yield('content')
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<main id="main-content" tabindex="-1" class="lg:ml-[260px]">
+    @include('partials.navbar', ['shellSections' => $shellSections])
+    <div class="px-5 py-5 sm:px-7 sm:py-7">
+        @if ($errors->any())
+            <div class="alert alert-danger alert-dismissible" role="alert" x-data="{ open: true }" x-show="open">
+                @foreach ($errors->all() as $error)
+                    <div>{{ $error }}</div>
+                @endforeach
+                <button type="button" class="btn-close" @click="open = false" aria-label="Close"></button>
+            </div>
+        @endif
+
+        @yield('content')
+    </div>
+</main>
+
 <script>
-    const sidebar = document.getElementById('sidebar');
-    const content = document.getElementById('content');
-    const sidebarToggle = document.getElementById('sidebarToggle');
-
-    sidebarToggle.addEventListener('click', function () {
-        sidebar.classList.toggle('collapsed');
-        content.classList.toggle('shifted');
-    });
-
     async function checkSession() {
         try {
             const response = await fetch('{{ route('session.status') }}', { cache: 'no-store' });
@@ -110,7 +128,37 @@
     }
 
     setInterval(checkSession, 2000);
+
+    // Phase 22: no Bootstrap Toast initialization remains. The clients Phase 9
+    // toast stack (clients/index showToast + wireFlashToast) and the dynamic
+    // showToast channel reveal themselves with `.show` and dismiss manually;
+    // the Phase 19 layout flash toast and Phase 20 page toasts are Alpine-owned.
+    // Phase 24 removed the Bootstrap JS bundle (zero live consumers) and
+    // Phase 27 removed the Bootstrap CSS CDN link (ui.css §4.8–4.10 parity).
+
+    // Phase 2D — keep DataTables `scrollX` tables sized correctly when a layout
+    // change occurs without a window resize (sidebar toggle,
+    // vertical scrollbar appearing/disappearing on scroll-lock,
+    // and the DetailsPanel overlap). Uses the v1 `columns().adjust()` pattern.
+    // Guarded so this layout script runs safely on every screen: jQuery and
+    // DataTables are loaded later by each screen's own script section.
+    // Also called from the sidebar Alpine watcher on open/close.
+    function adjustDataTables() {
+        if (window.jQuery && window.jQuery.fn && window.jQuery.fn.dataTable) {
+            window.jQuery.fn.dataTable.tables({ api: true }).columns.adjust();
+        }
+    }
+    var detailsPanelEl = document.getElementById('detailsPanel');
+    if (detailsPanelEl) {
+        detailsPanelEl.addEventListener('transitionend', function (ev) {
+            if (ev.propertyName === 'transform') {
+                requestAnimationFrame(adjustDataTables);
+            }
+        });
+    }
+
 </script>
+@vite(['resources/js/app.js'])
 @stack('scripts')
 </body>
 </html>

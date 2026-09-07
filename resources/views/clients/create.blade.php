@@ -3,11 +3,22 @@
 @section('title', 'Add Client — 2D MIS')
 
 @section('content')
-    <div class="card shadow-lg border-0 p-4">
-        <h3 class="mb-3 text-center">Add New Client</h3>
-        @include('clients._form', [
-            'action' => route('clients.store'),
-            'method' => 'POST',
-        ])
-    </div>
+    @include('partials.breadcrumbs', [
+        'breadcrumbs' => [
+            ['label' => 'Dashboard', 'url' => route('dashboard')],
+            ['label' => 'Clients', 'url' => route('clients.index')],
+            ['label' => 'Add Client'],
+        ],
+    ])
+
+    @include('partials.page-header', ['title' => 'Add New Client'])
+
+    <section class="data-card" aria-label="New client form">
+        <div class="data-card-body">
+            @include('clients._form', [
+                'action' => route('clients.store'),
+                'method' => 'POST',
+            ])
+        </div>
+    </section>
 @endsection
