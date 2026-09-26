@@ -35,7 +35,7 @@
 
         #scanner-screen .scanner-label {
             color: rgb(255 255 255 / 0.6);
-            font-size: var(--ui-text-sm);
+            font-size: var(--text-dense);
             text-align: center;
             margin-top: 20px;
         }
@@ -66,12 +66,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => $config['title']],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => $config['title'],
@@ -289,7 +283,7 @@
                  x-transition.opacity.duration.200ms
                  @keydown.escape.window="$store.scannerMessageModal.close()"
                  @keydown.tab.prevent.stop="handleTab($event)"
-                 class="pointer-events-auto flex max-h-[90vh] w-full max-w-[480px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+                 class="pointer-events-auto flex max-h-[90vh] w-full max-w-[480px] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">
                 <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">
                     <h5 id="modalTitle" class="mb-0 text-dense font-heading font-semibold text-white">Notification</h5>
                     <button type="button"
@@ -431,7 +425,7 @@
             let html;
             if (SCANNER.mode === 'seat_attendance') {
                 html = `
-                    <div class="fs-4 fw-bold text-primary mb-2">${info.program || '—'}</div>
+                    <div class="fs-4 font-bold text-primary mb-2">${info.program || '—'}</div>
                     <div><strong>Full Name:</strong> ${info.patient_name || decodedText}</div>
                     <div><strong>Town:</strong> ${info.town || '—'}</div>
                     <div class="section-line">SECTION: ${info.section || '—'}</div>
@@ -441,7 +435,7 @@
                     <div class="mt-2"><strong>Comments:</strong> ${info.comments || '—'}</div>`;
             } else if (SCANNER.mode === 'unpaid_attendance') {
                 html = `
-                    <div class="fs-4 fw-bold text-primary mb-2">${info.program || '—'}</div>
+                    <div class="fs-4 font-bold text-primary mb-2">${info.program || '—'}</div>
                     <div><strong>Full Name:</strong> ${info.patient_name || decodedText}</div>
                     <div><strong>Status:</strong> ${info.status || '—'}</div>
                     <div><strong>Comments:</strong> ${info.comments || '—'}</div>`;

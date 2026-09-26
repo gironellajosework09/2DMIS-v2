@@ -98,9 +98,6 @@
 @endphp
 
 @section('content')
-    {{-- Root page: single crumb by design, so the partial renders nothing --}}
-    @include('partials.breadcrumbs', ['breadcrumbs' => [['label' => 'Dashboard']]])
-
     @include('partials.page-header', [
         'title' => 'Dashboard',
         'subtitle' => 'Welcome back, '.$user->username.'.',
@@ -111,45 +108,45 @@
         {{-- Total Clients --}}
         <div class="metric-card">
             <div class="flex items-start justify-between" style="margin-bottom:14px">
-                <div class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[var(--ui-radius)] bg-navy/[0.07] text-navy">
+                <div class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[var(--radius-btn)] bg-navy/[0.07] text-navy">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
                 </div>
             </div>
             <div class="metric-value">{{ $formatNumber($totalClients) }}</div>
-            <div class="mt-1 text-[0.78rem] font-medium text-[var(--ui-text-secondary)]">Total Registered Clients</div>
+            <div class="mt-1 text-[0.78rem] font-medium text-[var(--color-ink-secondary)]">Total Registered Clients</div>
         </div>
 
         {{-- Total Transactions --}}
         <div class="metric-card accent-gold">
             <div class="flex items-start justify-between" style="margin-bottom:14px">
-                <div class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[var(--ui-radius)] bg-[var(--ui-gold-dim)] text-[var(--ui-gold)]">
+                <div class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[var(--radius-btn)] bg-[var(--color-gold-dim)] text-[var(--color-gold)]">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                 </div>
             </div>
             <div class="metric-value">{{ $formatNumber($totalTransactions) }}</div>
-            <div class="mt-1 text-[0.78rem] font-medium text-[var(--ui-text-secondary)]">Assistance Transactions</div>
+            <div class="mt-1 text-[0.78rem] font-medium text-[var(--color-ink-secondary)]">Assistance Transactions</div>
         </div>
 
         {{-- Disbursed Amount --}}
         <div class="metric-card accent-teal">
             <div class="flex items-start justify-between" style="margin-bottom:14px">
-                <div class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[var(--ui-radius)] bg-[rgba(45,139,122,0.08)] text-[var(--ui-teal)]">
+                <div class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[var(--radius-btn)] bg-[rgba(45,139,122,0.08)] text-[var(--color-teal)]">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
                 </div>
             </div>
             <div class="metric-value">{{ $formatCurrency($disbursedAmount) }}</div>
-            <div class="mt-1 text-[0.78rem] font-medium text-[var(--ui-text-secondary)]">Total Amount Disbursed</div>
+            <div class="mt-1 text-[0.78rem] font-medium text-[var(--color-ink-secondary)]">Total Amount Disbursed</div>
         </div>
 
         {{-- Pending Approvals --}}
         <div class="metric-card accent-red">
             <div class="flex items-start justify-between" style="margin-bottom:14px">
-                <div class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[var(--ui-radius)] bg-[rgba(206,17,38,0.06)] text-[var(--ui-red)]">
+                <div class="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[var(--radius-btn)] bg-[rgba(206,17,38,0.06)] text-[var(--color-red)]">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-5 w-5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </div>
             </div>
             <div class="metric-value">{{ $formatNumber($pendingCount) }}</div>
-            <div class="mt-1 text-[0.78rem] font-medium text-[var(--ui-text-secondary)]">Pending Approvals</div>
+            <div class="mt-1 text-[0.78rem] font-medium text-[var(--color-ink-secondary)]">Pending Approvals</div>
         </div>
     </div>
 
@@ -158,8 +155,8 @@
         <div class="mb-6 flex flex-wrap gap-3" aria-label="Quick actions">
             @foreach ($quickActions as $action)
                 <a href="{{ route($action['route']) }}"
-                   class="group flex items-center gap-2.5 rounded-[var(--ui-radius-lg)] border border-[var(--ui-border-light)] bg-[var(--ui-card)] px-[18px] py-3 font-semibold text-[0.82rem] text-[var(--ui-text-primary)] shadow-[var(--ui-shadow-sm)] transition-all duration-[200ms] ease-[var(--ui-ease)] hover:-translate-y-px hover:border-[var(--ui-border)] hover:shadow-[var(--ui-shadow-md)]">
-                    <span class="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--ui-radius-sm)] bg-navy/[0.07] text-navy transition-colors duration-200 group-hover:bg-navy group-hover:text-white" aria-hidden="true">
+                   class="group flex items-center gap-2.5 rounded-[var(--radius-card)] border border-[var(--color-line-light)] bg-[var(--color-surface)] px-[18px] py-3 font-semibold text-[0.82rem] text-[var(--color-ink)] shadow-[var(--shadow-card)] transition-all duration-[200ms] ease-[var(--ease-standard)] hover:-translate-y-px hover:border-[var(--color-line)] hover:shadow-[var(--shadow-lift)]">
+                    <span class="grid h-8 w-8 shrink-0 place-items-center rounded-[var(--radius-control)] bg-navy/[0.07] text-navy transition-colors duration-200 group-hover:bg-navy group-hover:text-white" aria-hidden="true">
                         @switch($action['icon'])
                             @case('home')<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>@break
                             @case('file-text')<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>@break
@@ -227,7 +224,7 @@
             </div>
             <div class="data-card-body">
                 @if ($programDistribution->isEmpty())
-                    <p class="m-0 py-4 text-center text-[var(--ui-text-muted)]">No transactions recorded yet.</p>
+                    <p class="m-0 py-4 text-center text-[var(--color-ink-muted)]">No transactions recorded yet.</p>
                 @else
                     @foreach ($programDistribution as $index => $program)
                         @php
@@ -237,9 +234,9 @@
                         <div @unless($loop->last) style="margin-bottom:18px" @endunless>
                             <div class="mb-1.5 flex items-center justify-between text-[0.82rem]">
                                 <span class="font-semibold">{{ e($program->program) }}</span>
-                                <span class="text-[var(--ui-text-muted)]">{{ $formatNumber($program->count) }} transactions</span>
+                                <span class="text-[var(--color-ink-muted)]">{{ $formatNumber($program->count) }} transactions</span>
                             </div>
-                            <div class="h-2 overflow-hidden rounded-full bg-[var(--ui-bg-alt)]">
+                            <div class="h-2 overflow-hidden rounded-full bg-[var(--color-bg-alt)]">
                                 <div class="h-full rounded-full" style="width:{{ $width }}%;background:linear-gradient(90deg, {{ $color['from'] }}, {{ $color['to'] }})"></div>
                             </div>
                         </div>
@@ -264,16 +261,16 @@
                         $actionText = $actionLabels[$entry->action] ?? strtolower(str_replace('_', ' ', strtolower($entry->action)));
                         $tableName = str_replace('tbl_', '', $entry->target_table);
                     @endphp
-                    <div class="flex items-start gap-3 border-b border-[var(--ui-border-light)] px-6 py-3 last:border-b-0">
-                        <div class="grid h-8 w-8 min-w-8 shrink-0 place-items-center rounded-[var(--ui-radius)] text-[0.7rem] font-bold text-white {{ $colorClass }}">
+                    <div class="flex items-start gap-3 border-b border-[var(--color-line-light)] px-6 py-3 last:border-b-0">
+                        <div class="grid h-8 w-8 min-w-8 shrink-0 place-items-center rounded-[var(--radius-btn)] text-[0.7rem] font-bold text-white {{ $colorClass }}">
                             {{ $initials }}
                         </div>
                         <div class="min-w-0 flex-1">
-                            <p class="text-[0.8rem] leading-[1.45] text-[var(--ui-text-primary)]">
+                            <p class="text-[0.8rem] leading-[1.45] text-[var(--color-ink)]">
                                 <strong>{{ e($entry->username) }}</strong> {{ $actionText }}
-                                <span class="text-[var(--ui-text-muted)]">{{ $tableName }} #{{ $entry->target_id }}</span>
+                                <span class="text-[var(--color-ink-muted)]">{{ $tableName }} #{{ $entry->target_id }}</span>
                             </p>
-                            <time class="text-[0.7rem] text-[var(--ui-text-muted)]" datetime="{{ $entry->created_at }}">
+                            <time class="text-[0.7rem] text-[var(--color-ink-muted)]" datetime="{{ $entry->created_at }}">
                                 {{ \Carbon\Carbon::parse($entry->created_at)->diffForHumans() }}
                             </time>
                         </div>

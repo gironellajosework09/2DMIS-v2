@@ -53,12 +53,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Grantee Update Logs'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Grantee Update Logs',

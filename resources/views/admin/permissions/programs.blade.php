@@ -33,12 +33,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Manage Program Access'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Manage Program Access',

@@ -14,7 +14,6 @@
          Phase 27 removes the Bootstrap CSS CDN — ui.css §4.8–4.10 owns the
          shared families. --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -55,7 +54,7 @@
         <label for="nameInput" class="field-label">Search your name</label>
         <div class="position-relative">
             <input id="nameInput" class="form-control uppercase" placeholder="Type your full name" autocomplete="off">
-            <div id="suggestList" class="suggestions-list d-none"></div>
+            <div id="suggestList" class="suggestions-list hidden"></div>
         </div>
     </div>
 
@@ -66,23 +65,23 @@
                 <option value="">-- Select Municipality --</option>
             </select>
         </div>
-        <div class="col-md-6 d-flex align-items-end">
+        <div class="col-md-6 flex align-items-end">
             <button id="verifyBtn" class="btn-navy w-full" disabled>Verify</button>
         </div>
     </div>
 
     <div id="alertBox"></div>
 
-    <div id="confirmSection" class="d-none mt-4">
+    <div id="confirmSection" class="hidden mt-4">
         <hr>
         <h2 class="text-center mb-3 text-base font-semibold text-ink">Who will attend the payout?</h2>
-        <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+        <div class="flex flex-wrap justify-content-center gap-2 mb-3">
             <button id="btnSelf" class="btn-navy">I will come personally</button>
             <button id="btnProxy" class="btn-gold">Proxy</button>
         </div>
     </div>
 
-    <div id="proxyForm" class="d-none">
+    <div id="proxyForm" class="hidden">
         <h3 class="mt-3 mb-2 text-dense font-semibold text-ink">Proxy Information</h3>
         <div class="mb-2"><input id="proxyLastname" class="form-control uppercase" placeholder="Lastname" aria-label="Lastname"></div>
         <div class="mb-2"><input id="proxyFirstname" class="form-control uppercase" placeholder="Firstname" aria-label="Firstname"></div>
@@ -106,7 +105,7 @@
         <button id="submitProxyBtn" class="btn-navy w-full">Submit Proxy Info</button>
     </div>
 
-    <div id="successBox" class="alert alert-success d-none mt-4 text-center"></div>
+    <div id="successBox" class="alert alert-success hidden mt-4 text-center"></div>
 </div>
 
 <script>
@@ -214,7 +213,7 @@
         const q = nameInput.value.trim();
         if (debounce) clearTimeout(debounce);
         if (!q) {
-            suggestList.classList.add('d-none');
+            suggestList.classList.add('hidden');
             return;
         }
         debounce = setTimeout(() => {
@@ -223,7 +222,7 @@
                 .then(data => {
                     if (!data.success || !data.results.length) {
                         suggestList.innerHTML = '<div class="p-2">No matches</div>';
-                        suggestList.classList.remove('d-none');
+                        suggestList.classList.remove('hidden');
                         return;
                     }
                     suggestList.innerHTML = '';
@@ -235,19 +234,19 @@
                         btn.onclick = () => {
                             nameInput.value = r.full_name.toUpperCase();
                             selectedClientId = r.id;
-                            suggestList.classList.add('d-none');
+                            suggestList.classList.add('hidden');
                             document.getElementById('verifyBtn').disabled = false;
                         };
                         suggestList.appendChild(btn);
                     });
-                    suggestList.classList.remove('d-none');
+                    suggestList.classList.remove('hidden');
                 });
         }, 250);
     });
 
     document.addEventListener('click', e => {
         if (!document.querySelector('.position-relative').contains(e.target)) {
-            suggestList.classList.add('d-none');
+            suggestList.classList.add('hidden');
         }
     });
 
@@ -267,7 +266,7 @@
                 return;
             }
             document.getElementById('alertBox').innerHTML = '<div class="alert alert-success text-center">Verification successful! Confirm attendance below.</div>';
-            document.getElementById('confirmSection').classList.remove('d-none');
+            document.getElementById('confirmSection').classList.remove('hidden');
         });
     });
 
@@ -276,7 +275,7 @@
     });
 
     document.getElementById('btnProxy').addEventListener('click', () => {
-        document.getElementById('proxyForm').classList.remove('d-none');
+        document.getElementById('proxyForm').classList.remove('hidden');
     });
 
     document.getElementById('submitProxyBtn').addEventListener('click', () => {
@@ -326,7 +325,7 @@
                      x-transition.opacity.duration.200ms
                      @keydown.escape.window="$store.unpaidConfirmationModal.close()"
                      @keydown.tab.prevent.stop="handleTab($event)"
-                     class="pointer-events-auto flex max-h-[90vh] w-full max-w-[480px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+                     class="pointer-events-auto flex max-h-[90vh] w-full max-w-[480px] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">
                     <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">
                         <h5 id="unpaidConfirmationModalTitle" class="mb-0 text-dense font-heading font-semibold text-white">Final Confirmation</h5>
                         <button type="button"
@@ -379,10 +378,10 @@
             proxy_monthlyincome: extras.income || ''
         }).then(data => {
             if (data.success) {
-                document.getElementById('successBox').classList.remove('d-none');
+                document.getElementById('successBox').classList.remove('hidden');
                 document.getElementById('successBox').textContent = data.message;
-                document.getElementById('confirmSection').classList.add('d-none');
-                document.getElementById('proxyForm').classList.add('d-none');
+                document.getElementById('confirmSection').classList.add('hidden');
+                document.getElementById('proxyForm').classList.add('hidden');
             } else {
                 alert(data.message || 'Error saving information.');
             }

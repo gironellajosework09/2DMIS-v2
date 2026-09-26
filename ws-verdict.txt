@@ -1,0 +1,10 @@
+rm=ws-cleanup-report.txt
+rm=ws-final-verify.cjs
+final_exit=0
+final_stdout_bytes=0
+remaining_ws=0
+log_bytes=770707
+log_has_crlf=N
+docs/SESSION_HANDOFF.md=257372 LF=N
+docs/IMPLEMENTATION_LOG.md=770707 LF=Y
+docs/UI_CSS_RETIREMENT_PLAN.md=193882 LF=Y

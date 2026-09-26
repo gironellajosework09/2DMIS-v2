@@ -5,6 +5,8 @@ import type { Page } from 'playwright-core';
 // Phase 27 (2026-09-07) — assertions flipped: the Bootstrap 5.3.2 CSS CDN
 //   is REMOVED (was: still served); the project-owned ui.css parity layer
 //   that replaces it (§4.8–4.10) must be present instead.
+// M6.16 (2026-09-13) — ui.css RETIRED and DELETED; the styling now flows
+//   entirely from the compiled app.css Vite bundle (canonical owner).
 //
 // Environment note: the local `main_system` is a byte-identical production copy
 // with no `smoke_superadmin` seed user and the project deliberately does not seed
@@ -38,9 +40,14 @@ test('login page boots cleanly with Bootstrap CSS removed (Phase 27)', async ({ 
   const bootstrapCss = page.locator('link[href*="bootstrap@5.3.2"]');
   await expect(bootstrapCss).toHaveCount(0);
 
-  // The project-owned parity layer that replaced it is still present.
+  // M6.16: public/css/ui.css is RETIRED and DELETED — no ui.css stylesheet
+  // link (or request) may remain.
   const uiCss = page.locator('link[href$="ui.css"]');
-  await expect(uiCss).toHaveCount(1);
+  await expect(uiCss).toHaveCount(0);
+
+  // The retired parity layer is fully served by the compiled app.css bundle.
+  const appCss = page.locator('link[rel="stylesheet"][href*="/build/assets/app-"]');
+  await expect(appCss).toHaveCount(1);
 
   // The login page is intentionally NOT wired with the Alpine bundle (standalone
   // pages only load app.js when their interaction is actually migrated to Alpine).

@@ -9,8 +9,9 @@
      * Default Bootstrap modal semantics (no backdrop:'static', no
        keyboard:false) → backdrop click AND ESC close the feedback modal.
      * Dynamic title (#clientFeedbackTitle), body (#clientFeedbackBody),
-       and footer action area (#clientFeedbackActions) filled by callers.
-     * Static "Back to form" footer button closes back to the still-editable
+     * and footer action area (#clientFeedbackActions) filled by callers.
+     * Phase 27: the redundant "Back to form" footer button was removed — the
+     * X/close control already dismisses the feedback modal and returns focus
        form modal (masked underneath at a lower z-index).
      * Title highlight 'type' (info/warning/error) maps to a header tint.
      * On open, focus moves into the dialog (first focusable or the close
@@ -40,7 +41,7 @@
              x-transition.opacity.duration.200ms
              @keydown.escape="$store.clientFeedbackModal.hide()"
              @keydown.tab.prevent.stop="handleTab($event)"
-             class="pointer-events-auto flex w-full max-w-[500px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+             class="pointer-events-auto flex w-full max-w-[500px] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">
             <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">
                 <h5 id="clientFeedbackTitle" class="text-dense font-heading font-semibold text-white" x-text="$store.clientFeedbackModal.title"></h5>
                 <button type="button"
@@ -53,9 +54,8 @@
 
             <div id="clientFeedbackBody" class="min-h-0 max-h-[60vh] overflow-y-auto p-[1.25rem] text-dense leading-snug text-ink"></div>
 
-            <div class="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-line bg-neutral-100 px-[1.25rem] py-[0.9rem]">
+            <div class="flex shrink-0 flex-wrap items-center justify-end gap-3 border-t border-line bg-neutral-100 px-[1.25rem] py-[0.9rem]">
                 <div id="clientFeedbackActions" class="flex flex-wrap items-center justify-end gap-[8px]"></div>
-                <button type="button" class="btn-navy" @click="$store.clientFeedbackModal.hide()">Back to form</button>
             </div>
         </div>
     </div>

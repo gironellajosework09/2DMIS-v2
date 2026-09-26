@@ -12,7 +12,6 @@
          Phase 27: the Bootstrap CSS CDN link is removed; ui.css §4.8–4.10
          owns the shared families. --}}
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         [x-cloak] { display: none; }
@@ -83,12 +82,12 @@
 
                 <select id="cameraSelect" class="form-select mb-2" aria-label="Select camera"></select>
                 <video id="video" autoplay class="w-full rounded-[var(--radius-control)] mb-2"></video>
-                <img id="capturedPreview" class="w-full rounded-[var(--radius-control)] mb-2 d-none" alt="Captured photo preview">
+                <img id="capturedPreview" class="w-full rounded-[var(--radius-control)] mb-2 hidden" alt="Captured photo preview">
 
                 <div id="cameraButtons">
                     <button class="btn-navy" id="captureBtn">Capture</button>
                 </div>
-                <div id="previewButtons" class="d-none">
+                <div id="previewButtons" class="hidden">
                     <button class="btn-subtle" id="retakeBtn">Retake</button>
                     <button class="btn-navy" id="saveBtn">Save</button>
                 </div>
@@ -156,18 +155,18 @@
             canvas.getContext('2d').drawImage(video, 0, 0);
             const imageData = canvas.toDataURL('image/jpeg', 0.9);
             capturedPreview.src = imageData;
-            capturedPreview.classList.remove('d-none');
-            video.classList.add('d-none');
-            cameraButtons.classList.add('d-none');
-            previewButtons.classList.remove('d-none');
+            capturedPreview.classList.remove('hidden');
+            video.classList.add('hidden');
+            cameraButtons.classList.add('hidden');
+            previewButtons.classList.remove('hidden');
             cameraImageInput.value = imageData;
         });
 
         retakeBtn.addEventListener('click', function () {
-            capturedPreview.classList.add('d-none');
-            video.classList.remove('d-none');
-            cameraButtons.classList.remove('d-none');
-            previewButtons.classList.add('d-none');
+            capturedPreview.classList.add('hidden');
+            video.classList.remove('hidden');
+            cameraButtons.classList.remove('hidden');
+            previewButtons.classList.add('hidden');
         });
 
         saveBtn.addEventListener('click', function () {

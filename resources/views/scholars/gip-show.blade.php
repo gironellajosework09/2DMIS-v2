@@ -8,13 +8,7 @@
 @extends('layouts.app')
 @section('title', 'GIP Profile — 2D MIS')
 @section('content')
-@include('partials.breadcrumbs', [
-    'breadcrumbs' => [
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => 'Scholars', 'url' => route('scholars.index')],
-        ['label' => 'GIP Profile'],
-    ],
-])
+
 @endif
 
 <div class="data-card p-[1.25rem]" data-panel-body>
@@ -43,7 +37,7 @@
                 <div class="mx-auto grid place-items-center rounded-panel ring-1 ring-line text-dense text-ink-muted"
                     style="width:180px;height:200px;">No photo</div>
             @endif
-            <div class="mt-[8px] font-semibold text-ink">{{ $client->full_name }}</div>
+            <div class="mt-[8px] font-semibold text-ink">{{ $client->displayFullName() }}</div>
         </div>
 
         <dl class="m-0 grid grid-cols-1 gap-x-[16px] gap-y-[10px] sm:grid-cols-2 lg:grid-cols-3">
@@ -79,7 +73,7 @@
     </div>
 </div>
 
-<div data-panel-title style="display:none;">{{ $client->full_name }}</div>
+<div data-panel-title style="display:none;">{{ $client->displayFullName() }}</div>
 <div data-panel-sub style="display:none;">GIP Profile &middot; Client ID: {{ $client->id ?? '—' }}</div>
 <div data-panel-meta style="display:none;">
     <span class="program-tag">{{ $gip->program ?? 'GIP' }}</span>

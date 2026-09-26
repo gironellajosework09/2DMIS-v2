@@ -10,7 +10,6 @@
          now owns the last shared families (form-label, accordion, list-group,
          utility + Reboot/type parity). --}}
     @vite(['resources/css/app.css'])
-    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     {{-- Legacy content compatibility for unmigrated screens only.
          Shell chrome is token/utility-driven since Batch B. --}}
@@ -71,32 +70,38 @@
 
 @include('partials.sidebar', ['shellSections' => $shellSections])
 @include('partials.details-panel')
+@include('partials.unified-notify')
 
- {{-- Flash feedback renders as a persistent toast (manual dismiss, no
-      auto-hide so it cannot be missed). Phase 19: Alpine state owns
-      visibility + dismissal (was bootstrap.Toast with autohide:false);
-      server flash contract unchanged — controllers still flash
-      `login_status` exactly as before. Validation errors below stay
-      inline Bootstrap alerts by contract. --}}
-<div class="pointer-events-none fixed inset-x-0 top-20 z-[1100] flex flex-col items-end gap-2 px-[1rem] sm:px-[1.75rem]" aria-live="polite">
-    @if (session('login_status'))
-        <div id="flashToast"
-             x-data="{ open: true }"
-             x-show="open"
-             class="pointer-events-auto flex w-full max-w-[420px] items-start gap-3 rounded-panel bg-surface p-[1rem] shadow-pop ring-1 ring-line"
-             role="status">
-            <span class="mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-pill bg-teal/[0.12] text-teal" aria-hidden="true">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="h-3.5 w-3.5"><polyline points="20 6 9 17 4 12"/></svg>
-            </span>
-            <div class="min-w-0 flex-1 text-dense leading-snug text-ink">{{ session('login_status') }}</div>
-            <button type="button" class="btn-close shrink-0" @click="open = false" aria-label="Close"></button>
-        </div>
-    @endif
+ {{-- Flash feedback renders through the ONE shared notification stack
+      (partials/unified-notify — Phase 23). The layout no longer owns a
+      separate top-anchored toast container; server flash contract is
+      unchanged (controllers still flash `login_status`), only the
+      presentation channel is shared. Validation errors below stay inline
+      Bootstrap alerts by contract. --}}
+@if (session('login_status'))
+    <script>
+        (function () {
+            function pushOnReady() {
+                if (typeof window.notify === 'function' && document.body) {
+                    window.notify({ type: 'success', title: 'Welcome', message: {{ Js::from(session('login_status')) }} });
+                } else {
+                    setTimeout(pushOnReady, 60);
+                }
+            }
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', pushOnReady);
+            } else {
+                pushOnReady();
+            }
+        })();
+    </script>
+@endif
+
 </div>
 
 <main id="main-content" tabindex="-1" class="lg:ml-[260px]">
     @include('partials.navbar', ['shellSections' => $shellSections])
-    <div class="px-5 py-5 sm:px-7 sm:py-7">
+    <div class="px-3 py-3 sm:px-7 sm:py-7">
         @if ($errors->any())
             <div class="alert alert-danger alert-dismissible" role="alert" x-data="{ open: true }" x-show="open">
                 @foreach ($errors->all() as $error)

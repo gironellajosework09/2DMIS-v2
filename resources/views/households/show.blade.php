@@ -42,16 +42,10 @@
 
 @if (! $isPanel)
 @section('content')
-@include('partials.breadcrumbs', [
-    'breadcrumbs' => [
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => 'Households', 'url' => route('households.index')],
-        ['label' => $household->headClient->full_name ?? $household->household_id],
-    ],
-])
+
 @include('partials.page-header', [
     'title' => 'Household Details',
-    'subtitle' => $household->headClient->full_name ?? '',
+    'subtitle' => $household->headClient?->displayFullName() ?? '',
     'actions' => '
         <a href="'.route('households.index').'" class="btn-subtle no-underline">Back</a>',
 ])
@@ -86,13 +80,13 @@
                 <div class="mx-auto grid place-items-center rounded-panel ring-1 ring-line text-dense text-ink-muted"
                     style="width:180px;height:200px;">No photo</div>
             @endif
-            <div class="mt-[8px] font-semibold text-ink">{{ $household->headClient->full_name ?? '' }}</div>
+            <div class="mt-[8px] font-semibold text-ink">{{ $household->headClient?->displayFullName() ?? '' }}</div>
         </div>
 
         <dl class="m-0 grid grid-cols-1 gap-x-[16px] gap-y-[10px] sm:grid-cols-2 lg:grid-cols-3">
             @foreach([
                 'Household ID' => $household->household_id,
-                'Head of Household' => $household->headClient->full_name ?? '—',
+                'Head of Household' => $household->headClient?->displayFullName() ?? '—',
                 'Municipality' => $household->headClient->municipality->name ?? '—',
                 'Barangay' => $household->headClient->barangayInfo->name ?? '—',
                 'Total Members' => count($members) . ' member' . (count($members) != 1 ? 's' : ''),
@@ -121,7 +115,7 @@
                 @forelse ($members as $member)
                     <tr>
                         <td>
-                            <strong>{{ $member->full_name }}</strong>
+                            <strong>{{ $member->displayFullName() }}</strong>
                             @if ($member->id == $household->head_household)
                                 <span class="status-badge is-success ms-2">Head of Household</span>
                             @endif
@@ -140,7 +134,7 @@
     </div>
 </div>
 
-<div data-panel-title style="display:none;">{{ $household->headClient->full_name ?? $household->household_id }}</div>
+<div data-panel-title style="display:none;">{{ $household->headClient?->displayFullName() ?? $household->household_id }}</div>
 <div data-panel-sub style="display:none;">{{ $household->household_id }}</div>
 <div data-panel-meta style="display:none;">
     <span class="status-badge is-info">{{ count($members) }} Member{{ count($members) != 1 ? 's' : '' }}</span>

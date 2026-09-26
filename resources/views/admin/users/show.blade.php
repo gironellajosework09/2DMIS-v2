@@ -13,13 +13,7 @@
 @extends('layouts.app')
 @section('title', 'User Details — 2D MIS')
 @section('content')
-@include('partials.breadcrumbs', [
-    'breadcrumbs' => [
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => 'User Management', 'url' => route('admin.users.index')],
-        ['label' => 'User Details'],
-    ],
-])
+
 @endif
 
 <div class="data-card p-[1.25rem]" data-panel-body>

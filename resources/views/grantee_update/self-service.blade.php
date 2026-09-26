@@ -6,14 +6,15 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Scholarship Grantee Update — 2D MIS</title>
     {{-- Batch G migration: standalone public head shares the built app
-         stylesheet + ui.css (see auth/login). The grantee search / mobile
-         verify / update-save fetch contracts and the JS-built QR result
-         are unchanged — the script below is byte-preserved; JS-injected
-         markup keeps its Bootstrap classes via the ui.css parity layer
-         (Phase 27: the CDN stylesheet link is removed; §4.8–4.10 own the
-         leftovers). --}}
+         stylesheet + ui.css (see auth/login). C3-E switches the QR data
+         payload from composed full_name to the server-provided qr_token;
+         the grantee search / mobile verify / update-save fetch contracts
+         and the human-facing display below the QR are unchanged — the
+         script below is byte-preserved apart from the payload wiring;
+         JS-injected markup keeps its Bootstrap classes via the ui.css
+         parity layer (Phase 27: the CDN stylesheet link is removed;
+         §4.8–4.10 own the leftovers). --}}
     @vite(['resources/css/app.css'])
-    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -54,11 +55,11 @@
         <label for="nameInput" class="field-label">Search your name</label>
         <div class="position-relative">
             <input id="nameInput" class="form-control uppercase" placeholder="TYPE YOUR FULL NAME..." autocomplete="off">
-            <div id="suggestList" class="suggestions-list d-none"></div>
+            <div id="suggestList" class="suggestions-list hidden"></div>
         </div>
     </div>
 
-    <div class="mb-3 d-none" id="mobileVerifyWrap">
+    <div class="mb-3 hidden" id="mobileVerifyWrap">
         <label for="mobileVerifyInput" class="field-label">Enter your registered Mobile Number (first verification)</label>
         <div class="input-group">
             <input id="mobileVerifyInput" class="form-control" placeholder="e.g. 09XXXXXXXXX" maxlength="11" disabled>
@@ -77,14 +78,14 @@
                 <option value="">-- Select Municipality --</option>
             </select>
         </div>
-        <div class="col-md-6 d-flex align-items-end">
+        <div class="col-md-6 flex align-items-end">
             <button id="verifyBtn" class="btn-navy w-full" disabled>Verify &amp; Load My Details</button>
         </div>
     </div>
 
     <div id="alertBox"></div>
 
-    <div id="updateFormWrap" class="d-none">
+    <div id="updateFormWrap" class="hidden">
         <hr>
         <h2 class="text-base font-semibold text-ink">Personal Details <span class="text-dense" style="font-size: 15px; color: var(--color-red);">(Leave it BLANK if not applicable)</span></h2>
         <form id="updateForm">
@@ -92,60 +93,60 @@
 
             <div class="row">
                 <div class="col-md-3 mb-2">
-                    <label for="lastname" class="form-label">Last name</label>
+                    <label for="lastname" class="mb-2">Last name</label>
                     <input name="lastname" id="lastname" class="form-control uppercase" readonly>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="firstname" class="form-label">First name</label>
+                    <label for="firstname" class="mb-2">First name</label>
                     <input name="firstname" id="firstname" class="form-control uppercase" readonly>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="middlename" class="form-label">Middle name</label>
+                    <label for="middlename" class="mb-2">Middle name</label>
                     <input name="middlename" id="middlename" class="form-control uppercase" readonly>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="extensionname" class="form-label">Extension name</label>
+                    <label for="extensionname" class="mb-2">Extension name</label>
                     <input name="extensionname" id="extensionname" class="form-control uppercase" readonly>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-4 mb-2">
-                    <label for="city_municipality" class="form-label">Municipality</label>
+                    <label for="city_municipality" class="mb-2">Municipality</label>
                     <select name="city_municipality" id="city_municipality" class="form-select" disabled></select>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label for="barangay" class="form-label">Barangay</label>
+                    <label for="barangay" class="mb-2">Barangay</label>
                     <select name="barangay" id="barangay" class="form-select" disabled></select>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label for="house_no" class="form-label">House No.</label>
+                    <label for="house_no" class="mb-2">House No.</label>
                     <input name="house_no" id="house_no" class="form-control uppercase">
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-3 mb-2">
-                    <label for="mobile_no" class="form-label">Mobile No. <span class="text-danger">*</span></label>
+                    <label for="mobile_no" class="mb-2">Mobile No. <span class="text-danger">*</span></label>
                     <input name="mobile_no" id="mobile_no" class="form-control" required>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                    <label for="email" class="mb-2">Email <span class="text-danger">*</span></label>
                     <input name="email" id="email" class="form-control" required>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="birthdate" class="form-label">Birthdate <span class="text-danger">*</span></label>
+                    <label for="birthdate" class="mb-2">Birthdate <span class="text-danger">*</span></label>
                     <input type="date" name="birthdate" id="birthdate" class="form-control" required>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="age" class="form-label">Age</label>
+                    <label for="age" class="mb-2">Age</label>
                     <input type="number" name="age" id="age" readonly class="form-control">
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-3 mb-2">
-                    <label for="sex" class="form-label">Sex <span class="text-danger">*</span></label>
+                    <label for="sex" class="mb-2">Sex <span class="text-danger">*</span></label>
                     <select name="sex" id="sex" class="form-select" required>
                         <option value="">--Select--</option>
                         <option value="MALE">MALE</option>
@@ -153,7 +154,7 @@
                     </select>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="civil_status" class="form-label">Civil Status <span class="text-danger">*</span></label>
+                    <label for="civil_status" class="mb-2">Civil Status <span class="text-danger">*</span></label>
                     <select name="civil_status" id="civil_status" class="form-select" required>
                         <option value="">--Select--</option>
                         <option value="SINGLE">SINGLE</option>
@@ -162,7 +163,7 @@
                     </select>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="pwd" class="form-label">PWD <span class="text-danger">*</span></label>
+                    <label for="pwd" class="mb-2">PWD <span class="text-danger">*</span></label>
                     <select name="pwd" id="pwd" class="form-select" required>
                         <option value="">--Select--</option>
                         <option value="NO">NO</option>
@@ -170,18 +171,18 @@
                     </select>
                 </div>
                 <div class="col-md-3 mb-2">
-                    <label for="ip" class="form-label">IP</label>
+                    <label for="ip" class="mb-2">IP</label>
                     <input name="ip" id="ip" class="form-control uppercase">
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-6 mb-2">
-                    <label for="ip_group" class="form-label">IP Group</label>
+                    <label for="ip_group" class="mb-2">IP Group</label>
                     <input name="ip_group" id="ip_group" class="form-control uppercase">
                 </div>
                 <div class="col-md-6 mb-2">
-                    <label for="occupation" class="form-label">Occupation</label>
+                    <label for="occupation" class="mb-2">Occupation</label>
                     <input name="occupation" id="occupation" class="form-control uppercase">
                 </div>
             </div>
@@ -191,26 +192,26 @@
 
             <div class="row">
                 <div class="col-md-4 mb-2">
-                    <label for="sch_program" class="form-label">Program</label>
+                    <label for="sch_program" class="mb-2">Program</label>
                     <input name="sch_program" id="sch_program" class="form-control" readonly>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label for="school" class="form-label">School <span class="text-danger">*</span></label>
+                    <label for="school" class="mb-2">School <span class="text-danger">*</span></label>
                     <input name="school" id="school" class="form-control uppercase" required>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label for="college_department" class="form-label">College Department <span class="text-danger">*</span></label>
+                    <label for="college_department" class="mb-2">College Department <span class="text-danger">*</span></label>
                     <input name="college_department" id="college_department" class="form-control uppercase" required>
                 </div>
             </div>
 
             <div class="row">
                 <div class="col-md-4 mb-2">
-                    <label for="course" class="form-label">Course <span class="text-danger">*</span></label>
+                    <label for="course" class="mb-2">Course <span class="text-danger">*</span></label>
                     <input name="course" id="course" class="form-control uppercase" required>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label for="year_level" class="form-label">Year Level <span class="text-danger">*</span></label>
+                    <label for="year_level" class="mb-2">Year Level <span class="text-danger">*</span></label>
                     <select name="year_level" id="year_level" class="form-select" required>
                         <option value="">-- Select Year Level --</option>
                         <option value="1ST YEAR">1ST YEAR</option>
@@ -221,7 +222,7 @@
                     </select>
                 </div>
                 <div class="col-md-4 mb-2">
-                    <label for="is_regular" class="form-label">Is Regular <span class="text-danger">*</span></label>
+                    <label for="is_regular" class="mb-2">Is Regular <span class="text-danger">*</span></label>
                     <select name="is_regular" id="is_regular" class="form-select" required>
                         <option value="0">NO</option>
                         <option value="1">YES</option>
@@ -229,7 +230,7 @@
                 </div>
             </div>
 
-            <div class="mt-3 d-flex gap-2">
+            <div class="mt-3 flex gap-2">
                 <button id="saveBtn" class="btn-navy">Save Updates</button>
                 <button id="cancelBtn" type="button" class="btn-subtle">Cancel</button>
             </div>
@@ -271,7 +272,7 @@
         const q = nameInput.value.trim();
         if (debounce) clearTimeout(debounce);
         if (!q) {
-            suggestList.classList.add('d-none');
+            suggestList.classList.add('hidden');
             return;
         }
         debounce = setTimeout(() => {
@@ -280,7 +281,7 @@
                 .then(data => {
                     if (!data.success || !data.results.length) {
                         suggestList.innerHTML = '<div class="p-2">No matches</div>';
-                        suggestList.classList.remove('d-none');
+                        suggestList.classList.remove('hidden');
                         return;
                     }
                     suggestList.innerHTML = '';
@@ -291,14 +292,14 @@
                         btn.onclick = () => {
                             nameInput.value = r.full_name.toUpperCase();
                             selectedClientId = r.id;
-                            suggestList.classList.add('d-none');
+                            suggestList.classList.add('hidden');
 
                             const wrap = document.getElementById('mobileVerifyWrap');
                             const mobileInput = document.getElementById('mobileVerifyInput');
                             const mobileBtn = document.getElementById('mobileVerifyBtn');
                             const msg = document.getElementById('mobileVerifyMsg');
 
-                            wrap.classList.remove('d-none');
+                            wrap.classList.remove('hidden');
                             mobileInput.disabled = false;
                             mobileBtn.disabled = false;
                             msg.innerHTML = "<span class='text-info'>Please enter the registered mobile number for verification.</span>";
@@ -308,14 +309,14 @@
                         };
                         suggestList.appendChild(btn);
                     });
-                    suggestList.classList.remove('d-none');
+                    suggestList.classList.remove('hidden');
                 });
         }, 250);
     });
 
     document.addEventListener('click', e => {
         if (!document.querySelector('.position-relative').contains(e.target)) {
-            suggestList.classList.add('d-none');
+            suggestList.classList.add('hidden');
         }
     });
 
@@ -349,7 +350,7 @@
             return;
         }
 
-        document.getElementById('updateFormWrap').classList.remove('d-none');
+        document.getElementById('updateFormWrap').classList.remove('hidden');
         const c = data.client;
         const s = data.scholarship || {};
         document.getElementById('client_id').value = c.id;
@@ -396,7 +397,7 @@
     });
 
     document.getElementById('cancelBtn').onclick = () => {
-        document.getElementById('updateFormWrap').classList.add('d-none');
+        document.getElementById('updateFormWrap').classList.add('hidden');
     };
 
     document.getElementById('updateForm').addEventListener('submit', async e => {
@@ -415,13 +416,17 @@
         const data = await resp.json();
 
         if (data.success) {
+            // C3-E: the QR encodes the client's opaque identity token
+            // (server-provided, immutable); the human-facing label below
+            // the QR uses the form's current display-name composition.
+            const token = (data.qr_token || '').trim();
             const lastname = (document.getElementById('lastname').value || '').trim().toUpperCase();
             const firstname = (document.getElementById('firstname').value || '').trim().toUpperCase();
             const middlename = (document.getElementById('middlename').value || '').trim().toUpperCase();
             const fullName = (lastname + ', ' + firstname + (middlename ? ' ' + middlename : '')).replace(/\s+/g, ' ').trim();
 
             const size = '220x220';
-            const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=' + encodeURIComponent(size) + '&data=' + encodeURIComponent(fullName);
+            const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=' + encodeURIComponent(size) + '&data=' + encodeURIComponent(token);
             const downloadName = fullName.replace(/\s+/g, '_') + '_qr.png';
 
             msg.innerHTML = `
@@ -432,7 +437,7 @@
                     <div class="mt-2">
                         <a id="downloadQr" class="btn btn-sm btn-outline-primary" href="${qrURL}" download="${downloadName}">Download QR</a>
                     </div>
-                    <p class="mt-2 fw-bold">${fullName}</p>
+                    <p class="mt-2 font-bold">${fullName}</p>
                 </div>
             `;
 
@@ -441,7 +446,7 @@
                 img.style.display = 'none';
                 const dl = document.getElementById('downloadQr');
                 if (dl) dl.style.display = 'none';
-                msg.querySelector('.alert').insertAdjacentHTML('beforeend', `<div class="mt-2 text-danger">QR generation failed — please copy this text instead: <br><strong>${fullName}</strong></div>`);
+                msg.querySelector('.alert').insertAdjacentHTML('beforeend', `<div class="mt-2 text-danger">QR generation failed — please copy this text instead: <br><strong>${token}</strong></div>`);
             };
         } else {
             msg.innerHTML = `<div class="alert alert-danger">${data.message || 'Save failed. Please try again.'}</div>`;

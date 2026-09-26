@@ -98,12 +98,6 @@
         $canViewLogs = $acl->canAccessPage($viewUser, 'update_logs.php');
     @endphp
 
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Scholars'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Scholars',
@@ -345,7 +339,7 @@
                  x-transition.opacity.duration.200ms
                  @keydown.escape.window="$store.clientIdPromptModal.close()"
                  @keydown.tab.prevent.stop="handleTab($event)"
-                 class="pointer-events-auto flex max-h-[90vh] w-full max-w-[400px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+                 class="pointer-events-auto flex max-h-[90vh] w-full max-w-[400px] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">
                 <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">
                     <h5 id="clientIdPromptModalTitle" class="mb-0 text-dense font-heading font-semibold text-white">Relink Client ID</h5>
                     <button type="button"

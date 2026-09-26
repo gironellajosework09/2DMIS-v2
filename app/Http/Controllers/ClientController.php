@@ -101,6 +101,7 @@ class ClientController extends Controller
                         'duplicate_warning' => $matches->map(fn ($m) => [
                             'id' => $m->id,
                             'full_name' => $m->full_name,
+                            'display_full_name' => $m->displayFullName(),
                             'birthdate' => $m->birthdate,
                             'sex' => $m->sex,
                         ])->all(),
@@ -404,12 +405,11 @@ class ClientController extends Controller
 
         $data = $rows->map(function ($row) use ($canEdit, $canDelete) {
             $id = (string) $row->id;
-            $fullname = trim(
-                (string) preg_replace(
-                    '/\s+/',
-                    ' ',
-                    $row->lastname.', '.$row->firstname.' '.$row->middlename.' '.$row->extensionname,
-                ),
+            $fullname = $this->clientService->deriveDisplayName(
+                $row->lastname,
+                $row->firstname,
+                $row->middlename,
+                $row->extensionname,
             );
 
             // Client ID shown is the household code when one is linked
@@ -531,6 +531,10 @@ class ClientController extends Controller
             ->select([
                 'c.id',
                 'c.full_name',
+                'c.lastname',
+                'c.firstname',
+                'c.middlename',
+                'c.extensionname',
                 'c.age',
                 'c.sex',
                 'm.name as municipality_name',
@@ -556,6 +560,12 @@ class ClientController extends Controller
             return [
                 'id' => (int) $row->id,
                 'full_name' => (string) $row->full_name,
+                'display_name' => $this->clientService->deriveDisplayName(
+                    (string) $row->lastname,
+                    (string) $row->firstname,
+                    $row->middlename ?? null,
+                    $row->extensionname ?? null,
+                ),
                 'age' => (int) $row->age,
                 'sex' => (string) $row->sex,
                 'municipality' => (string) $row->municipality_name,

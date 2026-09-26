@@ -8,6 +8,7 @@ use App\Models\ClientAffOrg;
 use App\Models\Household;
 use App\Models\Municipality;
 use App\Services\AccessControlService;
+use App\Services\ClientService;
 use App\Services\HouseholdService;
 use App\Support\FilterConfig;
 use App\Support\RecordMunicipality;
@@ -20,6 +21,7 @@ class HouseholdController extends Controller
     public function __construct(
         private readonly HouseholdService $households,
         private readonly AccessControlService $acl,
+        private readonly ClientService $clientService,
     ) {}
 
     public function index(Request $request)
@@ -242,7 +244,7 @@ class HouseholdController extends Controller
             ->leftJoin('tbl_municipalities as m', 'c.city_municipality', '=', 'm.id')
             ->leftJoin('tbl_barangays as b', 'c.barangay', '=', 'b.id')
             ->leftJoin('tbl_household as h', 'h.head_household', '=', 'c.id')
-            ->select(['c.id', 'c.full_name', 'm.name as municipality_name', 'b.name as barangay_name'])
+            ->select(['c.id', 'c.full_name', 'c.lastname', 'c.firstname', 'c.middlename', 'c.extensionname', 'm.name as municipality_name', 'b.name as barangay_name'])
             ->whereNull('h.head_household');
 
         $this->acl->applyMunicipalityScope($query, $request->user(), 'c.city_municipality', 'household.php');
@@ -261,6 +263,17 @@ class HouseholdController extends Controller
             ->orderByRaw('CASE WHEN c.firstname LIKE ? THEN 0 WHEN c.lastname LIKE ? THEN 1 WHEN c.full_name LIKE ? THEN 2 ELSE 3 END, c.lastname, c.firstname', ["{$q}%", "{$q}%", "{$q}%"])
             ->limit(15)
             ->get();
+
+        foreach ($rows as $row) {
+            // Additive display-only transport (C3-B) alongside the persisted
+            // full_name machine key (left untouched for matching/order).
+            $row->display_name = $this->clientService->deriveDisplayName(
+                (string) $row->lastname,
+                (string) $row->firstname,
+                $row->middlename ?? null,
+                $row->extensionname ?? null,
+            );
+        }
 
         return response()->json($rows);
     }

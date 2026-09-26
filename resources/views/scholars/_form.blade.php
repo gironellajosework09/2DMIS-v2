@@ -2,13 +2,13 @@
 @php($yearStartVal = $yearStarted !== '' ? explode(' - ', $yearStarted)[0] : '')
 @php($yearEndVal = $yearStarted !== '' && str_contains($yearStarted, ' - ') ? explode(' - ', $yearStarted, 2)[1] : '')
 @php($selectedClientId = $scholar->client_id ?? ($clientId ?? ''))
-@php($selectedClientName = $selectedClientId !== '' ? (\App\Models\Client::find($selectedClientId)->full_name ?? '') : '')
+@php($selectedClientName = $selectedClientId !== '' ? (\App\Models\Client::find($selectedClientId)?->displayFullName() ?? '') : '')
 
 {{-- Batch G migration: grid scaffolding + bound labels. The client
      search contract (debounced fetch to scholars.clients-search, hidden
      #client_id binding, click-outside clear) is byte-preserved; the
      suggestion popover keeps its JS-independent width via inline style
-     instead of the forbidden w-100 utility. --}}
+     instead of the forbidden full-width Bootstrap utility. --}}
 <div class="grid grid-cols-1 gap-[12px] md:grid-cols-2">
     <div class="relative min-w-0">
         <label for="client_search" class="field-label">Client <span class="field-error">*</span></label>
@@ -89,7 +89,7 @@
                 .then(res => res.json())
                 .then(data => {
                     data.forEach(c => {
-                        const fullName = c.lastname + ', ' + c.firstname + ' ' + (c.middlename ?? '') + ' ' + (c.extensionname ?? '');
+                        const fullName = c.display_name || (c.lastname + ', ' + c.firstname + ' ' + (c.middlename ?? '') + ' ' + (c.extensionname ?? ''));
                         const li = document.createElement('li');
                         li.classList.add('list-group-item', 'list-group-item-action');
                         li.textContent = fullName.trim();

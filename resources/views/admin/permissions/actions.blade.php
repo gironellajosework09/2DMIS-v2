@@ -38,12 +38,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Manage Action Permissions'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Manage Action Permissions',

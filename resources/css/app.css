@@ -69,9 +69,9 @@
 /* ───────────────────────────────────────────────────────────────────
    Batch B — authenticated shell chrome (layout + navbar + sidebar).
    Explicit FILE paths on purpose, NOT a directory glob: shared
-   partials that no screen includes yet (partials/page-header,
-   partials/breadcrumbs stubs) must not feed candidate generation
-   until the first consumer batch adds their @source line.
+   partials that no screen includes yet (e.g. partials/page-header)
+   must not feed candidate generation until the first consumer batch
+   adds their @source line.
    ─────────────────────────────────────────────────────────────────── */
 @source "../views/layouts/app.blade.php";
 @source "../views/partials/sidebar.blade.php";
@@ -79,15 +79,14 @@
 @source "../views/partials/filter-chips.blade.php";
 
 /* ───────────────────────────────────────────────────────────────────
-   Batch D — dashboard screen + first consumers of the shared header
-   partials (page-header, breadcrumbs). The two partials graduate from
+   Batch D — dashboard screen + first consumer of the shared header
+   partial (page-header). The partial graduates from
    "stub, unscanned" to scanned exactly now that dashboard includes
-   them; later screen batches reuse the same entries — no further
-   allowlist growth expected for these files.
+   it; later screen batches reuse the same entry — no further
+   allowlist growth expected for this file.
    ─────────────────────────────────────────────────────────────────── */
 @source "../views/dashboard.blade.php";
 @source "../views/partials/page-header.blade.php";
-@source "../views/partials/breadcrumbs.blade.php";
 
 /* ───────────────────────────────────────────────────────────────────
    Batch E — clients registry. Part 1: index + create/edit wrappers.
@@ -118,6 +117,7 @@
 @source "../views/partials/record-view-modal.blade.php";
 @source "../views/partials/client-form-modal.blade.php";
 @source "../views/partials/client-feedback-modal.blade.php";
+@source "../views/partials/unified-notify.blade.php";
 
 /* ───────────────────────────────────────────────────────────────────
    Batch G — scanners / public / admin (+ the remaining registry
@@ -270,12 +270,33 @@
     --shadow-pop: 0 10px 15px -3px rgb(15 27 45 / 0.06), 0 4px 6px -4px rgb(15 27 45 / 0.04);
     --shadow-overlay: 0 20px 25px -5px rgb(15 27 45 / 0.08), 0 8px 10px -6px rgb(15 27 45 / 0.04);
     --shadow-glow: 0 0 0 3px rgb(252 209 22 / 0.2);
+    --shadow-focus: 0 0 0 0.2rem rgba(252, 209, 22, 0.3);
 
     /*
      * Motion easing (prototype §5.8 spec curve). ui.css: --ui-ease.
      * Durations use stock duration-150/200/300 utilities.
      */
     --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ──── Live design tokens — remaining `:root` --ui-* declarations (M6.3.2).
+   Dead tokens without consumers were removed in Phase 25 (36 zero-ref
+   declarations dropped) and Phase 28 (26 value-duplicated aliases removed
+   after the removal-gate audit). The retained 5 declarations serve the live
+   component families that still resolve `var(--ui-*)`: the localized
+   spacing/duration (--ui-space-3/4/5, --ui-duration) and --ui-teal, which
+   falls through --ui-accent. Scope stays `:root` — single declaration per
+   token, so resolved values are unchanged. Phase 26 migrated every other
+   live consumer (forms, buttons, alerts, pagination, data-card, metric-card,
+   status-badge, skip-link, notice, micro-label) to canonical @theme tokens. ──── */
+:root {
+    --ui-teal:        #2D8B7A;
+
+    --ui-space-3: 12px;
+    --ui-space-4: 16px;
+    --ui-space-5: 20px;
+
+    --ui-duration: 200ms;
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -305,6 +326,112 @@ h1, h2, h3, h4, h5, h6 {
     font-weight: 600;
     line-height: 1.3;
     letter-spacing: -0.01em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Reboot + type parity — ported verbatim from ui.css §4.10 (retirement
+   plan M2, Option B: Preflight stays OFF). The CDN stylesheet was the
+   global element reset; ui.css §4.10 owned these element rules so
+   rendering stayed byte-identical once the CDN <link> left. They now
+   live here as the canonical ownership layer. Values are byte-faithful
+   to Bootstrap 5.3.2 / _type.scss; utility/component classes still win
+   by specificity exactly as they do today.
+
+   PLACED IN @layer base, NOT unlayered, so the rendition is
+   byte-identical while ui.css is still linked: ui.css §4.10 is
+   unlayered and therefore outranks this layered block at equal
+   specificity, supplying identical values. When ui.css retires (M6)
+   these layered rules become the sole source and render the same
+   values. Longhand only — no utility names (self-scan rule).
+
+   NOTE: the html/body/h1–h6 *typography* block directly above stays
+   UNLAYERED (prototype baseline: Inter/Outfit, line-height, weight):
+   it sets fonts/leading that ui.css's §4.10 body rule does not touch,
+   so no value is duplicated in a conflicting way. The base block below
+   restates only the Reboot element keys rendered by ui.css today.
+   ═══════════════════════════════════════════════════════════════════ */
+@layer base {
+    *,
+    *::before,
+    *::after { box-sizing: border-box; }
+    body { margin: 0; color: #212529; }
+    h1, h2, h3, h4, h5, h6 { margin-top: 0; margin-bottom: .5rem; }
+    p { margin-top: 0; margin-bottom: 1rem; }
+    ol, ul, dl { margin-top: 0; margin-bottom: 1rem; }
+    ol, ul { padding-left: 2rem; }
+    ol ol, ul ul, ol ul, ul ol { margin-bottom: 0; }
+    dt { font-weight: 700; }
+    dd { margin-bottom: .5rem; margin-left: 0; }
+    blockquote { margin: 0 0 1rem; }
+    b, strong { font-weight: bolder; }
+    hr { margin: 1rem 0; color: inherit; border: 0; border-top: 1px solid; opacity: .25; }
+    abbr[title] { text-decoration: underline dotted; cursor: help; text-decoration-skip-ink: none; }
+    address { margin-bottom: 1rem; font-style: normal; line-height: inherit; }
+    a { color: #0d6efd; text-decoration: underline; }
+    a:hover { color: #0a58ca; }
+    a:not([href]):not([class]),
+    a:not([href]):not([class]):hover { color: inherit; text-decoration: none; }
+    img, svg { vertical-align: middle; }
+    table { caption-side: bottom; border-collapse: collapse; }
+    caption { padding-top: .5rem; padding-bottom: .5rem; color: #6c757d; text-align: left; }
+    th { text-align: inherit; text-align: -webkit-match-parent; }
+    thead, tbody, tfoot, tr, td, th { border-color: inherit; border-style: solid; border-width: 0; }
+    label { display: inline-block; }
+    button { border-radius: 0; }
+    button:focus:not(:focus-visible) { outline: 0; }
+    input, button, select, optgroup, textarea { margin: 0; font-family: inherit; font-size: inherit; line-height: inherit; }
+    button, select { text-transform: none; }
+    [role="button"] { cursor: pointer; }
+    select { word-wrap: normal; }
+    textarea { resize: vertical; }
+
+    /* _type.scss heading keys — applied only to bare headings that carry
+       no size utility (utilities beat these element rules). */
+    h1, .h1 { font-size: calc(1.375rem + 1.5vw); }
+    h2, .h2 { font-size: calc(1.325rem + .9vw); }
+    h3, .h3 { font-size: calc(1.3rem + .6vw); }
+    h4, .h4 { font-size: calc(1.275rem + .3vw); }
+    h5, .h5 { font-size: 1.25rem; }
+    h6, .h6 { font-size: 1rem; }
+    @media (min-width: 1200px) {
+        h1, .h1 { font-size: 2.5rem; }
+        h2, .h2 { font-size: 2rem; }
+        h3, .h3 { font-size: 1.75rem; }
+        h4, .h4 { font-size: 1.5rem; }
+    }
+
+    /* Accessibility foundations — ported verbatim from ui.css §3
+       (retirement plan M3). Global visible focus: 3 px gold outline,
+       offset 2. Browsers without :focus-visible support keep their
+       default outline. Uses the canonical --color-gold token (M1,
+       = ui.css --ui-gold #FCD116) so this copy needs no ui.css token.
+       ui-skip-link stays owned at app.css:447 (not re-ported).
+
+       PLACED IN @layer base, NOT unlayered, so the rendition is
+       byte-identical while ui.css is still linked: ui.css §3 is
+       unlayered and therefore outranks this layered block at equal
+       specificity, supplying identical values (the !important motion
+       guard below likewise loses only to ui.css's identical unlayered
+       !important copy). When ui.css retires (M6) these layered rules
+       become the sole source and render the same values. */
+    :focus-visible {
+        outline: 3px solid var(--color-gold);
+        outline-offset: 2px;
+    }
+
+    /* Respect reduced-motion preferences. The !important flags are the
+       standard documented exception: they must beat every animation/
+       transition shorthand regardless of source order or specificity. */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -413,12 +540,38 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Buttons (prototype metrics: 8px radius, 16/9px padding, dense
       semibold label). Variants mirror ui.css hover/active stops. ── */
+/* C1 2026-09-14 -- button element baseline. This file deliberately omits
+   Tailwind Preflight (coexistence note at the header; Bootstrap CDN and
+   ui.css are now both retired), so any <button> without a class-level fill
+   contract inherits Chromium's UA chrome: buttonface fill rgb(240,240,240),
+   2px outset black border, 1px 6px UA padding, cursor default, appearance
+   auto. That native leak is what the modal X buttons render.
+   This element rule (0,0,1) owns the lowest bounce: every class-level
+   contract (.btn, .btn-close, .btn-navy, .details-close, utilities, ...)
+   overrides it by specificity, and `nav button` (0,0,2) keeps its own
+   scope. background-image:none also strips the UA bevel gradient. */
+button {
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: transparent;
+    background-image: none;
+    border: 1px solid transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
 .btn-gold,
 .btn-navy,
 .btn-red,
 .btn-subtle,
 .btn-outline-red {
     @apply inline-flex cursor-pointer select-none items-center justify-center gap-2 rounded-btn px-[1rem] py-[0.5625rem] text-dense font-semibold leading-snug no-underline transition duration-200 ease-standard disabled:pointer-events-none disabled:opacity-60;
+    border: 1px solid transparent;
+    background-color: transparent; /* B4 2026-09-14 -- Batch C variants own their
+                                       default background so BARE variants defeat
+                                       the Chromium UA buttonface fill; filled
+                                       variants override below, hover/active fill
+                                       stays intact. */
 }
 
 .btn-gold {
@@ -493,6 +646,23 @@ h1, h2, h3, h4, h5, h6 {
     @apply border-red/30 bg-red/[0.08] text-red;
 }
 
+.back-btn {
+    color: var(--color-ink-muted);
+    background: none;
+    border: 0;
+    box-shadow: none;
+    text-decoration: none;
+}
+
+.back-btn:hover,
+.back-btn:focus,
+.back-btn:active {
+    color: var(--color-navy);
+    background: none;
+    border: 0;
+    box-shadow: none;
+}
+
 
 /* ── Status badges: dot-pills with fixed semantic mapping (identical
       names + colors as frozen ui.css; text shades are AA-darkened). ── */
@@ -531,6 +701,12 @@ h1, h2, h3, h4, h5, h6 {
     @apply bg-ink-secondary/[0.10] text-ink-secondary;
 }
 
+/* Client category badge (UX polish): categories use their own neutral navy
+   tint instead of borrowing the transaction status palette. */
+.status-badge.is-category {
+    @apply bg-navy/[0.10] text-navy;
+}
+
 /* ── Data card family: white surface + header/body/footer slots. ── */
 .data-card {
     @apply rounded-card bg-surface shadow-card ring-1 ring-line;
@@ -540,9 +716,9 @@ h1, h2, h3, h4, h5, h6 {
     @apply flex flex-wrap items-center justify-between gap-3 border-b border-line-light px-[1.25rem] py-[1rem];
 }
 
-.data-card-body {
+/* .data-card-body {
     @apply p-[1.25rem];
-}
+} */
 
 .data-card-footer {
     @apply flex flex-wrap items-center justify-between gap-3 border-t border-line-light bg-surface px-[1.25rem] py-[0.75rem];
@@ -580,12 +756,12 @@ h1, h2, h3, h4, h5, h6 {
     position: absolute;
     inset: 0 0 auto 0;
     height: 3px;
-    background: var(--ui-accent, var(--color-navy));
+    background: var(--accent, var(--color-navy));
 }
 
-.metric-card.accent-gold { --ui-accent: var(--color-gold); }
-.metric-card.accent-teal { --ui-accent: var(--color-teal); }
-.metric-card.accent-red  { --ui-accent: var(--color-red); }
+.metric-card.accent-gold { --accent: var(--color-gold); }
+.metric-card.accent-teal { --accent: var(--color-teal); }
+.metric-card.accent-red  { --accent: var(--color-red); }
 
 .metric-value {
     @apply font-heading text-metric font-bold leading-[1.2] text-ink;
@@ -830,8 +1006,12 @@ h1, h2, h3, h4, h5, h6 {
 
 .filter-multi {
     padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-line-light);
+    border-radius: var(--radius-card);
 }
-.filter-multi + .filter-multi { border-top: 1px solid var(--color-line-light); }
+.filter-multi:last-child { margin-bottom: 0; }
 
 .filter-multi-head {
     display: flex;
@@ -1016,3 +1196,2254 @@ h1, h2, h3, h4, h5, h6 {
         justify-content: center;
     }
 }
+
+/* ── Dropdown open state (M5.4: canonical app-owned state token).
+   Alpine state binds `dropdown-open` on the menu — :class="{ 'dropdown-open': open }"
+   on the three Alpine dropdowns (.dropdown-menu: navbar user menu, clients/export,
+   transactions/export). ui.css `.dropdown-menu.show` dependency removed. This is
+   NOT a generic `.show` replacement and does not restyle the closed state: the
+   `.dropdown-menu` base (display:none, 0,1,0) moved VERBATIM to app.css under
+   the M6.3.5 dropdown section (ui.css §4.7) still hides the closed menu, and
+   this 0,2,0 rule wins the open-state conflict by specificity. ── */
+.dropdown-menu.dropdown-open {
+    display: block;
+}
+
+/* ── Accordion component tokens — canonical ownership (M6.2 + M6.3.1).
+   The first seven --ui-accordion-* tokens below were moved VERBATIM from the
+   ui.css §4.8 `.accordion` scoped block in M6.2 (their previous declaration
+   site) because the M5.5 open-state rules consume them. M6.3.1 completed the
+   move — the remaining fifteen --ui-accordion-* tokens joined them
+   verbatim so the base-formation rules (ported to the M6.3.1 section below)
+   and the open-state rules are together fully self-contained against ui.css
+   deletion. Declarations stay scoped on `.accordion` exactly as before
+   (byte-identical value strings incl. the calc and both SVG data URIs), so
+   the resolved values are unchanged and the family stays Bootstrap 5.3.2
+   byte-faithful. ── */
+.accordion {
+    --ui-accordion-color: #212529;
+    --ui-accordion-bg: #fff;
+    --ui-accordion-transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out, border-radius .15s ease;
+    --ui-accordion-border-radius: .375rem;
+    --ui-accordion-border-color: #dee2e6;
+    --ui-accordion-border-width: 1px;
+    --ui-accordion-inner-border-radius: calc(.375rem - 1px);
+    --ui-accordion-btn-padding-x: 1.25rem;
+    --ui-accordion-btn-padding-y: 1rem;
+    --ui-accordion-btn-color: #212529;
+    --ui-accordion-btn-bg: #fff;
+    --ui-accordion-btn-icon: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23212529'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+    --ui-accordion-btn-icon-width: 1.25rem;
+    --ui-accordion-btn-icon-transition: transform .2s ease-in-out;
+    --ui-accordion-btn-focus-border-color: #86b7fe;
+    --ui-accordion-btn-focus-box-shadow: 0 0 0 .25rem rgba(13, 110, 253, .25);
+    --ui-accordion-btn-active-icon: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23084298'%3e%3cpath fill-rule='evenodd' d='M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z'/%3e%3c/svg%3e");
+    --ui-accordion-btn-icon-transform: rotate(-180deg);
+    --ui-accordion-active-color: #084298;
+    --ui-accordion-active-bg: #cfe2ff;
+    --ui-accordion-body-padding-x: 1.25rem;
+    --ui-accordion-body-padding-y: 1rem;
+}
+
+/* ── Accordion open state (M5.5: canonical app-owned state token).
+   The live accordion is clients/_gip (visible only when a GIP transaction
+exists). Alpine binds `accordion-open` on the header when accordionOpen is
+    true — :class="{ 'accordion-open': accordionOpen }", replacing the Bootstrap
+    `.collapsed` inverted binding. ui.css `.collapsed` state rules removed; the
+    base `.accordion`/`.accordion-button`/`.accordion-collapse` formation was in
+    ui.css until M6.3.1 moved it into this file (see below, canonical owner).
+    Values reference the app.css canonical --ui-accordion-* tokens
+    above (M6.2 + M6.3.1) so the open state stays byte-identical to Bootstrap
+    5.3.2 AND self-contained against ui.css deletion.
+
+   The `.accordion` scope prefix raises specificity to 0,3,0 so the open-state
+   inset box-shadow keeps beating ui.css `.accordion-button:focus`'s focus ring
+   (0,2,0) exactly as the retired later-in-source `:not(.collapsed)` rule did:
+   without it, the focus ring would win the box-shadow tie once ui.css loads
+   after the bundle, flipping the open+focused appearance. The corner rule
+   applies only while closed (:not(.accordion-open)); when open the panel picks
+   up the existing ui.css `.accordion-item:last-of-type .accordion-collapse`
+   radius instead. ── */
+.accordion .accordion-button.accordion-open {
+    color: var(--ui-accordion-active-color);
+    background-color: var(--ui-accordion-active-bg);
+    box-shadow: inset 0 calc(-1 * var(--ui-accordion-border-width)) 0 var(--ui-accordion-border-color);
+}
+
+.accordion .accordion-button.accordion-open::after {
+    background-image: var(--ui-accordion-btn-active-icon);
+    transform: var(--ui-accordion-btn-icon-transform);
+}
+
+.accordion .accordion-item:last-of-type .accordion-button:not(.accordion-open) {
+    border-bottom-right-radius: var(--ui-accordion-inner-border-radius);
+    border-bottom-left-radius: var(--ui-accordion-inner-border-radius);
+}
+
+/* ── Accordion base formation — canonical ownership (M6.3.1).
+   Ported VERBATIM from ui.css §4.8 (Bootstrap 5.3.2 byte-faithful) so the
+   final family — button box/typography, focus ring, chevron ::after, header,
+   item borders + first/last corner radii, collapse, body padding — is
+   self-contained against ui.css deletion. Selectors, order and values are
+   byte-identical to the ui.css source block; the M5.5 open/closed state rules
+   above stay at 0,3,0 (their historical rationale — beating ui.css's later
+   `:focus` tie — no longer applies because ui.css now owns no accordion rules,
+   but the selectors are kept unchanged). The ::after chevron defaults to the
+   closed icon; the open state swaps in the active icon + rotation via the
+   M5.5 `.accordion-open` rules. ── */
+.accordion-button {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: var(--ui-accordion-btn-padding-y) var(--ui-accordion-btn-padding-x);
+    font-size: 1rem;
+    color: var(--ui-accordion-btn-color);
+    text-align: left;
+    background-color: var(--ui-accordion-btn-bg);
+    border: 0;
+    border-radius: 0;
+    overflow-anchor: none;
+    transition: var(--ui-accordion-transition);
+}
+.accordion-button:focus {
+    z-index: 3;
+    border-color: var(--ui-accordion-btn-focus-border-color);
+    outline: 0;
+    box-shadow: var(--ui-accordion-btn-focus-box-shadow);
+}
+.accordion-button::after {
+    flex-shrink: 0;
+    width: var(--ui-accordion-btn-icon-width);
+    height: var(--ui-accordion-btn-icon-width);
+    margin-left: auto;
+    content: "";
+    background-image: var(--ui-accordion-btn-icon);
+    background-repeat: no-repeat;
+    background-size: var(--ui-accordion-btn-icon-width);
+    transition: var(--ui-accordion-btn-icon-transition);
+}
+.accordion-header {
+    margin-bottom: 0;
+}
+.accordion-item {
+    color: var(--ui-accordion-color);
+    background-color: var(--ui-accordion-bg);
+    border: var(--ui-accordion-border-width) solid var(--ui-accordion-border-color);
+}
+.accordion-item:first-of-type {
+    border-top-left-radius: var(--ui-accordion-border-radius);
+    border-top-right-radius: var(--ui-accordion-border-radius);
+}
+.accordion-item:first-of-type .accordion-button {
+    border-top-left-radius: var(--ui-accordion-inner-border-radius);
+    border-top-right-radius: var(--ui-accordion-inner-border-radius);
+}
+.accordion-item:not(:first-of-type) {
+    border-top: 0;
+}
+.accordion-item:last-of-type {
+    border-bottom-right-radius: var(--ui-accordion-border-radius);
+    border-bottom-left-radius: var(--ui-accordion-border-radius);
+}
+.accordion-item:last-of-type .accordion-collapse {
+    border-bottom-right-radius: var(--ui-accordion-border-radius);
+    border-bottom-left-radius: var(--ui-accordion-border-radius);
+}
+.accordion-collapse {
+    border: 0;
+    border-radius: 0;
+}
+.accordion-body {
+    padding: var(--ui-accordion-body-padding-y) var(--ui-accordion-body-padding-x);
+}
+
+/* ── Forms family — canonical ownership (M6.3.2). Moved VERBATIM from
+   public/css/ui.css §4.2 + .form-label (§4.8). Stock Bootstrap 5.3.2 controls
+   with the app's own focus identity kept (navy border + gold ring via the
+   canonical @theme tokens --color-navy-light/--shadow-focus). JS contracts
+   are untouched: the .form-control/.form-select/.form-check-input class names
+   stay exactly as before. */
+
+.form-label {
+    margin-bottom: .5rem;
+}
+
+.form-control {
+    display: block;
+    width: 100%;
+    padding: .375rem .75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    appearance: none;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+.form-control[type=file] {
+    overflow: hidden;
+}
+.form-control[type=file]:not(:disabled):not([readonly]) {
+    cursor: pointer;
+}
+.form-control:focus {
+    color: #212529;
+    background-color: #fff;
+    border-color: var(--color-navy-light);
+    outline: 0;
+    box-shadow: var(--shadow-focus);
+}
+.form-control::placeholder {
+    color: #6c757d;
+    opacity: 1;
+}
+.form-control:disabled {
+    background-color: #e9ecef;
+    opacity: 1;
+}
+.form-control::file-selector-button {
+    padding: .375rem .75rem;
+    margin: -.375rem -.75rem;
+    margin-inline-end: .75rem;
+    color: #212529;
+    background-color: #f8f9fa;
+    pointer-events: none;
+    border-color: inherit;
+    border-style: solid;
+    border-width: 0;
+    border-inline-end-width: 1px;
+    border-radius: 0;
+    transition: color .15s ease-in-out, background-color .15s ease-in-out,
+                border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+.form-control-sm {
+    min-height: calc(1.5em + .5rem + 2px);
+    padding: .25rem .5rem;
+    font-size: .875rem;
+    border-radius: .25rem;
+}
+.form-control-sm::file-selector-button {
+    padding: .25rem .5rem;
+    margin: -.25rem -.5rem;
+    margin-inline-end: .5rem;
+}
+
+.form-select {
+    display: block;
+    width: 100%;
+    padding: .375rem 2.25rem .375rem .75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    appearance: none;
+    background-color: #fff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right .75rem center;
+    background-size: 16px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+.form-select:focus {
+    border-color: var(--color-navy-light);
+    outline: 0;
+    box-shadow: var(--shadow-focus);
+}
+.form-select[multiple],
+.form-select[size]:not([size="1"]) {
+    padding-right: .75rem;
+    background-image: none;
+}
+.form-select:disabled {
+    background-color: #e9ecef;
+}
+.form-select-sm {
+    padding-top: .25rem;
+    padding-bottom: .25rem;
+    padding-left: .5rem;
+    font-size: .875rem;
+    border-radius: .25rem;
+}
+
+.form-check {
+    display: block;
+    min-height: 1.5rem;
+    padding-left: 1.5em;
+    margin-bottom: .125rem;
+}
+.form-check .form-check-input {
+    float: left;
+    margin-left: -1.5em;
+}
+.form-check-input {
+    flex-shrink: 0;
+    width: 1em;
+    height: 1em;
+    margin-top: .25em;
+    vertical-align: top;
+    appearance: none;
+    background-color: #fff;
+    background-image: none;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    border: 1px solid #dee2e6;
+    print-color-adjust: exact;
+}
+.form-check-input[type=checkbox] {
+    border-radius: .25em;
+}
+.form-check-input[type=radio] {
+    border-radius: 50%;
+}
+.form-check-input:active {
+    filter: brightness(90%);
+}
+.form-check-input:focus {
+    border-color: var(--color-navy-light);
+    outline: 0;
+    box-shadow: var(--shadow-focus);
+}
+.form-check-input:checked {
+    background-color: var(--color-navy);
+    border-color: var(--color-navy);
+}
+.form-check-input:checked[type=checkbox] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+.form-check-input:checked[type=radio] {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='2' fill='%23fff'/%3e%3c/svg%3e");
+}
+.form-check-input[type=checkbox]:indeterminate {
+    background-color: var(--color-navy);
+    border-color: var(--color-navy);
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='M6 10h8'/%3e%3c/svg%3e");
+}
+.form-check-input:disabled {
+    pointer-events: none;
+    filter: none;
+    opacity: .5;
+}
+.form-check-input:disabled ~ .form-check-label,
+.form-check-input[disabled] ~ .form-check-label {
+    cursor: default;
+    opacity: .5;
+}
+
+/* Input groups (search-plus / field-prefix compositions used by
+   grantee_update, scholars/_form and students/update-photo). */
+.input-group {
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    width: 100%;
+}
+.input-group > .form-control,
+.input-group > .form-select {
+    position: relative;
+    flex: 1 1 auto;
+    width: 1%;
+    min-width: 0;
+}
+.input-group > .form-control:focus,
+.input-group > .form-select:focus {
+    z-index: 5;
+}
+.input-group .btn {
+    position: relative;
+    z-index: 2;
+}
+.input-group .btn:focus {
+    z-index: 5;
+}
+.input-group-text {
+    display: flex;
+    align-items: center;
+    padding: .375rem .75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    text-align: center;
+    white-space: nowrap;
+    background-color: #e9ecef;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+}
+.input-group > :not(:last-child):not(.dropdown-toggle):not(.dropdown-menu) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.input-group > :not(:first-child):not(.dropdown-menu) {
+    margin-left: -1px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+
+/* ── Close buttons — .btn-close canonical ownership (M5.6).
+   The class literal `.btn-close` is RETAINED (Bootstrap-parity vocabulary; no
+   JS selector targets it — both JS-created toasts are wired via
+   button[aria-label="Close"], DetailsPanel via #detailsClose — so all 16
+   consumers incl. the two dynamically generated buttons keep byte-identical
+   strings). Ownership of the button's OWN contract (box model, glyph, opacity,
+   hover/focus/disabled states, white variant) moves here from ui.css §4.3 with
+   byte-identical values. ONLY the alert-family child-positioning rule
+   `.alert-dismissible .btn-close` stayed in ui.css §4.5 with its `.alert`
+   parent during M5.6; since M6.3.4 ported the alert family here too, the
+   `.btn-close` family is now FULLY app.css-owned — the (0,2,0)
+   `.alert-dismissible .btn-close` placement rule lives with the alerts
+   section appended at the end of this file and keeps beating the (0,1,0)
+   self contract for position/padding exactly as before (parent positioning
+   contract, not `.btn-close` self-ownership).
+
+   Cascade: this bundle loads BEFORE ui.css. Pre-migration `.btn-close` (0,1,0)
+   sat between earlier and later ui.css rules; the only competing rule was
+   `.alert-dismissible .btn-close` (0,2,0 position/padding), which overrode
+   the same padding before too and now lives here with the alerts section —
+   so no tie-break flips. Tailwind Preflight's button reset is beaten by this
+   unlayered rule exactly as it was by ui.css. ── */
+.btn-close {
+    box-sizing: content-box;
+    width: 1em;
+    height: 1em;
+    padding: .25em;
+    color: #000;
+    background: transparent url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23000'%3e%3cpath d='M.293.293a1 1 0 0 1 1.414 0L8 6.586 14.293.293a1 1 0 1 1 1.414 1.414L9.414 8l6.293 6.293a1 1 0 0 1-1.414 1.414L8 9.414l-6.293 6.293a1 1 0 0 1-1.414-1.414L6.586 8 .293 1.707a1 1 0 0 1 0-1.414z'/%3e%3c/svg%3e") center/1em auto no-repeat;
+    border: 0;
+    border-radius: .375rem;
+    opacity: .5;
+}
+.btn-close:hover {
+    color: #000;
+    text-decoration: none;
+    opacity: .75;
+}
+.btn-close:focus {
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(13, 110, 253, .25);
+    opacity: 1;
+}
+.btn-close.disabled,
+.btn-close:disabled {
+    pointer-events: none;
+    user-select: none;
+    opacity: .25;
+}
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+
+/* ── Buttons base — .btn family canonical ownership (M6.3.3).
+   The entire ui.css §4.1 buttons base family is ported VERBATIM below:
+   .btn (display/padding/font metrics/border/radius/transition),
+   .btn:hover (currentColor edge), .btn:focus-visible (outline-free),
+   .btn.disabled/.btn:disabled, .btn-sm, the structural-navy variant
+   families (.btn-primary, .btn-outline-primary — --ui-navy source),
+   the flag-red destructive family (.btn-danger, .btn-outline-danger —
+   --ui-red + darker hover/active stops), and the .btn.btn-gold
+   keyboard-focus glow (dark golden ring).
+
+   Cascade: this section is appended AFTER every existing app.css rule so
+   each equal-specificity tie with the earlier self-contained brand group
+   (.btn-gold/.btn-navy/.btn-red/.btn-subtle/.btn-outline-red — plain
+   (0,1,0) rules) and .btn-outline resolves exactly as v1 rendered it when
+   ui.css loaded after this bundle (the later rule wins). Tailwind Preflight
+   resets and utilities are beaten by these unlayered rules exactly as they
+   were by ui.css. The brand keys .btn-gold/.btn-navy/.btn-red/.btn-subtle/
+   .btn-outline-red/.btn-outline and the .btn-close self-contract are
+   app.css-owned and untouched. ── */
+
+/* 4.1 Buttons — project-owned .btn base, .btn-sm, and the brand
+      variants the app actually renders. app.css owns its self-contained
+      .btn-gold/.btn-navy/.btn-red/.btn-subtle/.btn-outline-red/.btn-outline
+      variants; only the keyboard-focus glow of `btn btn-gold` combos is
+      preserved here. Focus indication stays outline-free + glow-driven,
+      matching the stock behavior the bridges previously produced. */
+.btn {
+    display: inline-block;
+    padding: .375rem .75rem;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    text-align: center;
+    text-decoration: none;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    border-radius: .375rem; /* stock Bootstrap at the app's 14px root */
+    background-color: transparent;
+    transition: color .15s ease-in-out, background-color .15s ease-in-out,
+                border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+}
+
+/* Stock default: the unset hover border-color resolves to currentColor
+   (so e.g. gold/navy buttons edge in their current label color on
+   hover); the variants below override with their own stops. */
+.btn:hover {
+    border-color: currentColor;
+}
+/* B3 2026-09-13 -- composite `btn.btn-*` restoration (smallest additive fix).
+   The EOF `btn` base rule below sits after the Batch C brand variants
+   (lines ~624-672) and, at equal specificity, wins on EVERY overlapping
+   property, so each `btn.btn-*` composite - instead of the brand look -
+   renders the raw Bootstrap base (color #212529, 1rem/400/1.5 text,
+   1px transparent border, .375rem/.75rem padding, .375rem radius,
+   inline-block) and `btn-outline` loses its 1.5px ink outline.
+   These compound selectors (0,2,0), placed after the base so equal-level
+   hover ties also resolve in favour of the brand, restore the dense brand
+   sizing + each variant foreground/border for composites only. Bare
+   `btn-gold`/`btn-navy`/`btn-red`/`btn-subtle`/`btn-outline-red`/`btn-outline`
+   (no `btn` class) and the post-base Bootstrap ports (`btn-primary`,
+   `btn-outline-primary`, `btn-danger`, `btn-sm`) are untouched. */
+.btn.btn-gold,
+.btn.btn-navy,
+.btn.btn-red,
+.btn.btn-subtle,
+.btn.btn-outline-red,
+.btn.btn-outline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--spacing) * 2);
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-btn);
+    padding: .5625rem 1rem;
+    font-size: var(--text-dense);
+    line-height: var(--leading-snug);
+    font-weight: var(--font-weight-semibold);
+    text-decoration: none;
+    transition: color .2s var(--ease-standard), background-color .2s var(--ease-standard), border-color .2s var(--ease-standard), box-shadow .2s var(--ease-standard);
+}
+.btn.btn-outline {
+    border: 1.5px solid var(--color-ink);
+    color: var(--color-ink-secondary);
+}
+.btn.btn-outline:hover {
+    border-color: var(--color-navy);
+    color: var(--color-navy);
+}
+/* C1 2026-09-14 -- composite `btn.btn-*` full variant ownership. The old
+   patches restored colour only; the `.btn` base (`background-color:
+   transparent`, later source, equal 0,1,0) defeated the bare variant fills,
+   so `btn btn-navy` / `btn btn-red` rendered white-on-transparent and
+   `btn btn-subtle` hovered navy-on-navy ((0,2,0) colour beat (0,1,1)
+   hover). This consolidated block re-owns the composite default AND the
+   interaction stops at (0,2,0)/(0,2,1), matching the bare variant contract
+   (`.btn-navy:hover`/`.btn-red`/`.btn-subtle` stops above). `btn btn-gold`
+   keeps its gradient image from the bare rule and only needs the label. */
+.btn.btn-gold {
+    color: var(--color-navy);
+}
+.btn.btn-navy {
+    background-color: var(--color-navy);
+    color: var(--color-white);
+}
+/* The --_c1 sentinel prevents lightncss from merging these declarations
+   into the bare `.btn-navy:hover/focus-visible` rule at line 660 (same
+   properties), which would drop (0,2,1) specificity back to (0,1,1) and
+   let `.btn.btn-navy{color:white}` (0,2,0) hold the gold label at hover. */
+.btn.btn-navy:hover,
+.btn.btn-navy:focus-visible {
+    --_c1-navy-hover: 1;
+    background-color: var(--color-navy);
+    color: var(--color-gold);
+}
+.btn.btn-navy:active {
+    --_c1-navy-active: 1;
+    background-color: var(--color-navy-hover);
+    color: var(--color-white);
+}
+.btn.btn-red {
+    background-color: var(--color-red);
+    color: var(--color-white);
+}
+.btn.btn-red:hover,
+.btn.btn-red:focus-visible {
+    background-color: var(--color-red-hover);
+    color: var(--color-white);
+}
+.btn.btn-red:active {
+    background-color: var(--color-red-active);
+    color: var(--color-white);
+}
+.btn.btn-subtle {
+    color: var(--color-navy);
+}
+.btn.btn-subtle:hover,
+.btn.btn-subtle:focus-visible {
+    --_c1-subtle-hover: 1;
+    background-color: var(--color-navy);
+    color: var(--color-white);
+}
+.btn.btn-subtle:active {
+    --_c1-subtle-active: 1;
+    background-color: var(--color-navy-hover);
+    color: var(--color-white);
+}
+
+/* B3 2026-09-13 - topbar bare controls (hamburger / notifications / user
+   dropdown trigger in partials/navbar.blade.php) have no `btn`-family class
+   and no border/background of their own, so the Chromium UA 2px outset
+   buttonborder and buttonface fill leak onto the shell. Give the bare topbar
+   buttons the same 1px transparent boundary the rest of the button family
+   uses (`btn`, `btn-outline-red`, `icon-btn`). Scope is `nav button`
+   (0,0,2): every class-based button style (e.g. `scholar-tab-btn`, any
+   utility background) still wins on specificity. */
+nav button {
+    border: 1px solid transparent;
+    background: transparent;
+}
+
+.btn:focus-visible {
+    outline: 0;
+}
+
+.btn.disabled,
+.btn:disabled {
+    pointer-events: none;
+    opacity: .65;
+}
+
+.btn-sm {
+    padding: .25rem .5rem;
+    font-size: .875rem;
+    border-radius: .25rem;
+}
+
+/* Primary = structural navy (was stock Bootstrap blue). */
+.btn-primary {
+    color: #fff;
+    background-color: var(--color-navy);
+    border-color: var(--color-navy);
+}
+.btn-primary:hover,
+.btn-primary:focus-visible {
+    color: #fff;
+    background-color: var(--color-navy-light);
+    border-color: var(--color-navy-light);
+}
+.btn-primary:active,
+.btn-primary.active {
+    color: #fff;
+    background-color: var(--color-navy-hover);
+    border-color: var(--color-navy-hover);
+}
+.btn-primary:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(0, 56, 168, .5);
+}
+.btn-primary:active:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(0, 56, 168, .5);
+}
+.btn-primary.disabled,
+.btn-primary:disabled {
+    color: #fff;
+    background-color: var(--color-navy);
+    border-color: var(--color-navy);
+}
+
+.btn-outline-primary {
+    color: var(--color-navy);
+    background-color: transparent;
+    border-color: var(--color-navy);
+}
+.btn-outline-primary:hover,
+.btn-outline-primary:focus-visible {
+    color: #fff;
+    background-color: var(--color-navy);
+    border-color: var(--color-navy);
+}
+.btn-outline-primary:active,
+.btn-outline-primary.active {
+    color: #fff;
+    background-color: var(--color-navy);
+    border-color: var(--color-navy);
+}
+.btn-outline-primary:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(0, 56, 168, .5);
+}
+.btn-outline-primary:active:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(0, 56, 168, .5);
+}
+.btn-outline-primary.disabled,
+.btn-outline-primary:disabled {
+    color: var(--color-navy);
+    background-color: transparent;
+    border-color: var(--color-navy);
+}
+
+/* Danger = flag red (role unchanged — destructive only). Hover/active
+   stops derived darker from --ui-red, mirroring the stock darken-on-
+   hover behavior (#A80F20 / #900C1B). */
+.btn-danger {
+    color: #fff;
+    background-color: var(--color-red);
+    border-color: var(--color-red);
+}
+.btn-danger:hover,
+.btn-danger:focus-visible {
+    color: #fff;
+    background-color: #A80F20;
+    border-color: #A80F20;
+}
+.btn-danger:active,
+.btn-danger.active {
+    color: #fff;
+    background-color: #900C1B;
+    border-color: #900C1B;
+}
+.btn-danger:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(206, 17, 38, .5);
+}
+.btn-danger:active:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(206, 17, 38, .5);
+}
+.btn-danger.disabled,
+.btn-danger:disabled {
+    color: #fff;
+    background-color: var(--color-red);
+    border-color: var(--color-red);
+}
+
+.btn-outline-danger {
+    color: var(--color-red);
+    background-color: transparent;
+    border-color: var(--color-red);
+}
+.btn-outline-danger:hover,
+.btn-outline-danger:focus-visible {
+    color: #fff;
+    background-color: var(--color-red);
+    border-color: var(--color-red);
+}
+.btn-outline-danger:active,
+.btn-outline-danger.active {
+    color: #fff;
+    background-color: var(--color-red);
+    border-color: var(--color-red);
+}
+.btn-outline-danger:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(206, 17, 38, .5);
+}
+.btn-outline-danger:active:focus-visible {
+    box-shadow: 0 0 0 .25rem rgba(206, 17, 38, .5);
+}
+.btn-outline-danger.disabled,
+.btn-outline-danger:disabled {
+    color: var(--color-red);
+    background-color: transparent;
+    border-color: var(--color-red);
+}
+
+/* Gold primary action — fully owned by app.css (self-contained @apply
+   rules, gradient fill + navy label). Only the keyboard-focus glow of
+   `btn btn-gold` combos is re-declared here (dark golden ring, matching
+   the previous focus-shadow pair) so those buttons keep the same focus
+   affordance. */
+.btn.btn-gold:focus-visible {
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(220, 180, 0, .5);
+}
+
+
+/* ── Alerts — .alert family canonical ownership (M6.3.4).
+   The whole ui.css §4.5 alert family is ported VERBATIM below: .alert base
+   (position/padding/margin/color/border/radius), .alert-dismissible
+   (padding-right 3rem), the .alert-dismissible .btn-close placement rule
+   (absolute top/right, z-index, 1.25rem/1rem padding — this is the .alert
+   PARENT positioning contract that M5.6 deliberately left in ui.css with
+   alerts, not .btn-close self-ownership), and the Bootstrap 5.3 emphasis
+   variants .alert-success/.alert-danger/.alert-warning/.alert-info
+   (value-faithful 5.3.2 palette). With this move the .btn-close family is
+   fully app.css-owned: the self contract (M5.6) AND the dismissible-alert
+   child placement (here).
+
+   Cascade: appended AFTER every existing app.css rule (including the M6.3.3
+   buttons base) so each equal-specificity tie resolves exactly as v1
+   rendered it with late-loaded ui.css. .alert-dismissible .btn-close
+   (0,2,0) beats the (0,1,0) .btn-close self contract for position/padding
+   exactly as before. ── */
+
+/* 4.5 Alerts — inline validation + flash messages (stock Bootstrap
+      5.3 emphasis/subtle palette). */
+.alert {
+    position: relative;
+    padding: 1rem 1rem;
+    margin-bottom: 1rem;
+    color: inherit;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: .375rem;
+}
+.alert-dismissible {
+    padding-right: 3rem;
+}
+.alert-dismissible .btn-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+    padding: 1.25rem 1rem;
+}
+.alert-success {
+    color: #0a3622;
+    background-color: #d1e7dd;
+    border-color: #a3cfbb;
+}
+.alert-danger {
+    color: #58151c;
+    background-color: #f8d7da;
+    border-color: #f1aeb5;
+}
+.alert-warning {
+    color: #664d03;
+    background-color: #fff3cd;
+    border-color: #ffe69c;
+}
+.alert-info {
+    color: #055160;
+    background-color: #cff4fc;
+    border-color: #9eeaf9;
+}
+
+
+/* ── Dropdowns — .dropdown/.dropdown-menu family + .btn-group (M6.3.5).
+   The two export-dropdown compositions (clients/index, transactions/index)
+   use `.btn-group` as their positioning wrapper (`position:relative;
+   display:inline-flex; vertical-align:middle` is what gives the
+   absolutely-positioned .dropdown-menu its containing block / static-position
+   context), so §4.4 `.btn-group` is INSEPARABLE from the dropdown family in
+   this app and is ported here together with §4.7 — both VERBATIM from ui.css
+   (Bootstrap 5.3.2 value-faithful).
+
+   Ported: `.dropdown` (position:relative), `.dropdown-toggle` (+ ::after
+   caret, `:empty::after`), the `.dropdown-menu` base (absolute/z-index
+   1000/display:none/10rem/.5rem 0/0 margin/1rem/#212529/#fff/padding-box/
+   1px rgba(0,0,0,.175)/.375rem/box-shadow), the popper offsets
+   `.dropdown-menu[data-bs-popper]` (top:100%; left:0; margin-top:.125rem)
+   and `.dropdown-menu-end[data-bs-popper]` (right:0; left:auto), the six
+   `.dropdown-item` rules (base, :hover/:focus, .active/:active,
+   .disabled/:disabled), and the `.btn-group` base + child flex/z-index +
+   radius-join rules (incl. the `.dropdown-toggle`/`.btn-check` exclusions).
+
+   Cascade: appended AFTER every existing app.css rule (incl. the M6.3.3
+   buttons base) so each equal-specificity tie resolves exactly as v1 rendered
+   it with late-loaded ui.css. The M5.4 canonical open-state rule
+   `.dropdown-menu.dropdown-open` (0,2,0, app.css) still wins over this
+   `.dropdown-menu` base (0,1,0, here) for display — closed stays
+   display:none, open becomes display:block — unchanged, and no `.show`
+   variant is reintroduced. The global-search autocomplete never used this
+   family (self-contained inline-positioned dropdown). ── */
+
+/* 4.4 Button groups — the export-dropdown compositions on
+      transactions/index and clients/index. */
+.btn-group {
+    position: relative;
+    display: inline-flex;
+    vertical-align: middle;
+}
+.btn-group > .btn {
+    position: relative;
+    flex: 1 1 auto;
+}
+.btn-group > .btn:hover,
+.btn-group > .btn:focus,
+.btn-group > .btn:active {
+    z-index: 1;
+}
+.btn-group > .btn:not(:last-child):not(.dropdown-toggle) {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.btn-group > .btn:nth-child(n+3),
+.btn-group > :not(.btn-check) + .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* 4.7 Dropdown CSS — the Alpine-driven export menus (clients/
+      transactions) and the shell navbar user menu. Position mirrors
+      stock Bootstrap (absolute, popper-offsets included for parity);
+      visibility is toggled by the `dropdown-open` state class via
+      Alpine :class (canonical app.css rule, M5.4 — ui.css `.show`
+      dependency removed). */
+.dropdown {
+    position: relative;
+}
+.dropdown-toggle {
+    white-space: nowrap;
+}
+.dropdown-toggle::after {
+    display: inline-block;
+    margin-left: .255em;
+    vertical-align: .255em;
+    content: "";
+    border-top: .3em solid;
+    border-right: .3em solid transparent;
+    border-bottom: 0;
+    border-left: .3em solid transparent;
+}
+.dropdown-toggle:empty::after {
+    margin-left: 0;
+}
+.dropdown-menu {
+    position: absolute;
+    z-index: 1000;
+    display: none;
+    min-width: 10rem;
+    padding: .5rem 0;
+    margin: 0;
+    font-size: 1rem;
+    color: #212529;
+    text-align: left;
+    list-style: none;
+    background-color: #fff;
+    background-clip: padding-box;
+    border: 1px solid rgba(0, 0, 0, .175);
+    border-radius: .375rem;
+    box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
+}
+.dropdown-menu[data-bs-popper] {
+    top: 100%;
+    left: 0;
+    margin-top: .125rem;
+}
+.dropdown-menu-end[data-bs-popper] {
+    right: 0;
+    left: auto;
+}
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: .25rem 1rem;
+    clear: both;
+    font-weight: 400;
+    color: #212529;
+    text-align: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    background-color: transparent;
+    border: 0;
+    border-radius: 0;
+}
+.dropdown-item:hover,
+.dropdown-item:focus {
+    color: #212529;
+    background-color: #f8f9fa;
+}
+.dropdown-item.active,
+.dropdown-item:active {
+    color: #fff;
+    text-decoration: none;
+    background-color: #0d6efd;
+}
+.dropdown-item.disabled,
+.dropdown-item:disabled {
+    color: #adb5bd;
+    pointer-events: none;
+    background-color: transparent;
+}
+
+
+/* ── List group — .list-group family canonical ownership (M6.3.6).
+   The ui.css §4.8 list-group family is ported VERBATIM below: .list-group
+   (flex column, padding-left 0, margin-bottom 0, .375rem radius),
+   .list-group-item (relative/block/.5rem 1rem/#212529/no underline/#fff/
+   1px #dee2e6), the corner-inheritance :first-child/:last-child rules,
+   the adjacent-.list-group-item border collapse (.list-group-item +
+   .list-group-item border-top-width 0), the .disabled/:disabled state,
+   the .list-group-item-action base (:hover/:focus z-index 1/#000/#f8f9fa,
+   :active #212529/#e9ecef), and the .list-group-flush rules (radius 0,
+   0 0 1px item border, last-item border-bottom 0).
+
+   Consumers: ONE static flush list (students/update-photo) and FOUR
+   runtime client-autocomplete lists (transactions create+edit,
+   scanners/scan, scholars/_form) whose JS does
+   li.classList.add('list-group-item', 'list-group-item-action') — the
+   class contract is unchanged, so both static markup and runtime-created
+   items resolve identically. No list-group item is a .btn; the
+   update-photo items add Bootstrap utilities (d-flex etc.) on top
+   unchanged. No --ui-list-* tokens exist anywhere.
+
+   Cascade: appended AFTER every existing app.css rule (incl. the M6.3.5
+   dropdown section) so each border/radius equal-specificity tie resolves
+   exactly as v1 rendered it with late-loaded ui.css — the port preserves
+   source order within the family (base, corners, adjacency, states, flush)
+   byte-for-byte, reproducing the same winners (e.g.
+   .list-group-flush > .list-group-item:last-child 0,3,0 beats
+   .list-group-flush > .list-group-item 0,2,0 for the final border). ── */
+
+.list-group {
+    display: flex;
+    flex-direction: column;
+    padding-left: 0;
+    margin-bottom: 0;
+    border-radius: .375rem;
+}
+.list-group-item {
+    position: relative;
+    display: block;
+    padding: .5rem 1rem;
+    color: #212529;
+    text-decoration: none;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+}
+.list-group-item:first-child {
+    border-top-left-radius: inherit;
+    border-top-right-radius: inherit;
+}
+.list-group-item:last-child {
+    border-bottom-right-radius: inherit;
+    border-bottom-left-radius: inherit;
+}
+.list-group-item + .list-group-item {
+    border-top-width: 0;
+}
+.list-group-item.disabled,
+.list-group-item:disabled {
+    color: #6c757d;
+    pointer-events: none;
+    background-color: #fff;
+}
+.list-group-item-action {
+    width: 100%;
+    color: rgba(33, 37, 41, .75);
+    text-align: inherit;
+}
+.list-group-item-action:hover,
+.list-group-item-action:focus {
+    z-index: 1;
+    color: #000;
+    text-decoration: none;
+    background-color: #f8f9fa;
+}
+.list-group-item-action:active {
+    color: #212529;
+    background-color: #e9ecef;
+}
+.list-group-flush {
+    border-radius: 0;
+}
+.list-group-flush > .list-group-item {
+    border-width: 0 0 1px;
+}
+.list-group-flush > .list-group-item:last-child {
+    border-bottom-width: 0;
+}
+
+
+/* ── Table — the .table layout family canonical ownership (M6.3.7).
+   The ui.css §4.6 table family is ported VERBATIM below: .table base
+   (width 100%, margin-bottom 1rem, vertical-align top, border-collapse
+   collapse, border-color #dee2e6), the stripe-free cell formation
+   .table > :not(caption) > * > * (padding .5rem .5rem, color #000,
+   background-color #fff, border-bottom-width 1px), the section
+   vertical-align joins .table > tbody (inherit) and .table > thead
+   (bottom), the reduced-padding .table-sm > :not(caption) > * > *
+   (.25rem .25rem), the table-cell utility .align-middle
+   (vertical-align middle !important — audited separately, every live
+   consumer is a table cell: sessions/online, households/show members,
+   the four admin permission matrix tables, admin/users + update_logs +
+   audit_logs + scholars dataTables td cells, duplicates, and the
+   dashboard dynamically-built td.className; the !important flag is
+   preserved because Tailwind's layered .align-middle twin is NOT
+   !important and cells also carry .table's vertical-align:top), and
+   .table-responsive single live wrapper (transactions/index around the
+   transactions DataTables; overflow-x auto + -webkit-overflow-scrolling
+   touch preserved so the screen scrolls horizontally without Bootstrap).
+
+   Consumers: EVERY app table carries class="table ..." — the 12 plain
+   server-rendered screens (sessions/online, households/show members,
+   the 4 permission matrices, dashboard records are Tailwind-only and do
+   NOT use .table) AND all 11 DataTables id-tables (clients, households,
+   transactions, scholars x4, audit_logs, update_logs, unpaid,
+   payouts/attendance, scholarship_reports, duplicates, admin/users).
+   DataTables boundary: public/css/datatables.css (1.13.6 skin, UNTOUCHED
+   this phase) overrides the .table base where it must with higher-
+   specificity .dataTables_wrapper/table.dataTable selectors; the M5.2 B2
+   focus seam remains exclusively datatables.css-owned. Removing the
+   ui.css declaration cannot reorder that: datatables.css still loads
+   through @stack('styles') after everything, and its scoped
+   .dataTables_wrapper table.dataTable.align-middle already re-provides
+   middle for DataTables, while plain tables keep this !important rule.
+
+   Cascade: appended AFTER every existing app.css rule (incl. M6.3.6
+   list-group) as unlayered top-level rules — Tailwind layered
+   utilities/preflight at equal specificity can never beat them, and with
+   the ui.css §4.6 block removed there is no later unlayered competitor,
+   so each rule resolves exactly as it did when ui.css loaded last. The
+   element-level Reboot rules (table/caption/th/thead/tbody/tfoot/tr/td)
+   are a SEPARATE family that already has app.css twins and stays
+   ui.css-owned — untouched by this phase. ── */
+
+.table {
+    width: 100%;
+    margin-bottom: 1rem;
+    vertical-align: top;
+    border-collapse: collapse;
+    border-color: #dee2e6;
+}
+.table > :not(caption) > * > * {
+    padding: .5rem .5rem;
+    color: #000;
+    background-color: #fff;
+    border-bottom-width: 1px;
+}
+.table > tbody {
+    vertical-align: inherit;
+}
+.table > thead {
+    vertical-align: bottom;
+}
+.table-sm > :not(caption) > * > * {
+    padding: .25rem .25rem;
+}
+.align-middle {
+    vertical-align: middle !important;
+}
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* --- M6.3.8 grid system - the ui.css grid block ported VERBATIM to
+   end-of-file app.css (canonical owner): .row (flex wrap, --ui-gutter-x:
+   1.5rem / --ui-gutter-y: 0, negative half-gutter margins), .row > *
+   (flex-shrink 0, 100% base, half-gutter child padding, gutter-y top),
+   .g-0...g-5 (gutter token overrides), and the ONLY live breakpoints
+   .col-sm-4/8 (576) + .col-md-3/4/6 (768). Media queries keep their own
+   @media contexts; equal-specificity ties with the earlier app.css brand
+   group resolve exactly as late-loaded ui.css did. */
+/* grid system — remaining row/col consumers (grantee self-update,
+   unpaid verification, QR viewer suggestions, attendance timing). */
+.row {
+    --ui-gutter-x: 1.5rem;
+    --ui-gutter-y: 0;
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: calc(-1 * var(--ui-gutter-y));
+    margin-right: calc(-.5 * var(--ui-gutter-x));
+    margin-left: calc(-.5 * var(--ui-gutter-x));
+}
+
+.row > * {
+    flex-shrink: 0;
+    width: 100%;
+    max-width: 100%;
+    padding-right: calc(var(--ui-gutter-x) * .5);
+    padding-left: calc(var(--ui-gutter-x) * .5);
+    margin-top: var(--ui-gutter-y);
+}
+.g-0 { --ui-gutter-x: 0; --ui-gutter-y: 0; }
+.g-1 { --ui-gutter-x: .25rem; --ui-gutter-y: .25rem; }
+.g-2 { --ui-gutter-x: .5rem; --ui-gutter-y: .5rem; }
+.g-3 { --ui-gutter-x: 1rem; --ui-gutter-y: 1rem; }
+.g-4 { --ui-gutter-x: 1.5rem; --ui-gutter-y: 1.5rem; }
+.g-5 { --ui-gutter-x: 3rem; --ui-gutter-y: 3rem; }
+@media (min-width: 576px) {
+    .col-sm-4 { flex: 0 0 auto; width: 33.33333333%; }
+    .col-sm-8 { flex: 0 0 auto; width: 66.66666667%; }
+}
+@media (min-width: 768px) {
+    .col-md-3 { flex: 0 0 auto; width: 25%; }
+    .col-md-4 { flex: 0 0 auto; width: 33.33333333%; }
+    .col-md-6 { flex: 0 0 auto; width: 50%; }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+
+/* ─────────────────────────────────────────────────────────────────────
+   M6.3.9 — remaining utility families, moved VERBATIM from public/css
+   ui.css §4.9/§4.10 (canonical owner; values byte-identical). Families:
+   display, flex/justify/align helpers, position, text align + color,
+   typography helpers, sizing, images, backgrounds, border + radius,
+   the full spacing ladder, and gap. Bootstrap !important is retained
+   exactly where Bootstrap declares it, so these rules keep winning the
+   cascade exactly as they did from ui.css (and the CDN sheet before).
+   Zero utility selectors remain in public/css/ui.css (dead ones were
+   REMOVED there in the same phase — 0 Blade/JS refs, 0 compiled twin).
+   ───────────────────────────────────────────────────────────────────── */
+
+
+/* display helpers */
+.d-inline { display: inline !important; }
+.d-flex { display: flex !important; }
+
+/* flex/justify/align helpers */
+.justify-content-center { justify-content: center !important; }
+.justify-content-between { justify-content: space-between !important; }
+.align-items-center { align-items: center !important; }
+.align-items-end { align-items: flex-end !important; }
+
+/* position helpers */
+.position-relative { position: relative !important; }
+.position-absolute { position: absolute !important; }
+
+/* text alignment + color */
+.text-start { text-align: left !important; }
+.text-center { text-align: center !important; }
+.text-primary { color: #0d6efd !important; }
+.text-secondary { color: #6c757d !important; }
+.text-success { color: #198754 !important; }
+.text-danger { color: #dc3545 !important; }
+.text-warning { color: #ffc107 !important; }
+.text-info { color: #0dcaf0 !important; }
+.text-muted { color: rgba(33, 37, 41, .75) !important; }
+.text-white { color: #fff !important; }
+
+/* typography helpers */
+.fs-4 { font-size: calc(1.275rem + .3vw) !important; }
+.small { font-size: .875em; }
+
+/* sizing helpers */
+.min-vh-100 { min-height: 100vh !important; }
+.w-auto { width: auto !important; }
+
+/* images */
+.img-fluid { max-width: 100%; height: auto; }
+.img-thumbnail {
+    padding: .25rem;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    max-width: 100%;
+    height: auto;
+}
+
+/* backgrounds */
+.bg-white { background-color: #fff !important; }
+.bg-transparent { background-color: transparent !important; }
+
+/* borders + radius */
+.border { border: 1px solid #dee2e6 !important; }
+.border-2 { border-width: 2px !important; }
+.rounded { border-radius: .375rem !important; }
+.rounded-pill { border-radius: 50rem !important; }
+
+/* spacing — Bootstrap spacer ladder (0:0 1:.25rem 2:.5rem 3:1rem 4:1.5rem 5:3rem; !important as stock) */
+.m-0 { margin: 0 !important; }
+.mt-0 { margin-top: 0 !important; }
+.mt-1 { margin-top: .25rem !important; }
+.mt-2 { margin-top: .5rem !important; }
+.mt-3 { margin-top: 1rem !important; }
+.mt-4 { margin-top: 1.5rem !important; }
+.mt-5 { margin-top: 3rem !important; }
+.mb-0 { margin-bottom: 0 !important; }
+.mb-1 { margin-bottom: .25rem !important; }
+.mb-2 { margin-bottom: .5rem !important; }
+.mb-3 { margin-bottom: 1rem !important; }
+.mb-4 { margin-bottom: 1.5rem !important; }
+.ms-1 { margin-left: .25rem !important; }
+.ms-2 { margin-left: .5rem !important; }
+
+/* spacing — padding ladder */
+.p-1 { padding: .25rem !important; }
+.p-2 { padding: .5rem !important; }
+.p-3 { padding: 1rem !important; }
+.p-4 { padding: 1.5rem !important; }
+.pt-3 { padding-top: 1rem !important; }
+.pb-1 { padding-bottom: .25rem !important; }
+.pb-3 { padding-bottom: 1rem !important; }
+.px-0 { padding-right: 0 !important; padding-left: 0 !important; }
+.px-1 { padding-right: .25rem !important; padding-left: .25rem !important; }
+.px-3 { padding-right: 1rem !important; padding-left: 1rem !important; }
+.px-4 { padding-right: 1.5rem !important; padding-left: 1.5rem !important; }
+.px-5 { padding-right: 3rem !important; padding-left: 3rem !important; }
+.py-1 { padding-top: .25rem !important; padding-bottom: .25rem !important; }
+.py-2 { padding-top: .5rem !important; padding-bottom: .5rem !important; }
+.py-3 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+.py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+.py-5 { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+
+/* gap helpers (spacer ladder) */
+.gap-3 { gap: 1rem !important; }
+.gap-4 { gap: 1.5rem !important; }
+
+/* ─────────────────────────────────────────────────────────────────────
+   M6.3.9 — remaining utility families, moved VERBATIM from public/css
+   ui.css §4.9/§4.10 (canonical owner; values byte-identical). Families:
+   display, flex/justify/align helpers, position, text align + color,
+   typography helpers, sizing, images, backgrounds, border + radius,
+   the full spacing ladder, and gap. Bootstrap !important is retained
+   exactly where Bootstrap declares it, so these rules keep winning the
+   cascade exactly as they did from ui.css (and the CDN sheet before).
+   Zero utility selectors remain in public/css/ui.css (dead ones were
+   REMOVED there in the same phase — 0 Blade/JS refs, 0 compiled twin).
+   ───────────────────────────────────────────────────────────────────── */
+
+
+/* display helpers */
+.d-inline { display: inline !important; }
+.d-flex { display: flex !important; }
+
+/* flex/justify/align helpers */
+.justify-content-center { justify-content: center !important; }
+.justify-content-between { justify-content: space-between !important; }
+.align-items-center { align-items: center !important; }
+.align-items-end { align-items: flex-end !important; }
+
+/* position helpers */
+.position-relative { position: relative !important; }
+.position-absolute { position: absolute !important; }
+
+/* text alignment + color */
+.text-start { text-align: left !important; }
+.text-center { text-align: center !important; }
+.text-primary { color: #0d6efd !important; }
+.text-secondary { color: #6c757d !important; }
+.text-success { color: #198754 !important; }
+.text-danger { color: #dc3545 !important; }
+.text-warning { color: #ffc107 !important; }
+.text-info { color: #0dcaf0 !important; }
+.text-muted { color: rgba(33, 37, 41, .75) !important; }
+.text-white { color: #fff !important; }
+
+/* typography helpers */
+.fs-4 { font-size: calc(1.275rem + .3vw) !important; }
+.small { font-size: .875em; }
+
+/* sizing helpers */
+.min-vh-100 { min-height: 100vh !important; }
+.w-auto { width: auto !important; }
+
+/* images */
+.img-fluid { max-width: 100%; height: auto; }
+.img-thumbnail {
+    padding: .25rem;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    max-width: 100%;
+    height: auto;
+}
+
+/* backgrounds */
+.bg-white { background-color: #fff !important; }
+.bg-transparent { background-color: transparent !important; }
+
+/* borders + radius */
+.border { border: 1px solid #dee2e6 !important; }
+.border-2 { border-width: 2px !important; }
+.rounded { border-radius: .375rem !important; }
+.rounded-pill { border-radius: 50rem !important; }
+
+/* spacing — Bootstrap spacer ladder (0:0 1:.25rem 2:.5rem 3:1rem 4:1.5rem 5:3rem; !important as stock) */
+.m-0 { margin: 0 !important; }
+.mt-0 { margin-top: 0 !important; }
+.mt-1 { margin-top: .25rem !important; }
+.mt-2 { margin-top: .5rem !important; }
+.mt-3 { margin-top: 1rem !important; }
+.mt-4 { margin-top: 1.5rem !important; }
+.mt-5 { margin-top: 3rem !important; }
+.mb-0 { margin-bottom: 0 !important; }
+.mb-1 { margin-bottom: .25rem !important; }
+.mb-2 { margin-bottom: .5rem !important; }
+.mb-3 { margin-bottom: 1rem !important; }
+.mb-4 { margin-bottom: 1.5rem !important; }
+.ms-1 { margin-left: .25rem !important; }
+.ms-2 { margin-left: .5rem !important; }
+
+/* spacing — padding ladder */
+.p-1 { padding: .25rem !important; }
+.p-2 { padding: .5rem !important; }
+.p-3 { padding: 1rem !important; }
+.p-4 { padding: 1.5rem !important; }
+.pt-3 { padding-top: 1rem !important; }
+.pb-1 { padding-bottom: .25rem !important; }
+.pb-3 { padding-bottom: 1rem !important; }
+.px-0 { padding-right: 0 !important; padding-left: 0 !important; }
+.px-1 { padding-right: .25rem !important; padding-left: .25rem !important; }
+.px-3 { padding-right: 1rem !important; padding-left: 1rem !important; }
+.px-4 { padding-right: 1.5rem !important; padding-left: 1.5rem !important; }
+.px-5 { padding-right: 3rem !important; padding-left: 3rem !important; }
+.py-1 { padding-top: .25rem !important; padding-bottom: .25rem !important; }
+.py-2 { padding-top: .5rem !important; padding-bottom: .5rem !important; }
+.py-3 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+.py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+.py-5 { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+
+/* gap helpers (spacer ladder) */
+.gap-3 { gap: 1rem !important; }
+.gap-4 { gap: 1.5rem !important; }
+
+/* ─────────────────────────────────────────────────────────────────────
+   M6.3.9 — remaining utility families, moved VERBATIM from public/css
+   ui.css §4.9/§4.10 (canonical owner; values byte-identical). Families:
+   display, flex/justify/align helpers, position, text align + color,
+   typography helpers, sizing, images, backgrounds, border + radius,
+   the full spacing ladder, and gap. Bootstrap !important is retained
+   exactly where Bootstrap declares it, so these rules keep winning the
+   cascade exactly as they did from ui.css (and the CDN sheet before).
+   Zero utility selectors remain in public/css/ui.css (dead ones were
+   REMOVED there in the same phase — 0 Blade/JS refs, 0 compiled twin).
+   ───────────────────────────────────────────────────────────────────── */
+
+
+/* display helpers */
+.d-inline { display: inline !important; }
+.d-flex { display: flex !important; }
+
+/* flex/justify/align helpers */
+.justify-content-center { justify-content: center !important; }
+.justify-content-between { justify-content: space-between !important; }
+.align-items-center { align-items: center !important; }
+.align-items-end { align-items: flex-end !important; }
+
+/* position helpers */
+.position-relative { position: relative !important; }
+.position-absolute { position: absolute !important; }
+
+/* text alignment + color */
+.text-start { text-align: left !important; }
+.text-center { text-align: center !important; }
+.text-primary { color: #0d6efd !important; }
+.text-secondary { color: #6c757d !important; }
+.text-success { color: #198754 !important; }
+.text-danger { color: #dc3545 !important; }
+.text-warning { color: #ffc107 !important; }
+.text-info { color: #0dcaf0 !important; }
+.text-muted { color: rgba(33, 37, 41, .75) !important; }
+.text-white { color: #fff !important; }
+
+/* typography helpers */
+.fs-4 { font-size: calc(1.275rem + .3vw) !important; }
+.small { font-size: .875em; }
+
+/* sizing helpers */
+.min-vh-100 { min-height: 100vh !important; }
+.w-auto { width: auto !important; }
+
+/* images */
+.img-fluid { max-width: 100%; height: auto; }
+.img-thumbnail {
+    padding: .25rem;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: .375rem;
+    max-width: 100%;
+    height: auto;
+}
+
+/* backgrounds */
+.bg-white { background-color: #fff !important; }
+.bg-transparent { background-color: transparent !important; }
+
+/* borders + radius */
+.border { border: 1px solid #dee2e6 !important; }
+.border-2 { border-width: 2px !important; }
+.rounded { border-radius: .375rem !important; }
+.rounded-pill { border-radius: 50rem !important; }
+
+/* spacing — Bootstrap spacer ladder (0:0 1:.25rem 2:.5rem 3:1rem 4:1.5rem 5:3rem; !important as stock) */
+.m-0 { margin: 0 !important; }
+.mt-0 { margin-top: 0 !important; }
+.mt-1 { margin-top: .25rem !important; }
+.mt-2 { margin-top: .5rem !important; }
+.mt-3 { margin-top: 1rem !important; }
+.mt-4 { margin-top: 1.5rem !important; }
+.mt-5 { margin-top: 3rem !important; }
+.mb-0 { margin-bottom: 0 !important; }
+.mb-1 { margin-bottom: .25rem !important; }
+.mb-2 { margin-bottom: .5rem !important; }
+.mb-3 { margin-bottom: 1rem !important; }
+.mb-4 { margin-bottom: 1.5rem !important; }
+.ms-1 { margin-left: .25rem !important; }
+.ms-2 { margin-left: .5rem !important; }
+
+/* spacing — padding ladder */
+.p-1 { padding: .25rem !important; }
+.p-2 { padding: .5rem !important; }
+.p-3 { padding: 1rem !important; }
+.p-4 { padding: 1.5rem !important; }
+.pt-3 { padding-top: 1rem !important; }
+.pb-1 { padding-bottom: .25rem !important; }
+.pb-3 { padding-bottom: 1rem !important; }
+.px-0 { padding-right: 0 !important; padding-left: 0 !important; }
+.px-1 { padding-right: .25rem !important; padding-left: .25rem !important; }
+.px-3 { padding-right: 1rem !important; padding-left: 1rem !important; }
+.px-4 { padding-right: 1.5rem !important; padding-left: 1.5rem !important; }
+.px-5 { padding-right: 3rem !important; padding-left: 3rem !important; }
+.py-1 { padding-top: .25rem !important; padding-bottom: .25rem !important; }
+.py-2 { padding-top: .5rem !important; padding-bottom: .5rem !important; }
+.py-3 { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+.py-4 { padding-top: 1.5rem !important; padding-bottom: 1.5rem !important; }
+.py-5 { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+
+/* gap helpers (spacer ladder) */
+.gap-3 { gap: 1rem !important; }
+.gap-4 { gap: 1.5rem !important; }
+
+/* --- M6.5 .data-card base - the ui.css §5 .data-card rule ported VERBATIM
+   to end-of-file app.css (canonical owner). M6.4 proved this is a genuine
+   ui.css dependency (deletion-sim: border 1px -> 0, shadow-set change,
+   height -2px). Consumed tokens are canonical @theme tokens (Phase 26
+   migrated them): --color-surface #FFFFFF, --color-line #E2E5EA,
+   --radius-card 12px, --shadow-card. This plain unlayered rule sits AFTER
+   the Batch C .data-card Tailwind twin (line ~734), so every equal-specificity
+   tie resolves exactly as late-loaded ui.css did - real 1px border-box border,
+   not a shadow ring, matching the pre-M6.5 live rendering. Header/body/footer
+   slots are separate components and remain ui.css-owned (out of M6.5 scope). */
+.data-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+}
+
+/* --- M6.6 .metric-card (dashboard KPI) - the ui.css five .metric-card rule set
+   ported VERBATIM to end-of-file app.css (canonical owner). M6.4 proved this is
+   a genuine ui.css dependency (deletion-sim: radius 12px -> 16px, padding
+   20px -> 17.5px, border 1px -> 0, shadow + ring, hover-lift lost). Consumed
+   tokens are canonical @theme / retained-local (Phase 26 migrated the mapped
+   ones): --color-surface/--color-line/--radius-card/--shadow-card/--shadow-lift/
+   --ui-space-5/--ui-duration/--ease-standard/--color-surface-hover/--color-navy,
+   and the accent literals --color-gold/--ui-teal/--color-red. --ui-accent is a
+   per-instance custom property set by the accent classes below (::before falls
+   back to --color-navy).
+   These plain unlayered rules sit AFTER the Batch C .metric-card Tailwind twin
+   (~line 773), so every equal-specificity tie resolves exactly as late-loaded
+   ui.css did - real 1px border-box border, --radius-card 12px, --ui-space-5
+   20px padding, --shadow-card frame, hover translateY(-2px) + --shadow-lift +
+   --color-surface-hover. .metric-value is a SEPARATE component (child) and remains
+   ui.css-owned (out of M6.6 scope). */
+.metric-card {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+    padding: var(--ui-space-5);
+    transition: transform var(--ui-duration) var(--ease-standard),
+                box-shadow var(--ui-duration) var(--ease-standard);
+}
+.metric-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lift);
+    background: var(--color-surface-hover);
+}
+.metric-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: var(--ui-accent, var(--color-navy));
+}
+.metric-card.accent-gold { --ui-accent: var(--color-gold); }
+.metric-card.accent-teal { --ui-accent: var(--ui-teal); }
+.metric-card.accent-red  { --ui-accent: var(--color-red); }
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   M6.7 — Shared components: .status-badge family ownership
+   ───────────────────────────────────────────────────────────────────
+   Ported VERBATIM from public/css/ui.css §5 (status dot-pills) to
+   end-of-file position so every same-specificity tie with the earlier
+   Batch C Tailwind twin (line ~698) resolves exactly as late-loaded
+   ui.css did. Canonical owner from M6.7; the consumed tokens are
+   canonical @theme tokens (Phase 26 migrated them: --radius-pill,
+   --text-micro, --color-ink-secondary, --color-red) so this copy needs no
+   ui.css dependency. Text shades marked AA are darkened from the token
+   hue so small semibold text passes contrast on the tinted background.
+   ═══════════════════════════════════════════════════════════════════ */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .45em;
+    padding: .28em .8em;
+    border-radius: var(--radius-pill);
+    font-size: var(--text-micro);
+    font-weight: 600;
+    letter-spacing: .02em;
+    line-height: 1.3;
+    white-space: nowrap;
+}
+.status-badge::before {
+    content: "";
+    flex: none;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+.status-badge.is-success,
+.status-badge.is-paid,
+.status-badge.is-active {
+    background-color: rgba(45, 139, 122, .12);
+    color: #1E6B5B; /* AA: darkened --ui-teal */
+}
+.status-badge.is-info,
+.status-badge.is-approved {
+    background-color: rgba(59, 130, 246, .12);
+    color: #2563EB; /* AA: darkened --ui-blue-accent */
+}
+.status-badge.is-warning,
+.status-badge.is-pending {
+    background-color: rgba(212, 169, 0, .15);
+    color: #8A6D00; /* AA: darkened --ui-amber */
+}
+.status-badge.is-danger,
+.status-badge.is-rejected {
+    background-color: rgba(206, 17, 38, .10);
+    color: var(--color-red); /* #CE1126 passes AA on white as-is */
+}
+.status-badge.is-neutral,
+.status-badge.is-archived {
+    background-color: rgba(78, 90, 110, .10);
+    color: var(--color-ink-secondary);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   M6.8 — Shared components: .data-card slot family ownership
+   ───────────────────────────────────────────────────────────────────
+   The THREE slot rules (.data-card-header/.data-card-body/
+   .data-card-footer) ported VERBATIM from public/css/ui.css §5 to
+   end-of-file position so every same-specificity tie with the earlier
+   Batch C Tailwind twins (lines ~738-748) resolves exactly as
+   late-loaded ui.css did. Canonical owner from M6.8; the consumed tokens
+   are canonical @theme / retained-local (Phase 26 migrated the mapped ones:
+   --ui-space-3/-4/-5, --color-line-light, --color-surface) so this copy
+   needs no ui.css dependency. The .data-card base rule (M6.5) is a
+   separate parent selector and was NOT modified by this migration.
+   ═══════════════════════════════════════════════════════════════════ */
+.data-card-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    padding: var(--ui-space-4) var(--ui-space-3);
+    border-bottom: 1px solid var(--color-line-light);
+}
+.data-card-body {
+    padding: var(--ui-space-3);
+}
+.data-card-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--ui-space-3);
+    padding: var(--ui-space-3) var(--ui-space-5);
+    border-top: 1px solid var(--color-line-light);
+    background: var(--color-surface);
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   M6.9 — .ui-skip-link ownership: base + :focus family migrated
+   ────────────────────────────────────────────────────────────────────────────────
+   The ENTIRE skip-link family ported VERBATIM from public/css/ui.css
+   §3 to end-of-file position. ui.css declared the base hide/show unit
+   (absolute, left:-999px, top:0, z-index:2000, 10px/16px padding, gold
+   #FCD116 background, navy #0038A8 text, 700 weight, .85rem text-sm,
+   radius 0 0 8px 0, no underline) plus the single live focus rule
+   (.ui-skip-link:focus { left: 0; }). M6.9 migrates BOTH: the base was
+   proven a LIVE blocker of the focus contract, not an inert foundation
+   rule — its text-decoration:none rides into the visible FOCUSED
+   state (the Batch B sr-only/focus-* twin covers position/fixed/top/
+   z-index/surface/ink/radius/shadow/dense text but never re-supplies
+   text-decoration; with the base in ui.css the focused link shows no
+   underline in FULL but an underline in the ui.css-aborted deletion-
+   sim), and its left:-999px/z-index:2000 define the hidden-state unit
+   the focused left:0 flips. The base rule therefore qualifies under the
+   M6.9 scope conditional ("leave the base untouched only if it is not
+   a live ui.css blocker"). Cousin Batch B twin (sr-only/focus-*) stays
+   in place above; this port wins every equal-specificity tie with it
+   (same-origin, later source) exactly as late-loaded ui.css did:
+   hiding = absolute -999px pill (not 1px clip) and unfocus resets to
+   the base, focusing slides the visible fixed pill to viewport-left 0
+   instead of the twin’s focus:left-4 (1rem/14px), z 2000 vs 50.
+   Twinned visible focus-visible outline (#FCD116 3px offset 2) comes
+   from the global :focus-visible rules (ui.css unlayered / app.css
+   @layer base) and is untouched by this migration.
+   ═════════════════════════════════════════════════════════════════════════════
+*/
+.ui-skip-link {
+    position: absolute;
+    left: -999px;
+    top: 0;
+    z-index: 2000;
+    padding: 10px 16px;
+    background: var(--color-gold);
+    color: var(--color-navy);
+    font-weight: 700;
+    font-size: var(--text-dense);
+    border-radius: 0 0 var(--radius-btn) 0;
+    text-decoration: none;
+}
+
+.ui-skip-link:focus {
+    left: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   M6.10 — .ui-notice ownership: tinted informational notice (single rule)
+   ────────────────────────────────────────────────────────────────────────────────
+   Ported VERBATIM from public/css/ui.css to end-of-file position so it
+   keeps its unlayered late-source cascade advantage over the earlier
+   Batch C twin at .ui-notice (same specificity; this port is later,
+   exactly as late-loaded ui.css was before removal). Single rule, no
+   pseudo-elements, no media queries, no variants, no responsive
+   breakpoints, no interactions, no child selectors. Tokens used are all
+   canonical @theme tokens (Phase 26 migrated them: --color-gold-light
+   #FFF8D6, --color-gold #FCD116, --radius-control 6px, --color-ink #0F1B2D).
+   Consumers stay untouched: transactions create/edit
+   (alert banner, role=alert, svg+text), clients/_gip (paragraph variant
+   m-0, svg+text), auth/login (session-expired / forced-logout bars),
+   students/update-photo (text-center variant), admin/users (base layout
+   with the orphan .ui-notice-info class — no CSS rule exists anywhere
+   for the -info variant, so only the base governs) — all Blade, zero JS
+   classList references. The orphan `.ui-notice-info` class carries no
+   styling and is out of scope for this port.
+   ═════════════════════════════════════════════════════════════════════════════
+*/
+.ui-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    padding: .85rem 1rem;
+    background: var(--color-gold-light);
+    border-left: 3px solid var(--color-gold);
+    border-radius: var(--radius-control);
+    color: var(--color-ink);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   M6.11 — .ui-micro-label ownership: uppercase captioned label (single rule)
+   ────────────────────────────────────────────────────────────────────────────────
+   Ported VERBATIM from public/css/ui.css to end-of-file position so it
+   keeps its unlayered late-source cascade advantage over the earlier
+   Batch C twin at .ui-micro-label (same specificity; this port is later,
+   exactly as late-loaded ui.css was before removal). Single rule, no
+   pseudo-elements, no media queries, no variants, no responsive
+   breakpoints, no interactions, no child selectors. Tokens used are all
+   canonical @theme tokens (Phase 26 migrated them: --text-micro .72rem,
+   --color-ink-muted #70798B, --tracking-caps .06em).
+   Consumers stay untouched — 12 Blade subjects incl. th scope=col
+   (px-[16px] py-2 text-right / px-[16px] py-2 / bare py-2), dt in dl
+   dl/min-w-0, and p variants; plus the compiled twin in the assets
+   bundle. All Blade, zero JS classList / getElementsByClassName /
+   querySelector references, zero template literals.
+   ═══════════════════════════════════════════════════════════════════════════════
+*/
+.ui-micro-label {
+    font-size: var(--text-micro);
+    font-weight: 600;
+    letter-spacing: var(--tracking-caps);
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+}
+/* ═══════════════════════════════════════════════════════════════════════
+   M6.12 — .metric-value ownership port (metric digit figure)
+   ────────────────────────────────────────────────────────────────────────
+   Ported VERBATIM to EOF from public/css/ui.css L342-348
+   (EOF canonical owner, mirroring M6.11 .ui-micro-label port). app.css
+   @apply twin @L789 RETAINED (twin contract). ui.css rule
+   replaced with house pointer comment; ui.css retained + linked. datatables
+   byte-pinned untouched (21563B). Blade/JS consumers untouched
+   (dashboard metric tiles L118/129/140/151). Verbatim block: */
+.metric-value {
+    font-family: var(--font-heading);
+    font-size: var(--text-metric);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--color-ink);
+}
+
+/* ───── M6.14 — general pagination family (EOF canonical owner).
+   Ported VERBATIM from public/css/ui.css (previous owner) to END of this
+   file, appended after the .metric-value EOF block — byte-identical values,
+   appended at EOF so cascade/source-order is preserved (general family,
+   lower specificity, cannot override the DataTables-SCOPED seam
+   .dataTables_wrapper .dataTables_paginate .page-link @L1196 canonical
+   ownership, which is scoped + higher specificity and wins on the DT
+   boundary regardless of EOF order). datatables.css byte-pinned
+   untouched (21563B / md5 2EE627B74B0FD170727506AFD46C6C46). ui.css
+   retained + linked (8 <link> tags); ui.css family replaced with pointer.
+   Blade/JS untouched (12 Blade files page-link / page-item). ───── */
+.page-link {
+    color: var(--color-navy);
+}
+.page-link:hover {
+    color: var(--color-navy-hover);
+}
+.page-link:focus {
+    box-shadow: var(--shadow-focus);
+}
+.page-item.active .page-link {
+    background-color: var(--color-navy);
+    border-color: var(--color-navy);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   DetailsPanel (shared component — clients module reference) — styling
+   ownership cleanup. The whole family was moved VERBATIM from the
+   component's internal <style> block
+   (resources/views/partials/details-panel.blade.php) into this file so
+   the shared panel's static rules live with the other reusable
+   component families and the Blade partial no longer needs an internal
+   stylesheet. The panel shell's five former inline `style=""`
+   declarations were consolidated into the rules below at their
+   CURRENTLY-RENDERED values (the inline styles won every property
+   before, so these rules now declare the winning values byte-for-byte):
+
+     * identity-content wrapper  <div style="flex:1;min-width:0">
+       -> .details-identity > div:not(.details-avatar)
+     * #detailsSub  inline  color rgba(255,255,255,0.7) / 0.8rem / 2px
+       -> .details-sub  (updated from the never-visible 0.55 / 0.75rem)
+     * #detailsMeta  inline  gap 8px / margin-top 8px
+       -> .details-meta  (updated from the never-visible 10px / 12px)
+     * #detailsActions inline display/flex-wrap/gap/padding/border/background
+       -> .details-actions  (extended)
+     * #detailsBody  inline flex/overflow/padding/overscroll
+       -> .details-body  (already owned the same values)
+
+   Two <768px mobile padding overrides (.details-actions 12px 16px,
+   .details-body 18px 16px 36px) were REMOVED: they were dead rules —
+   the inline styles beat them at every breakpoint — so keeping them
+   would have changed the current mobile/tablet rendering. The mobile
+   drawer therefore keeps today's exact paddings (actions 14px 24px,
+   body 20px 24px 40px); the prototypes-against-grid collapse is
+   untouched. The scroll/hit-target e2e harness
+   (e2e/details-panel-scroll-fix.spec.ts) extracts this section
+   between the two markers below.
+
+   MARKER-BEGIN: details-panel
+   ═══════════════════════════════════════════════════════════════════ */
+/* MARKER-BEGIN: details-panel */
+:root {
+    --panel-w: 480px;
+}
+
+.details-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--panel-w);
+    max-width: 100%;
+    background: var(--color-surface);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    visibility: hidden;
+    transition: transform 0.34s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 0.34s;
+    box-shadow: 0 20px 25px -5px rgba(15, 27, 45, 0.08), 0 8px 10px -6px rgba(15, 27, 45, 0.04);
+}
+
+.details-panel.open {
+    transform: translateX(0);
+    visibility: visible;
+    transition: transform 0.34s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.details-panel .details-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(12, 22, 34, 0.45);
+    z-index: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.details-panel.open .details-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Desktop (≥1024px): panel overlays right edge, table stays fully visible, no backdrop */
+@media (min-width: 1024px) {
+    .details-panel .details-backdrop { display: none; }
+}
+
+/* Tablet (768–1023px): panel ~50vw */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .details-panel { width: 50vw; }
+}
+
+/* Mobile (<768px): full-width drawer. Boundary (767.98px) is kept
+   identical to the FilterChips bottom-sheet query so the whole app
+   shares one consistent 768px tier: <768 = mobile, >=768 = tablet/desktop. */
+@media (max-width: 767.98px) {
+    .details-panel {
+        left: 0;
+        right: 0;
+        width: auto;
+        max-width: 100vw;
+    }
+    .details-header { padding: 18px 16px 14px; }
+    /* Full-width drawer: information grids collapse to one column so long
+       values wrap safely and text stays readable. */
+    .details-grid { grid-template-columns: 1fr; }
+}
+
+.details-header {
+    background: linear-gradient(135deg, var(--color-navy) 0%, var(--color-navy-light) 100%);
+    padding: 22px 24px 18px;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.details-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.85);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.details-close:hover { background: rgba(255,255,255,0.18); color: #fff; }
+.details-close svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2; }
+.details-close:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+
+.details-identity { display: flex; align-items: flex-start; gap: 14px; }
+
+/* Identity-content wrapper: the block right of the avatar (name / sub /
+   meta). Generic so every module resolves flex:1;min-width:0 exactly as
+   the former inline style did. The clients-specific rule below adds
+   width:auto for its row layout. */
+.details-identity > div:not(.details-avatar) { flex: 1; min-width: 0; }
+
+/* Clients panel: photo sits BESIDE the client's name (per requirement #6),
+   not above it. The photo-above-name layout applies ONLY to the Edit modal.
+   The shared row layout keeps the 64px avatar to the left with the name,
+   ID, and category to its right. */
+.details-panel[data-module="clients"] .details-header { padding: 22px 24px 18px; }
+.details-panel[data-module="clients"] .details-identity {
+    flex-direction: row;
+    align-items: flex-start;
+    text-align: left;
+    gap: 14px;
+}
+.details-panel[data-module="clients"] .details-identity > div:not(.details-avatar) { width: auto; flex: 1; min-width: 0; }
+.details-panel[data-module="clients"] .details-meta { justify-content: flex-start; }
+@media (max-width: 767.98px) {
+    .details-panel[data-module="clients"] .details-header { padding: 16px 14px 12px; }
+    .details-panel[data-module="clients"] .details-avatar,
+    .details-panel[data-module="clients"] .details-avatar-photo,
+    .details-panel[data-module="clients"] .details-avatar-initials {
+        width: 56px; height: 56px; min-width: 56px; border-radius: 14px;
+    }
+}
+.details-avatar {
+    width: 64px; height: 64px; min-width: 64px; flex: 0 0 auto;
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem; font-weight: 800; color: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+.details-identity h2 { color: #fff; font-size: 1.05rem; line-height: 1.25; word-break: break-word; }
+/* Values consolidated from the former inline style on #detailsSub
+   (color rgba(255,255,255,0.7), font-size 0.8rem, margin-top 2px). */
+.details-sub { color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-top: 2px; }
+/* gap/margin-top consolidated from the former inline style on
+   #detailsMeta (8px / 8px); flex-wrap stays from the original rule. */
+.details-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+/* Shell action bar — display/flex-wrap/gap/padding/border/background
+   consolidated from the former inline style on #detailsActions. */
+.details-actions {
+    flex-shrink: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--color-line-light);
+    background: var(--color-surface);
+}
+
+.details-actions .btn {
+    flex: 1 1 calc(33.33% - 8px);
+    min-width: 96px;
+}
+
+/* Clients panel: four actions (Add Transaction / Open Full Page / Edit /
+   Delete) laid out as a 2×2 grid — Add Transaction + Open Full Page on the
+   first row, Edit + Delete on the second — so every action keeps a full-width
+   tap target on both desktop drawers and narrow/mobile widths. */
+.details-actions-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+}
+.details-actions-line > .btn,
+.details-actions-line > form {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+}
+.details-actions-line form .btn {
+    width: 100%;
+    flex: none;
+    min-width: 0;
+}
+
+.details-body { flex: 1; overflow-y: auto; padding: 20px 24px 40px; overscroll-behavior: contain; min-height: 0; }
+
+/* Subtle Clients-module scrollbars. ONE reusable treatment — thin, rounded,
+   ink-toned thumb on a faint neutral track, slightly darker on hover. Applied
+   via the .scrollbars-subtle utility in Clients-owned views plus scoped
+   selectors for shared containers (details-panel body via its data-module
+   tag, filter popover inside #clients-screen, and the Clients-only modal-body
+   IDs that also match the JS-injected copies). Everything outside the Clients
+   module keeps its default scrollbar. */
+.scrollbars-subtle,
+.details-panel[data-module="clients"] .details-body,
+#clients-screen .filter-multi-scroll,
+#clientFormModalBody,
+#clientFeedbackBody {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-ink-muted) var(--color-bg-alt);
+}
+.scrollbars-subtle::-webkit-scrollbar,
+.details-panel[data-module="clients"] .details-body::-webkit-scrollbar,
+#clients-screen .filter-multi-scroll::-webkit-scrollbar,
+#clientFormModalBody::-webkit-scrollbar,
+#clientFeedbackBody::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.scrollbars-subtle::-webkit-scrollbar-track,
+.details-panel[data-module="clients"] .details-body::-webkit-scrollbar-track,
+#clients-screen .filter-multi-scroll::-webkit-scrollbar-track,
+#clientFormModalBody::-webkit-scrollbar-track,
+#clientFeedbackBody::-webkit-scrollbar-track {
+    background: var(--color-bg-alt);
+    border-radius: 999px;
+}
+.scrollbars-subtle::-webkit-scrollbar-thumb,
+.details-panel[data-module="clients"] .details-body::-webkit-scrollbar-thumb,
+#clients-screen .filter-multi-scroll::-webkit-scrollbar-thumb,
+#clientFormModalBody::-webkit-scrollbar-thumb,
+#clientFeedbackBody::-webkit-scrollbar-thumb {
+    background: var(--color-ink-muted);
+    border-radius: 999px;
+}
+.scrollbars-subtle::-webkit-scrollbar-thumb:hover,
+.details-panel[data-module="clients"] .details-body::-webkit-scrollbar-thumb:hover,
+#clients-screen .filter-multi-scroll::-webkit-scrollbar-thumb:hover,
+#clientFormModalBody::-webkit-scrollbar-thumb:hover,
+#clientFeedbackBody::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink-secondary);
+}
+
+.details-section { margin-bottom: 28px; }
+.details-section-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.72rem; font-weight: 700;
+    color: var(--color-ink-muted);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 12px;
+}
+.details-section-title::after { content: ''; flex: 1; height: 1px; background: var(--color-line-light); }
+
+.details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+.details-field.wide { grid-column: 1 / -1; }
+.details-field label {
+    display: block;
+    font-size: 0.68rem; font-weight: 600;
+    color: var(--color-ink-muted);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+.details-field .value {
+    font-size: 0.86rem; font-weight: 600;
+    color: var(--color-ink);
+    word-break: break-word;
+}
+.details-field .value.muted { font-weight: 500; color: var(--color-ink-secondary); }
+
+.details-note {
+    padding: 12px 14px;
+    border-radius: var(--radius-control);
+    background: rgba(232, 158, 45, 0.06);
+    border-left: 3px solid var(--color-gold);
+    font-size: 0.82rem;
+    color: var(--color-ink-secondary);
+    line-height: 1.55;
+}
+
+.details-timeline { position: relative; padding-left: 22px; }
+.details-timeline::before {
+    content: '';
+    position: absolute; left: 6px; top: 6px; bottom: 6px;
+    width: 2px; background: var(--color-line);
+}
+.tl-item { position: relative; padding-bottom: 18px; }
+.tl-item:last-child { padding-bottom: 0; }
+.tl-item::before {
+    content: '';
+    position: absolute; left: -22px; top: 4px;
+    width: 13px; height: 13px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    border: 2.5px solid var(--color-gold);
+}
+.tl-item h5 { font-size: 0.82rem; font-weight: 600; }
+.tl-item p { font-size: 0.78rem; color: var(--color-ink-secondary); margin-top: 1px; }
+.tl-item time { font-size: 0.7rem; color: var(--color-ink-muted); display: block; margin-top: 2px; }
+
+.details-doc {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--color-line-light);
+    border-radius: var(--radius-control);
+    margin-bottom: 8px;
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.details-doc:hover { border-color: var(--color-line); background: var(--color-surface-hover); }
+.doc-icon {
+    width: 34px; height: 34px; min-width: 34px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(15, 27, 45, 0.05); color: var(--color-navy);
+}
+.doc-icon svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+.details-doc .doc-name { flex: 1; min-width: 0; }
+.details-doc .doc-name h5 { font-size: 0.82rem; font-weight: 600; }
+.details-doc .doc-name p { font-size: 0.7rem; color: var(--color-ink-muted); }
+.doc-more { border: none; background: none; color: var(--color-ink-muted); cursor: pointer; padding: 4px; border-radius: 6px; display: flex; }
+.doc-more:hover { color: var(--color-navy); background: var(--color-bg); }
+.doc-more svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+/* Status badges in panel (dark header needs light-on-dark) */
+.details-meta .status-badge.active   { background: var(--color-teal); color: #fff; }
+.details-meta .status-badge.active .dot { background: #fff; }
+.details-meta .status-badge.archived { background: rgba(255,255,255,0.16); color: rgba(255,255,255,0.9); border: 1px solid rgba(255,255,255,0.3); }
+.details-meta .status-badge.archived .dot { background: currentColor; }
+
+/* Category as its own distinct line below the ID in the fixed header.
+   flex-basis:100% forces a wrap so the category pill sits on its own row,
+   with any trailing tag (e.g. household id) flowing onto the line below. */
+.details-meta .details-category {
+    flex-basis: 100%;
+    background: rgba(255,255,255,0.16);
+    color: rgba(255,255,255,0.92);
+    border: 1px solid rgba(255,255,255,0.28);
+}
+.details-meta .details-category::before { background: var(--color-gold); }
+
+/* Program tags */
+.program-tag {
+    display: inline-block;
+    padding: 3px 9px;
+    border-radius: var(--radius-control);
+    font-size: 0.72rem;
+    font-weight: 600;
+    background: rgba(15, 27, 45, 0.05);
+    color: var(--color-gold);
+}
+.prog-empty { color: var(--color-ink-muted); font-size: 0.85rem; }
+
+/* Keep the panel a true flex column so the header/actions stay fixed while
+   the body scrolls, and let long content shrink instead of widening the
+   drawer (min-width: 0 on the column allows the overflow-x containers
+   inside the body to scroll on their own). */
+.details-panel-inner {
+    background: var(--color-surface);
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Identity avatar: the photo or initials placeholder must fit the shell's
+   64px rounded avatar box without overflowing the header. */
+.details-avatar-photo {
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    border-radius: 16px;
+    object-fit: cover;
+    display: block;
+}
+.details-avatar-initials {
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: #fff;
+    background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-light) 100%);
+}
+
+/* Full-page client profile photo (clients/_details identity block, shown
+   only in !panel mode): fixed 96px square beside the profile name. The
+   former inline width/height was consolidated here. */
+.details-profile-photo {
+    width: 96px;
+    height: 96px;
+}
+
+/* Accessible collapsible sections (Family Composition / Transactions). */
+.details-accordion-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+.details-accordion-toggle:hover { color: var(--color-navy); }
+.details-accordion-toggle:focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+.details-chevron {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.details-accordion-toggle.is-open .details-chevron { transform: rotate(180deg); }
+.details-accordion-panel { padding-top: 4px; }
+
+/* Focus trap styles */
+.details-panel:focus-within { outline: none; }
+/* MARKER-END: details-panel */

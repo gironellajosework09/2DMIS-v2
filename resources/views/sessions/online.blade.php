@@ -36,12 +36,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Currently Logged Users'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Currently Logged Users',

@@ -7,12 +7,12 @@
            role="combobox" aria-label="Search clients" aria-autocomplete="list"
            aria-controls="globalSearchDropdown" aria-expanded="false"
            autocomplete="off"
-           class="w-full py-[8px] pl-[36px] pr-[14px] text-[13px] leading-[20px] text-[var(--color-ink)] bg-[#f0f2f5] border border-[#e2e5ea] rounded-full outline-none transition-all duration-200 focus:border-[var(--ui-gold)] focus:bg-white focus:ring-2 focus:ring-[var(--ui-gold)]/30">
+           class="w-full py-[8px] pl-[36px] pr-[14px] text-[13px] leading-[20px] text-[var(--color-ink)] bg-[#f0f2f5] border border-[#e2e5ea] rounded-full outline-none transition-all duration-200 focus:border-[var(--color-gold)] focus:bg-white focus:ring-2 focus:ring-[var(--color-gold)]/30">
 
     <div id="globalSearchDropdown"
          role="listbox" aria-label="Search results"
          style="display:none;position:absolute;top:calc(100% + 6px);left:0;right:0;
-                background:var(--ui-card,#fff);border:1px solid var(--ui-border-light,#e2e5ea);
+                background:var(--color-surface,#fff);border:1px solid var(--color-line-light,#e2e5ea);
                 border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:1060;
                 max-height:380px;overflow-y:auto;overflow-x:hidden">
     </div>
@@ -51,14 +51,14 @@
 
     function renderLoading() {
         dropdown.innerHTML =
-            '<div style="padding:14px 16px;text-align:center;color:var(--ui-text-muted,#9ca3af);font-size:13px">Searching…</div>';
+            '<div style="padding:14px 16px;text-align:center;color:var(--color-ink-muted,#9ca3af);font-size:13px">Searching…</div>';
         show();
     }
 
     function renderResults(results) {
         if (results.length === 0) {
             dropdown.innerHTML =
-                '<div style="padding:14px 16px;text-align:center;color:var(--ui-text-muted,#9ca3af);font-size:13px">No clients found</div>';
+                '<div style="padding:14px 16px;text-align:center;color:var(--color-ink-muted,#9ca3af);font-size:13px">No clients found</div>';
             show();
             return;
         }
@@ -73,17 +73,17 @@
             var location = [r.barangay, r.municipality].filter(Boolean).join(', ');
             html +=
                 '<div role="option" data-index="' + i + '" data-url="' + esc(r.url) + '"' +
-                ' style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--ui-border-light,#f0f2f5);transition:background .12s"' +
-                ' onmouseenter="this.style.background=\'var(--ui-bg-alt,#f8f9fa)\';this._over=true"' +
+                ' style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--color-line-light,#f0f2f5);transition:background .12s"' +
+                ' onmouseenter="this.style.background=\'var(--color-bg-alt,#f8f9fa)\';this._over=true"' +
                 ' onmouseleave="this.style.background=\'transparent\';this._over=false">' +
-                    '<div style="grid-column:span 2/place-items:center;width:34px;height:34px;min-width:34px;border-radius:9999px;background:rgba(0,56,168,.08);color:var(--ui-navy,#0038A8);font-size:12px;font-weight:600;display:grid">' +
-                        esc(r.full_name.split(',')[0].substring(0, 2)) +
+                    '<div style="grid-column:span 2/place-items:center;width:34px;height:34px;min-width:34px;border-radius:9999px;background:rgba(0,56,168,.08);color:var(--color-navy,#0038A8);font-size:12px;font-weight:600;display:grid">' +
+                        esc((r.display_name || r.full_name).split(',')[0].substring(0, 2)) +
                     '</div>' +
                     '<div style="min-width:0;flex:1">' +
-                        '<div style="font-size:13px;font-weight:600;color:var(--ui-text-primary,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
-                            esc(r.full_name) +
+                        '<div style="font-size:13px;font-weight:600;color:var(--color-ink,#111827);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' +
+                            esc(r.display_name || r.full_name) +
                         '</div>' +
-                        '<div style="font-size:11.5px;color:var(--ui-text-muted,#9ca3af);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">' +
+                        '<div style="font-size:11.5px;color:var(--color-ink-muted,#9ca3af);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px">' +
                             (sexLabel ? esc(sexLabel) + (r.age ? ' · ' + esc(String(r.age)) : '') : '') +
                             (location ? (sexLabel ? ' · ' : '') + esc(location) : '') +
                         '</div>' +
@@ -98,7 +98,7 @@
     function setActive(index) {
         var items = dropdown.querySelectorAll('[role="option"]');
         for (var i = 0; i < items.length; i++) {
-            items[i].style.background = i === index ? 'var(--ui-bg-alt,#f8f9fa)' : 'transparent';
+            items[i].style.background = i === index ? 'var(--color-bg-alt,#f8f9fa)' : 'transparent';
         }
         activeIndex = index;
         if (index >= 0 && items[index]) {
@@ -128,7 +128,7 @@
             })
             .catch(function () {
                 dropdown.innerHTML =
-                    '<div style="padding:14px 16px;text-align:center;color:var(--ui-text-muted,#9ca3af);font-size:13px">Search unavailable</div>';
+                    '<div style="padding:14px 16px;text-align:center;color:var(--color-ink-muted,#9ca3af);font-size:13px">Search unavailable</div>';
                 show();
             });
     }

@@ -18,7 +18,8 @@ use Illuminate\Support\Facades\DB;
  * - GET ?munis=1 lists municipalities; GET ?q= autocompletes (name LIKE on
  *   full_name / match_name, LIMIT 15); POST action=verify validates that the
  *   client exists, their municipality matches, and they have a qualifying
- *   transaction, then returns client + latest program + scholar_info.
+ *   transaction, then returns client (including qr_token, C3-E) + latest
+ *   program + scholar_info.
  * - city_municipality is compared as an int even though the column is a
  *   varchar in the legacy schema (v1 intval() semantics).
  */
@@ -36,9 +37,14 @@ class GranteeSearchController extends Controller
     ];
 
     private const CLIENT_COLUMNS = [
-        'id', 'full_name', 'lastname', 'firstname', 'middlename', 'extensionname',
-        'city_municipality', 'barangay', 'house_no', 'mobile_no', 'email',
-        'birthdate', 'age', 'sex', 'civil_status', 'pwd', 'occupation',
+        // C3-E: qr_token is returned so the QR viewer encodes the client's
+        // opaque identity token (the payload), never a re-composed name. The
+        // token is the client's own QR identity and is already publicly printed
+        // on their card — exposing it through their own look-up endpoint is the
+        // intended function, not a secret. full_name stays for human display.
+        'id', 'full_name', 'qr_token', 'lastname', 'firstname', 'middlename',
+        'extensionname', 'city_municipality', 'barangay', 'house_no', 'mobile_no',
+        'email', 'birthdate', 'age', 'sex', 'civil_status', 'pwd', 'occupation',
     ];
 
     public function search(Request $request, string $kind): JsonResponse

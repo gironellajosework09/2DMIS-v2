@@ -215,6 +215,62 @@ class GranteeUpdateTest extends TestCase
         $this->assertSame(0, UpdateLog::query()->count());
     }
 
+    public function test_store_returns_qr_token_for_payload(): void
+    {
+        $client = $this->client();
+        $this->transaction($client);
+
+        $this->post(route('grantee-update.store'), $this->payload($client))
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('qr_token', $client->qr_token);
+    }
+
+    public function test_store_qr_token_is_base62_16chars(): void
+    {
+        $client = $this->client();
+        $this->transaction($client);
+
+        $json = $this->post(route('grantee-update.store'), $this->payload($client))->json();
+
+        $this->assertArrayHasKey('qr_token', $json);
+        $this->assertMatchesRegularExpression('/^[0-9A-Za-z]{16}$/', $json['qr_token']);
+    }
+
+    public function test_store_qr_token_unchanged_after_update(): void
+    {
+        $client = $this->client();
+        $this->transaction($client);
+
+        $originalToken = $client->qr_token;
+
+        $this->post(route('grantee-update.store'), $this->payload($client))
+            ->assertOk()
+            ->assertJsonPath('qr_token', $originalToken);
+
+        $this->assertSame($originalToken, $client->fresh()->qr_token);
+    }
+
+    public function test_store_self_service_page_wires_qr_token_payload(): void
+    {
+        $html = $this->get(route('grantee-update.self-service'))->getContent();
+
+        $this->assertStringContainsString('data.qr_token', $html);
+        $this->assertStringContainsString('encodeURIComponent(token)', $html);
+        $this->assertStringNotContainsString('encodeURIComponent(fullName)', $html);
+    }
+
+    public function test_self_update_tab_wires_qr_token_payload(): void
+    {
+        $this->logInAs($this->pageUser('scholars.php'));
+
+        $html = $this->get(route('scholars.index'))->getContent();
+
+        $this->assertStringContainsString('data.qr_token', $html);
+        $this->assertStringContainsString('encodeURIComponent(token)', $html);
+        $this->assertStringNotContainsString('encodeURIComponent(fullName)', $html);
+    }
+
     public function test_logs_screen_is_gated_and_renders_rows(): void
     {
         $this->get(route('update-logs.index'))->assertRedirect(route('login'));

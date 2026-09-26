@@ -85,7 +85,7 @@ class ScanService
 
     private function lookupClient(array $config, string $scanned): array
     {
-        $client = $this->findClientByName($scanned);
+        $client = $this->resolveClient($scanned);
 
         if ($client === null) {
             return ['success' => false, 'message' => $this->missMessage($config, $scanned)];
@@ -99,7 +99,7 @@ class ScanService
 
     private function lookupClientGeo(array $config, string $scanned): array
     {
-        $client = $this->findClientByName($scanned);
+        $client = $this->resolveClient($scanned);
 
         if ($client === null) {
             return ['success' => false, 'message' => $this->missMessage($config, $scanned)];
@@ -171,14 +171,22 @@ class ScanService
 
     private function lookupExamDerived(string $scanned): array
     {
-        $client = $this->findClientByName($scanned);
+        $client = $this->resolveClient($scanned);
 
         if ($client === null) {
             return ['success' => false, 'message' => "Client not found for: $scanned"];
         }
 
+        // Legacy scanned values ARE the name key the exam/result linkage uses
+        // (TRIM + utf8mb4_general_ci), so the legacy query runs byte-for-byte
+        // unchanged. When the scan resolved through qr_token, bind the client's
+        // persisted full_name instead so the unchanged name-keyed exam linkage
+        // is still found — the exam/result tables and their contracts are not
+        // rewritten, only reached through the token-identified client.
+        $examKey = ($client->qr_token === $scanned) ? $client->full_name : $scanned;
+
         $exam = DB::table('tbl_exam')
-            ->whereRaw('TRIM(fullname) COLLATE utf8mb4_general_ci = ?', [$scanned])
+            ->whereRaw('TRIM(fullname) COLLATE utf8mb4_general_ci = ?', [$examKey])
             ->first(['exam_no']);
 
         if ($exam === null) {
@@ -200,7 +208,7 @@ class ScanService
 
     private function lookupExistingProgram(array $config, string $scanned): array
     {
-        $client = $this->findClientByName($scanned);
+        $client = $this->resolveClient($scanned);
 
         if ($client === null) {
             return ['success' => false, 'message' => 'Client not found'];
@@ -654,6 +662,29 @@ class ScanService
     | Helpers
     |--------------------------------------------------------------------------
     */
+
+    /**
+     * Client identity resolution for scanned values (C3-D).
+     *
+     * Token-first: an exact qr_token match is returned immediately (utf8mb4_bin
+     * equality through the tbl_clients_qr_token_unique index — no LIKE, no
+     * contains, no case-folding, no regex, no client-id parsing). The token
+     * uniquely identifies exactly one client, so no name lookup follows.
+     *
+     * Legacy fallback: when the scanned value is not a token, the persisted
+     * full_name resolution runs exactly as before C3-D — TRIM(full_name)
+     * compared under utf8mb4_general_ci with no normalization changes.
+     */
+    public function resolveClient(string $scanned): ?Client
+    {
+        $client = Client::query()->where('qr_token', $scanned)->first();
+
+        if ($client !== null) {
+            return $client;
+        }
+
+        return $this->findClientByName($scanned);
+    }
 
     private function findClientByName(string $name): ?Client
     {

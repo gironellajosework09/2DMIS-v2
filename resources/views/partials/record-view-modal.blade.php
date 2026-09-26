@@ -48,7 +48,7 @@
              x-transition.opacity.duration.200ms
              @keydown.escape.window="close()"
              @keydown.tab.prevent.stop="handleTab($event)"
-             class="pointer-events-auto flex max-h-[85vh] w-full max-w-[800px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+             class="pointer-events-auto flex max-h-[85vh] w-full max-w-[800px] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">
             <div class="flex items-center justify-between gap-2 border-b border-line p-[1.25rem] pb-3">
                 <h5 id="viewModalTitle" class="mb-0 text-dense font-heading font-semibold text-ink">{{ $title }}</h5>
                 <button type="button"

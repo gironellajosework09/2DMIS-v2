@@ -242,8 +242,10 @@ CREATE TABLE `tbl_clients` (
   `voter_id` varchar(50) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `full_name` varchar(255) DEFAULT NULL,
+  `qr_token` char(16) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `match_name` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `tbl_clients_qr_token_unique` (`qr_token`),
   KEY `idx_fullname_location` (`lastname`,`firstname`,`middlename`,`barangay`,`precinct_no`),
   KEY `idx_clients_name` (`lastname`,`firstname`,`middlename`),
   KEY `idx_clients_muni` (`city_municipality`),
@@ -694,5 +696,6 @@ INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (6,'2026_08_05_0000
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (7,'2026_08_05_000004_add_unique_permission_constraints',1);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (8,'2026_08_05_000005_unify_table_collations',1);
 INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (9,'2026_08_05_000006_add_payout_scan_foreign_keys',1);
-INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (10,'2026_08_15_000001_create_tbl_action_permissions_table',2);
-INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (11,'2026_08_15_000002_create_tbl_user_municipalities_table',2);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (11,'2026_08_15_000001_create_tbl_action_permissions_table',2);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (12,'2026_08_15_000002_create_tbl_user_municipalities_table',2);
+INSERT INTO `migrations` (`id`, `migration`, `batch`) VALUES (13,'2026_09_15_000000_add_qr_token_to_tbl_clients_table',3);

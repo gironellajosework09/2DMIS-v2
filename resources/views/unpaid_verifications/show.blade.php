@@ -8,13 +8,7 @@
 @extends('layouts.app')
 @section('title', 'Unpaid Verification Details — 2D MIS')
 @section('content')
-@include('partials.breadcrumbs', [
-    'breadcrumbs' => [
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => 'Unpaid Grantees', 'url' => route('unpaid-verifications.index')],
-        ['label' => 'Verification Details'],
-    ],
-])
+
 @endif
 
 <div class="data-card p-[1.25rem]" data-panel-body>

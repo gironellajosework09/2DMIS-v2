@@ -3,13 +3,6 @@
 @section('title', 'Add Scholar — 2D MIS')
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Scholars', 'url' => route('scholars.index')],
-            ['label' => 'Add Scholar'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Add Scholar',

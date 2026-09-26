@@ -44,7 +44,7 @@
         }
 
         #clients-screen table.dataTable tbody tr:focus-visible {
-            outline: 2px solid var(--ui-focus-ring);
+            outline: 2px solid var(--shadow-focus);
             outline-offset: -2px;
         }
 
@@ -91,8 +91,8 @@
             align-items: center;
             gap: 8px;
             padding: 4px;
-            background: var(--color-bg);
-            border: 1px solid var(--color-line);
+            /* background: var(--color-bg); */
+            /* border: 1px solid var(--color-line); */
             border-radius: 9999px;
         }
 
@@ -102,8 +102,8 @@
             gap: 6px;
             padding: 0.45rem 0.9rem;
             border-radius: 9999px;
-            border: 1px solid transparent;
-            background: transparent;
+            background: var(--color-bg);
+            border: 1px solid var(--color-line);
             color: var(--color-ink-secondary);
             font-size: 0.82rem;
             font-weight: 600;
@@ -132,7 +132,7 @@
         }
 
         #clients-screen .seg-btn:focus-visible {
-            outline: 2px solid var(--ui-focus-ring);
+            outline: 2px solid var(--shadow-focus);
             outline-offset: 2px;
         }
 
@@ -161,7 +161,7 @@
         #clients-screen .dataTables_wrapper .dataTables_filter input {
             border: 1px solid var(--color-line);
             border-radius: var(--radius-control);
-            padding: 0.25rem 0.5rem;
+            /* padding: 0.25rem 0.5rem; */
             font-size: 0.85rem;
         }
 
@@ -246,16 +246,33 @@
             gap: 1rem;
             flex-wrap: wrap;
         }
+
+        /* UX polish: quiet "X of N clients" counter beside the filter pills,
+           shown only while a filter/search narrows the result set. */
+        #clients-screen .result-count {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--color-ink-muted);
+            white-space: nowrap;
+        }
+
+        /* UX polish (mobile): enlarge the tap area of the segment filter pills
+           without changing the desktop layout. */
+        @media (max-width: 767px) {
+            #clients-screen .seg-btn {
+                min-height: 40px;
+                padding-left: 1rem;
+                padding-right: 1rem;
+                font-size: 0.85rem;
+            }
+            #clients-screen .filter-toolbar {
+                gap: 6px;
+            }
+        }
     </style>
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Clients'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Client Registry',
@@ -266,7 +283,7 @@
                 <button type="button" class="btn-subtle dropdown-toggle" @click="open = !open" :aria-expanded="open.toString()">
                     Export CSV
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end" :class="{ \'show\': open }">
+                <ul class="dropdown-menu dropdown-menu-end" data-bs-popper :class="{ \'dropdown-open\': open }">
                     <li><button type="button" class="dropdown-item" data-clients-export="filter">Export Current Filter</button></li>
                     <li><button type="button" class="dropdown-item" data-clients-export="all">Export All Clients</button></li>
                 </ul>
@@ -298,28 +315,28 @@
                 <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="filter-toolbar flex flex-wrap items-center gap-2">
                         <button type="button" class="seg-btn" data-filter-segment="municipality"
-                                title="Filter by municipality" aria-label="Filter by municipality" aria-pressed="false">
+                                title="Filter by municipality" aria-label="Filter by municipality" aria-haspopup="dialog" aria-expanded="false" aria-pressed="false">
                             <svg viewBox="0 0 24 24" aria-hidden="true" class="seg-btn-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
                             </svg>
                             Municipality <span class="seg-count" hidden aria-hidden="true"></span>
                         </button>
                         <button type="button" class="seg-btn" data-filter-segment="barangay"
-                                title="Filter by barangay" aria-label="Filter by barangay" aria-pressed="false">
+                                title="Filter by barangay" aria-label="Filter by barangay" aria-haspopup="dialog" aria-expanded="false" aria-pressed="false">
                             <svg viewBox="0 0 24 24" aria-hidden="true" class="seg-btn-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
                             </svg>
                             Barangay <span class="seg-count" hidden aria-hidden="true"></span>
                         </button>
                         <button type="button" class="seg-btn" data-filter-segment="program"
-                                title="Filter by program" aria-label="Filter by program" aria-pressed="false">
+                                title="Filter by program" aria-label="Filter by program" aria-haspopup="dialog" aria-expanded="false" aria-pressed="false">
                             <svg viewBox="0 0 24 24" aria-hidden="true" class="seg-btn-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
                             </svg>
                             Programs <span class="seg-count" hidden aria-hidden="true"></span>
                         </button>
                         <button type="button" class="seg-btn" data-filter-segment="category"
-                                title="Filter by category" aria-label="Filter by category" aria-pressed="false">
+                                title="Filter by category" aria-label="Filter by category" aria-haspopup="dialog" aria-expanded="false" aria-pressed="false">
                             <svg viewBox="0 0 24 24" aria-hidden="true" class="seg-btn-icon" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/>
                             </svg>
@@ -327,6 +344,7 @@
                         </button>
                         <button type="button" class="filter-clear-all" id="clientsClearAll" hidden
                                 aria-label="Clear all filters">Clear All</button>
+                        <span id="clientsResultCount" class="result-count" hidden aria-live="polite"></span>
                     </div>
                     <div class="min-w-0 flex-1 basis-56 max-w-md">
                         <div class="relative">
@@ -344,7 +362,7 @@
                 @include('partials.filter-chips', ['filterChips' => $filterChips])
             </div>
 
-            <div class="overflow-x-auto px-[1.25rem] pb-[1.25rem]" tabindex="0" aria-label="Client table, scrolls horizontally on narrow screens">
+            <div class="scrollbars-subtle overflow-x-auto px-[1.25rem] pb-[1.25rem]" tabindex="0" aria-label="Client table, scrolls horizontally on narrow screens">
                 <table id="clientsTable" class="table table-sm" style="width:100%;">
                     <thead>
                         <tr>
@@ -371,13 +389,13 @@
          (large-file PCRE interaction otherwise left a later @if un-compiled). --}}
     @include('partials.client-form-modal')
 
-    {{-- Validation / feedback modal — separate from the client form so the
-         user can review errors/messages, dismiss, and return to the
-         (still-editable) form without losing entered values. Reuses the shared
-         modal idiom (Tailwind + Alpine, Phase 9 → partial). Supports
-         INFO / WARNING / ERROR. The footer actions area is dynamic
-         (#clientFeedbackActions); the Back to form button closes back to the
-         edit modal. --}}
+     {{-- Validation / feedback modal — separate from the client form so the
+          user can review errors/messages, dismiss, and return to the
+          (still-editable) form without losing entered values. Reuses the shared
+          modal idiom (Tailwind + Alpine, Phase 9 → partial). Supports
+          INFO / WARNING / ERROR. The footer action area is dynamic
+          (#clientFeedbackActions); the X/close control dismisses back to the
+          still-editable edit modal. --}}
     @include('partials.client-feedback-modal')
 @endsection
 
@@ -401,6 +419,9 @@
                 subtitle: 'Register a new client in the registry',
                 submitLabel: 'Add Client',
                 _prevFocus: null,
+                dirty: false,
+                _stashed: null,
+                _keepStash: false,
 
                 show: function (mode, id) {
                     var isEdit = mode === 'edit';
@@ -408,6 +429,7 @@
                     this.subtitle = isEdit ? 'Update client information' : 'Register a new client in the registry';
                     this.submitLabel = isEdit ? 'Save Client' : 'Add Client';
                     this._prevFocus = document.activeElement;
+                    this.dirty = false;
                     document.body.style.overflow = 'hidden';
                     this.open = true;
 
@@ -432,6 +454,10 @@
                                     fresh.textContent = old.textContent;
                                     old.parentNode.replaceChild(fresh, old);
                                 });
+                                // UX polish: track edits for the discard guard and
+                                // move focus into the modal once the form is ready.
+                                bindFormChanged(body, self);
+                                focusFirstModalField(body);
                             })
                             .catch(function () {
                                 body.innerHTML = '<div class="flex items-center justify-center py-[2rem] text-danger">Failed to load form.</div>';
@@ -441,18 +467,130 @@
 
                 hide: function () {
                     this.open = false;
+                    this.dirty = false;
                     document.body.style.overflow = '';
                     if (this._prevFocus && typeof this._prevFocus.focus === 'function') {
                         this._prevFocus.focus();
                     }
                     this._prevFocus = null;
-                    // Reset body to loading state
+                    // Reset body to loading state UNLESS the form was stashed for
+                    // a duplicate-review detour (restoreForm() re-injects it).
                     var body = document.getElementById('clientFormModalBody');
-                    if (body) {
+                    if (body && !this._keepStash) {
                         body.innerHTML = '<div class="flex items-center justify-center py-[2rem] text-ink-muted"><span>Loading form...</span></div>';
                     }
+                    if (!this._keepStash) this._stashed = null;
+                    this._keepStash = false;
+                },
+
+                // User-initiated close (Escape / X / Cancel): guard against losing
+                // an in-progress form. Programmatic closes (success, duplicate
+                // review detour) call hide() directly and skip the prompt.
+                requestClose: function () {
+                    var self = this;
+                    if (!this.open) return;
+                    if (!this.dirty) { this.hide(); return; }
+                    window.uiConfirm({
+                        title: 'Discard unsaved changes?',
+                        message: 'Your changes will be lost if you close this form.',
+                        confirmLabel: 'Discard'
+                    }).then(function (ok) {
+                        if (ok) {
+                            self.hide();
+                            return;
+                        }
+                        // Stay in the form: uiConfirm released the scroll lock.
+                        document.body.style.overflow = 'hidden';
+                        var body = document.getElementById('clientFormModalBody');
+                        var first = body && body.querySelector('input:not([disabled]):not([type=hidden]), select, textarea, button:not([disabled])');
+                        if (first && first.focus) first.focus();
+                    });
+                },
+
+                // Snapshot the live form (DOM + field values) so a duplicate-review
+                // detour can return the user to their untouched input.
+                stashForm: function () {
+                    if (!this.open) return;
+                    var body = document.getElementById('clientFormModalBody');
+                    var form = body && body.querySelector('form');
+                    if (!body || !form) return;
+                    this._stashed = {
+                        html: body.innerHTML,
+                        data: snapshotFormValues(form)
+                    };
+                    this._keepStash = true;
+                    this.dirty = false;
+                },
+
+                restoreForm: function () {
+                    var body = document.getElementById('clientFormModalBody');
+                    var stash = this._stashed;
+                    if (!body || !stash) return;
+                    this._stashed = null;
+                    this._keepStash = false;
+                    this.title = 'Add Client';
+                    this.subtitle = 'Register a new client in the registry';
+                    this.submitLabel = 'Add Client';
+                    body.innerHTML = stash.html;
+                    body.querySelectorAll('script').forEach(function (old) {
+                        var fresh = document.createElement('script');
+                        fresh.textContent = old.textContent;
+                        old.parentNode.replaceChild(fresh, old);
+                    });
+                    var form = body.querySelector('form');
+                    if (form && stash.data) restoreFormValues(form, stash.data);
+                    bindFormChanged(body, this);
+                    this.dirty = true;
+                    this.open = true;
+                    document.body.style.overflow = 'hidden';
+                    Alpine.nextTick(function () {
+                        focusFirstModalField(body);
+                    });
                 }
             });
+
+            function bindFormChanged(body, self) {
+                if (!body) return;
+                function markDirty() { self.dirty = true; }
+                body.addEventListener('input', markDirty);
+                body.addEventListener('change', markDirty);
+            }
+
+            function focusFirstModalField(body) {
+                if (!body) return;
+                var first = body.querySelector('input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+                if (first && first.focus) first.focus();
+            }
+
+            function snapshotFormValues(form) {
+                var out = {};
+                Array.prototype.forEach.call(form.querySelectorAll('input, select, textarea'), function (el) {
+                    if (!el.name) return;
+                    if (el.type === 'checkbox' || el.type === 'radio') {
+                        if (!el.checked) return;
+                        (out[el.name] = out[el.name] || []).push(el.value);
+                    } else {
+                        out[el.name] = el.value;
+                    }
+                });
+                return out;
+            }
+
+            function restoreFormValues(form, data) {
+                Object.keys(data || {}).forEach(function (name) {
+                    var val = data[name];
+                    var fields = form.querySelectorAll('[name="' + name.replace(/"/g, '\\"') + '"]');
+                    Array.prototype.forEach.call(fields, function (el) {
+                        if (Array.isArray(val)) {
+                            if (el.type === 'checkbox' || el.type === 'radio') el.checked = val.indexOf(el.value) !== -1;
+                            else el.value = val;
+                        } else {
+                            if (el.type === 'checkbox' || el.type === 'radio') el.checked = String(val) === String(el.value);
+                            else el.value = val;
+                        }
+                    });
+                });
+            }
         });
 
         window.clientFormModalComponent = function () {
@@ -491,11 +629,10 @@
             };
 
             function categoryBadge(cat) {
-                var cls = 'is-neutral';
-                if (cat.indexOf('SENIOR') === 0) cls = 'is-paid';
-                else if (cat.indexOf('MINOR') === 0) cls = 'is-pending';
-                else if (cat.indexOf('YOUTH') === 0) cls = 'is-pending';
-                return '<span class="status-badge ' + cls + '">'
+                // UX polish: client categories no longer borrow the transaction
+                // status palette (is-paid / is-pending). All categories share one
+                // neutral navy "category" badge.
+                return '<span class="status-badge is-category">'
                     + $('<div>').text(cat).html()
                     + '</span>';
             }
@@ -616,19 +753,21 @@
                 if (clearAllBtn) clearAllBtn.hidden = totalActive === 0;
             }
 
-            function openFilterSegment(key) {
+            function openFilterSegment(key, btn) {
                 if (!window.clientFilters || typeof window.clientFilters.openCategory !== 'function') {
                     return;
                 }
                 // openCategory reveals ONLY the clicked category's section, so
                 // each pill opens a focused, self-contained popover for its own
                 // options (Municipality pills -> municipality options, etc.).
-                window.clientFilters.openCategory(key);
+                // The clicked pill is tracked so Esc/close returns focus to it
+                // and its aria-expanded state stays accurate.
+                window.clientFilters.openCategory(key, btn || null);
             }
 
             document.querySelectorAll('[data-filter-segment]').forEach(function(btn) {
                 btn.addEventListener('click', function() {
-                    openFilterSegment(btn.getAttribute('data-filter-segment'));
+                    openFilterSegment(btn.getAttribute('data-filter-segment'), btn);
                 });
             });
 
@@ -724,6 +863,25 @@
                 }, 250);
             });
 
+            // Filtered-result counter (UX polish): a small "X of N clients"
+            // readout beside the filter pills, shown only while a filter or the
+            // search narrows the result set. The DataTables bottom info stays.
+            var clientsResultCount = document.getElementById('clientsResultCount');
+            table.on('draw.dt', function () {
+                if (!clientsResultCount) return;
+                var info = table.page.info();
+                var params = (window.clientFilters && window.clientFilters.getParams)
+                    ? window.clientFilters.getParams()
+                    : {};
+                var hasFilter = Object.keys(params).length > 0 || $('#clientsSearch').val().length > 0;
+                if (hasFilter) {
+                    clientsResultCount.textContent = info.recordsFiltered + ' of ' + info.recordsTotal + ' clients';
+                    clientsResultCount.hidden = false;
+                } else {
+                    clientsResultCount.hidden = true;
+                }
+            });
+
             // Municipality -> barangay cascade + clear-per-category all live
             // inside the shared FilterChips component (data-filter-depends).
             // There is intentionally NO global Reset: each filter owns its own
@@ -752,11 +910,17 @@
                 });
             });
 
-            // Post-panel-save / post-panel-delete refresh + toast.
-            // Tailwind + Alpine migration (Phase 9): no Bootstrap Toast JS — the
-            // element is revealed with `.show` + manually dismissed. Autohide is
-            // false by contract (persistent until the user closes).
+            // Post-panel-save / post-panel-delete refresh + toast. Phase 26:
+            // success feedback renders through the ONE shared notification
+            // stack (window.notify / partials.unified-notify). The function
+            // name + call sites are unchanged; only the presentation channel
+            // is unified (bottom-right success toast, auto-dismissed).
             function showToast(message) {
+                if (!message) return;
+                if (typeof window.notify === 'function') {
+                    window.notify({ type: 'success', title: 'Success', message: message });
+                    return;
+                }
                 var stack = document.getElementById('clientsToastStack');
                 if (!stack || !message) return;
                 var el = document.createElement('div');
@@ -872,31 +1036,41 @@
                     + '<div class="min-w-0">'
                     + '<p class="mb-1 font-semibold text-ink">Possible existing client found</p>'
                     + '<p class="mb-2 text-dense leading-snug text-ink-secondary">'
-                    + $('<div>').text((matches[0] && matches[0].full_name) || 'A similar client').html()
+                    + $('<div>').text(((matches[0] && (matches[0].display_full_name || matches[0].full_name)) || 'A similar client')).html()
                     + ' appears to already exist in the client registry.</p>'
-                    + '<ul class="mb-0 space-y-1 pl-4">';
+                    + '<ul class="mb-0 list-disc space-y-1 pl-5">';
                 matches.forEach(function(m) {
                     warn.innerHTML += '<li class="text-dense text-ink-secondary">'
-                        + $('<div>').text(m.full_name + (m.birthdate ? ' — born ' + m.birthdate + (m.sex ? ' (' + m.sex + ')' : '') : '')).html()
+                        + $('<div>').text((m.display_full_name || m.full_name) + (m.birthdate ? ' — born ' + m.birthdate + (m.sex ? ' (' + m.sex + ')' : '') : '')).html()
                         + '</li>';
                 });
                 warn.innerHTML += '</ul></div></div>';
 
                 var actions = document.createElement('div');
+                actions.className = 'flex flex-wrap items-center justify-end gap-[8px]';
                 var reviewBtn = document.createElement('button');
                 reviewBtn.type = 'button';
-                reviewBtn.className = 'btn-navy';
-                reviewBtn.textContent = 'Review existing client';
+                reviewBtn.className = 'btn-subtle';
+                reviewBtn.textContent = 'Review Existing Client';
                 var continueBtn = document.createElement('button');
                 continueBtn.type = 'button';
                 continueBtn.className = 'btn-gold';
-                continueBtn.textContent = 'This is a different person — Continue';
+                continueBtn.textContent = 'Continue as New Client';
                 actions.appendChild(reviewBtn);
                 actions.appendChild(continueBtn);
 
-                var fbStore = Alpine.store('clientFeedbackModal');
-                reviewBtn.addEventListener('click', function() {
+                // Phase 26 restore (contextual gate): the duplicate warning
+                // presents as a CONTEXTUAL WARNING inside the Add Client
+                // workflow via the centered clientFeedbackModal (NOT a
+                // bottom-right unified toast). Form stays open underneath
+                // with entered values intact; both decisions preserved.
+var fbStore = Alpine.store('clientFeedbackModal');
+                reviewBtn.addEventListener('click', function () {
                     var first = matches[0];
+                    // Preserve the user's in-progress Add form before the modal
+                    // closes: it is re-opened with all entered values intact when
+                    // the details panel is dismissed (details:closed).
+                    Alpine.store('clientFormModal').stashForm();
                     fbStore.hide();
                     window.closeClientModal();
                     if (first && first.id) {
@@ -921,6 +1095,15 @@
                 fbStore.show({ title: 'Possible duplicate', type: 'warning', body: warn, actions: actions });
                 reviewBtn.focus();
             }
+
+            // Duplicate-review detour: when the details panel (opened by the
+            // "Review Existing Client" button) is dismissed, re-open the Add
+            // modal with the previously stashed form and values intact.
+            document.addEventListener('details:closed', function () {
+                var store = Alpine.store('clientFormModal');
+                if (!store || !store._stashed || store.open) return;
+                store.restoreForm();
+            });
 
             // One reusable feedback modal. Shows INFO / WARNING / ERROR
             // messages (duplicate warning, validation errors, photo errors)
@@ -1047,26 +1230,43 @@
                                 setFeedbackContent('Photo not saved', 'error', errP);
                             });
                     } else if (data.errors) {
-                        // Validation feedback goes to its own feedback modal so
-                        // the user can review all errors and return to the
-                        // (still-open, still-editable) form without losing input.
+                        // Field-level inline messages under each invalid field
+                        // (mirrors the server-rendered per-field error message), kept
+                        // alongside the existing feedback modal so both channels
+                        // agree. Cleared as the user edits a field.
                         var list = document.createElement('ul');
                         list.className = 'list-disc list-inside mb-0 space-y-1';
-                        Object.keys(data.errors).forEach(function(k) {
+                        var errorKeys = Object.keys(data.errors);
+                        errorKeys.forEach(function(k) {
                             data.errors[k].forEach(function(msg) {
                                 var li = document.createElement('li');
                                 li.textContent = msg;
                                 list.appendChild(li);
                             });
                             var field = form.querySelector('[name="' + k + '"]');
-                            if (field) {
-                                field.classList.add('is-invalid');
-                                (field.closest('.field-wrapper') || field).addEventListener('input', function() {
-                                    field.classList.remove('is-invalid');
-                                }, { once: true });
+                            if (!field) return;
+                            var host = field.closest('.field-wrapper') || field.closest('div') || field;
+                            field.classList.add('is-invalid');
+                            if (host.querySelector) {
+                                var existing = host.querySelector('[data-field-error="' + k + '"]');
+                                if (existing) existing.remove();
                             }
+                            var tag = document.createElement('small');
+                            tag.className = 'field-error';
+                            tag.setAttribute('data-field-error', k);
+                            tag.textContent = data.errors[k][0];
+                            if (host.appendChild) host.appendChild(tag);
+                            var clearOnce = function () {
+                                field.classList.remove('is-invalid');
+                                if (host.querySelector) {
+                                    var tagged = host.querySelector('[data-field-error="' + k + '"]');
+                                    if (tagged) tagged.remove();
+                                }
+                            };
+                            field.addEventListener('input', clearOnce, { once: true });
+                            field.addEventListener('change', clearOnce, { once: true });
                         });
-                        var firstKey = Object.keys(data.errors)[0];
+                        var firstKey = errorKeys[0];
                         var firstField = firstKey ? form.querySelector('[name="' + firstKey + '"]') : null;
                         if (firstField && firstField.focus) {
                             // Focus the first invalid field once the feedback

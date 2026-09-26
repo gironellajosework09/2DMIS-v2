@@ -36,12 +36,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Manage Municipality Scope'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Manage Municipality Scope',

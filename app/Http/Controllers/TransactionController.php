@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Municipality;
 use App\Models\Transaction;
 use App\Services\AccessControlService;
+use App\Services\ClientService;
 use App\Services\TransactionService;
 use App\Support\FilterConfig;
 use App\Support\RecordMunicipality;
@@ -21,6 +22,7 @@ class TransactionController extends Controller
     public function __construct(
         private readonly TransactionService $transactions,
         private readonly AccessControlService $acl,
+        private readonly ClientService $clientService,
     ) {}
 
     public function index(Request $request): View
@@ -317,6 +319,19 @@ class TransactionController extends Controller
             ->limit(15)
             ->get();
 
+        foreach ($rows as $row) {
+            // Additive display-only transport (C3-B): the canonical display
+            // name rides along so autocomplete dropdowns render it without
+            // duplicating the formatter in JS. Machine search/order above
+            // still use the persisted full_name key untouched.
+            $row->display_name = $this->clientService->deriveDisplayName(
+                (string) $row->lastname,
+                (string) $row->firstname,
+                $row->middlename ?? null,
+                $row->extensionname ?? null,
+            );
+        }
+
         return response()->json($rows);
     }
 
@@ -462,7 +477,7 @@ class TransactionController extends Controller
                 'client_id' => $row->client_id,
                 'date_applied' => $row->date_applied ? date('m/d/Y', strtotime($row->date_applied)) : '',
                 'program' => e((string) $row->program),
-                'client_name' => e(trim($row->lastname.', '.$row->firstname.' '.$row->middlename.' '.$row->extensionname)),
+                'client_name' => e($this->displayName($row)),
                 'patient_name' => e((string) $row->patient_name),
                 'mobile_no' => e((string) $row->mobile_no),
                 'barangay' => e((string) $row->barangay_name),
@@ -580,7 +595,7 @@ class TransactionController extends Controller
         foreach ($query->get() as $row) {
             fputcsv($out, [
                 $row->date_applied, $row->program,
-                trim($row->lastname.', '.$row->firstname.' '.$row->middlename.' '.$row->extensionname),
+                $this->displayName($row),
                 $row->patient_name, $row->mobile_no, $row->barangay_name, $row->municipality_name,
                 $row->type, $row->remarks, $row->comments, $row->suggested_amount, $row->status,
                 $row->amount_paid, $row->payout_date, $row->date_paid, $row->gwa, $row->units,
@@ -604,7 +619,7 @@ class TransactionController extends Controller
                 $row->civil_status ?? '', $row->barangay_name ?? '', $row->municipality_name ?? '',
                 $row->province ?? '', $row->suggested_amount, $row->mobile_no, $row->status,
                 $row->remarks ?? '', $row->comments ?? '',
-                trim($row->lastname.', '.$row->firstname.' '.$row->middlename.' '.($row->extensionname ?? '')),
+                $this->displayName($row),
             ]);
         }
     }
@@ -628,7 +643,7 @@ class TransactionController extends Controller
                 $row->province ?? '', $row->ip ?? '', $row->ip_group ?? '', $row->email ?? '',
                 $row->mobile_no, $row->suggested_amount, $row->status, $row->remarks ?? '',
                 $row->comments ?? '',
-                trim($row->lastname.', '.$row->firstname.' '.$row->middlename.' '.($row->extensionname ?? '')),
+                $this->displayName($row),
                 $row->school ?? '', $row->course ?? '', $row->year_level ?? '',
             ]);
         }
@@ -657,7 +672,7 @@ class TransactionController extends Controller
                 $row->civil_status ?? '', $row->barangay_name ?? '', $row->municipality_name ?? '',
                 $row->province ?? '', $row->email ?? '', $row->mobile_no, $row->suggested_amount,
                 $row->status, $row->remarks ?? '', $row->comments ?? '',
-                trim($row->lastname.', '.$row->firstname.' '.$row->middlename.' '.($row->extensionname ?? '')),
+                $this->displayName($row),
                 $row->school ?? '', $row->scholar_course ?? '', $row->year_level ?? '',
                 $row->valid_govt_id ?? '', $row->id_number ?? '', $row->insurance_beneficiary ?? '',
                 $row->emergency_contact ?? '', $row->ecp_contact_number ?? '', $row->ecp_address ?? '',
@@ -690,5 +705,20 @@ class TransactionController extends Controller
         if (! empty($allowed) && ! in_array($program, $allowed, true)) {
             abort(403, 'Unauthorized program selection.');
         }
+    }
+
+    /**
+     * Canonical client display name (C3-B) for a query row (stdClass). Passes
+     * the raw name columns through the single ClientService formatter; never
+     * the persisted full_name machine key.
+     */
+    private function displayName(object $row): string
+    {
+        return $this->clientService->deriveDisplayName(
+            (string) $row->lastname,
+            (string) $row->firstname,
+            $row->middlename ?? null,
+            $row->extensionname ?? null,
+        );
     }
 }

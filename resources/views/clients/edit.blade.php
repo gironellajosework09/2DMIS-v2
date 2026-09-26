@@ -3,13 +3,6 @@
 @section('title', 'Edit Client — 2D MIS')
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Clients', 'url' => route('clients.index')],
-            ['label' => 'Edit Client'],
-        ],
-    ])
 
     @include('partials.page-header', ['title' => 'Edit Client'])
 

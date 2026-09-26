@@ -3,12 +3,6 @@
 @section('title', 'Scanner Engine — 2D MIS')
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Scanner Engine'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Scanner Engine',

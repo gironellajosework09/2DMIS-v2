@@ -10,11 +10,11 @@
             <label for="selfNameInput" class="field-label">Search your name</label>
             <div class="position-relative">
                 <input id="selfNameInput" class="form-control uppercase" placeholder="TYPE YOUR FULL NAME..." autocomplete="off">
-                <div id="selfSuggestList" class="suggestions-list d-none"></div>
+                <div id="selfSuggestList" class="suggestions-list hidden"></div>
             </div>
         </div>
 
-        <div class="mb-3 d-none" id="selfMobileVerifyWrap">
+        <div class="mb-3 hidden" id="selfMobileVerifyWrap">
             <label for="selfMobileVerifyInput" class="field-label">Enter your registered Mobile Number (first verification)</label>
             <div class="input-group">
                 <input id="selfMobileVerifyInput" class="form-control" placeholder="e.g. 09XXXXXXXXX" maxlength="11" disabled>
@@ -33,14 +33,14 @@
                     <option value="">-- Select Municipality --</option>
                 </select>
             </div>
-            <div class="col-md-6 d-flex align-items-end">
+            <div class="col-md-6 flex align-items-end">
                 <button id="selfVerifyBtn" class="btn-navy w-full" disabled>Verify & Load My Details</button>
             </div>
         </div>
 
         <div id="selfAlertBox"></div>
 
-        <div id="selfUpdateFormWrap" class="d-none">
+        <div id="selfUpdateFormWrap" class="hidden">
             <hr>
             <h2 class="text-base font-semibold text-ink">Personal Details <span class="text-dense" style="font-size: 15px; color: var(--color-red);">(Leave it BLANK if not applicable)</span></h2>
             <form id="selfUpdateForm">
@@ -48,60 +48,60 @@
 
                 <div class="row">
                     <div class="col-md-3 mb-2">
-                        <label for="selfLastname" class="form-label">Last name</label>
+                        <label for="selfLastname" class="mb-2">Last name</label>
                         <input name="lastname" id="selfLastname" class="form-control uppercase" readonly>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfFirstname" class="form-label">First name</label>
+                        <label for="selfFirstname" class="mb-2">First name</label>
                         <input name="firstname" id="selfFirstname" class="form-control uppercase" readonly>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfMiddlename" class="form-label">Middle name</label>
+                        <label for="selfMiddlename" class="mb-2">Middle name</label>
                         <input name="middlename" id="selfMiddlename" class="form-control uppercase" readonly>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfExtensionname" class="form-label">Extension name</label>
+                        <label for="selfExtensionname" class="mb-2">Extension name</label>
                         <input name="extensionname" id="selfExtensionname" class="form-control uppercase" readonly>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-4 mb-2">
-                        <label for="selfCityMunicipality" class="form-label">Municipality</label>
+                        <label for="selfCityMunicipality" class="mb-2">Municipality</label>
                         <select name="city_municipality" id="selfCityMunicipality" class="form-select" disabled></select>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <label for="selfBarangay" class="form-label">Barangay</label>
+                        <label for="selfBarangay" class="mb-2">Barangay</label>
                         <select name="barangay" id="selfBarangay" class="form-select" disabled></select>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <label for="selfHouseNo" class="form-label">House No.</label>
+                        <label for="selfHouseNo" class="mb-2">House No.</label>
                         <input name="house_no" id="selfHouseNo" class="form-control uppercase">
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-3 mb-2">
-                        <label for="selfMobileNo" class="form-label">Mobile No. <span class="text-danger">*</span></label>
+                        <label for="selfMobileNo" class="mb-2">Mobile No. <span class="text-danger">*</span></label>
                         <input name="mobile_no" id="selfMobileNo" class="form-control" required>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfEmail" class="form-label">Email <span class="text-danger">*</span></label>
+                        <label for="selfEmail" class="mb-2">Email <span class="text-danger">*</span></label>
                         <input name="email" id="selfEmail" class="form-control" required>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfBirthdate" class="form-label">Birthdate <span class="text-danger">*</span></label>
+                        <label for="selfBirthdate" class="mb-2">Birthdate <span class="text-danger">*</span></label>
                         <input type="date" name="birthdate" id="selfBirthdate" class="form-control" required>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfAge" class="form-label">Age</label>
+                        <label for="selfAge" class="mb-2">Age</label>
                         <input type="number" name="age" id="selfAge" readonly class="form-control">
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-3 mb-2">
-                        <label for="selfSex" class="form-label">Sex <span class="text-danger">*</span></label>
+                        <label for="selfSex" class="mb-2">Sex <span class="text-danger">*</span></label>
                         <select name="sex" id="selfSex" class="form-select" required>
                             <option value="">--Select--</option>
                             <option value="MALE">MALE</option>
@@ -109,7 +109,7 @@
                         </select>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfCivilStatus" class="form-label">Civil Status <span class="text-danger">*</span></label>
+                        <label for="selfCivilStatus" class="mb-2">Civil Status <span class="text-danger">*</span></label>
                         <select name="civil_status" id="selfCivilStatus" class="form-select" required>
                             <option value="">--Select--</option>
                             <option value="SINGLE">SINGLE</option>
@@ -118,7 +118,7 @@
                         </select>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfPwd" class="form-label">PWD <span class="text-danger">*</span></label>
+                        <label for="selfPwd" class="mb-2">PWD <span class="text-danger">*</span></label>
                         <select name="pwd" id="selfPwd" class="form-select" required>
                             <option value="">--Select--</option>
                             <option value="NO">NO</option>
@@ -126,18 +126,18 @@
                         </select>
                     </div>
                     <div class="col-md-3 mb-2">
-                        <label for="selfIp" class="form-label">IP</label>
+                        <label for="selfIp" class="mb-2">IP</label>
                         <input name="ip" id="selfIp" class="form-control uppercase">
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-6 mb-2">
-                        <label for="selfIpGroup" class="form-label">IP Group</label>
+                        <label for="selfIpGroup" class="mb-2">IP Group</label>
                         <input name="ip_group" id="selfIpGroup" class="form-control uppercase">
                     </div>
                     <div class="col-md-6 mb-2">
-                        <label for="selfOccupation" class="form-label">Occupation</label>
+                        <label for="selfOccupation" class="mb-2">Occupation</label>
                         <input name="occupation" id="selfOccupation" class="form-control uppercase">
                     </div>
                 </div>
@@ -147,26 +147,26 @@
 
                 <div class="row">
                     <div class="col-md-4 mb-2">
-                        <label for="selfSchProgram" class="form-label">Program</label>
+                        <label for="selfSchProgram" class="mb-2">Program</label>
                         <input name="sch_program" id="selfSchProgram" class="form-control" readonly>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <label for="selfSchool" class="form-label">School <span class="text-danger">*</span></label>
+                        <label for="selfSchool" class="mb-2">School <span class="text-danger">*</span></label>
                         <input name="school" id="selfSchool" class="form-control uppercase" required>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <label for="selfCollegeDepartment" class="form-label">College Department <span class="text-danger">*</span></label>
+                        <label for="selfCollegeDepartment" class="mb-2">College Department <span class="text-danger">*</span></label>
                         <input name="college_department" id="selfCollegeDepartment" class="form-control uppercase" required>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-4 mb-2">
-                        <label for="selfCourse" class="form-label">Course <span class="text-danger">*</span></label>
+                        <label for="selfCourse" class="mb-2">Course <span class="text-danger">*</span></label>
                         <input name="course" id="selfCourse" class="form-control uppercase" required>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <label for="selfYearLevel" class="form-label">Year Level <span class="text-danger">*</span></label>
+                        <label for="selfYearLevel" class="mb-2">Year Level <span class="text-danger">*</span></label>
                         <select name="year_level" id="selfYearLevel" class="form-select" required>
                             <option value="">-- Select Year Level --</option>
                             <option value="1ST YEAR">1ST YEAR</option>
@@ -177,7 +177,7 @@
                         </select>
                     </div>
                     <div class="col-md-4 mb-2">
-                        <label for="selfIsRegular" class="form-label">Is Regular <span class="text-danger">*</span></label>
+                        <label for="selfIsRegular" class="mb-2">Is Regular <span class="text-danger">*</span></label>
                         <select name="is_regular" id="selfIsRegular" class="form-select" required>
                             <option value="0">NO</option>
                             <option value="1">YES</option>
@@ -185,7 +185,7 @@
                     </div>
                 </div>
 
-                <div class="mt-3 d-flex gap-2">
+                <div class="mt-3 flex gap-2">
                     <button id="selfSaveBtn" class="btn-navy">Save Updates</button>
                     <button id="selfCancelBtn" type="button" class="btn-subtle">Cancel</button>
                 </div>
@@ -251,7 +251,7 @@
         const q = nameInput.value.trim();
         if (debounce) clearTimeout(debounce);
         if (!q) {
-            suggestList.classList.add('d-none');
+            suggestList.classList.add('hidden');
             return;
         }
         debounce = setTimeout(() => {
@@ -260,7 +260,7 @@
                 .then(data => {
                     if (!data.success || !data.results.length) {
                         suggestList.innerHTML = '<div class="p-2">No matches</div>';
-                        suggestList.classList.remove('d-none');
+                        suggestList.classList.remove('hidden');
                         return;
                     }
                     suggestList.innerHTML = '';
@@ -271,14 +271,14 @@
                         btn.onclick = () => {
                             nameInput.value = r.full_name.toUpperCase();
                             selectedClientId = r.id;
-                            suggestList.classList.add('d-none');
+                            suggestList.classList.add('hidden');
 
                             const wrap = document.getElementById('selfMobileVerifyWrap');
                             const mobileInput = document.getElementById('selfMobileVerifyInput');
                             const mobileBtn = document.getElementById('selfMobileVerifyBtn');
                             const msg = document.getElementById('selfMobileVerifyMsg');
 
-                            wrap.classList.remove('d-none');
+                            wrap.classList.remove('hidden');
                             mobileInput.disabled = false;
                             mobileBtn.disabled = false;
                             msg.innerHTML = "<span class='text-info'>Please enter the registered mobile number for verification.</span>";
@@ -288,14 +288,14 @@
                         };
                         suggestList.appendChild(btn);
                     });
-                    suggestList.classList.remove('d-none');
+                    suggestList.classList.remove('hidden');
                 });
         }, 250);
     });
 
     document.addEventListener('click', e => {
         if (!document.querySelector('.position-relative').contains(e.target)) {
-            suggestList.classList.add('d-none');
+            suggestList.classList.add('hidden');
         }
     });
 
@@ -329,7 +329,7 @@
             return;
         }
 
-        document.getElementById('selfUpdateFormWrap').classList.remove('d-none');
+        document.getElementById('selfUpdateFormWrap').classList.remove('hidden');
         const c = data.client;
         const s = data.scholarship || {};
         document.getElementById('selfClientId').value = c.id;
@@ -376,7 +376,7 @@
     });
 
     document.getElementById('selfCancelBtn').onclick = () => {
-        document.getElementById('selfUpdateFormWrap').classList.add('d-none');
+        document.getElementById('selfUpdateFormWrap').classList.add('hidden');
     };
 
     document.getElementById('selfUpdateForm').addEventListener('submit', async e => {
@@ -395,13 +395,17 @@
         const data = await resp.json();
 
         if (data.success) {
+            // C3-E: the QR encodes the client's opaque identity token
+            // (server-provided, immutable); the human-facing label below
+            // the QR uses the form's current display-name composition.
+            const token = (data.qr_token || '').trim();
             const lastname = (document.getElementById('selfLastname').value || '').trim().toUpperCase();
             const firstname = (document.getElementById('selfFirstname').value || '').trim().toUpperCase();
             const middlename = (document.getElementById('selfMiddlename').value || '').trim().toUpperCase();
             const fullName = (lastname + ', ' + firstname + (middlename ? ' ' + middlename : '')).replace(/\s+/g, ' ').trim();
 
             const size = '220x220';
-            const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=' + encodeURIComponent(size) + '&data=' + encodeURIComponent(fullName);
+            const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=' + encodeURIComponent(size) + '&data=' + encodeURIComponent(token);
             const downloadName = fullName.replace(/\s+/g, '_') + '_qr.png';
 
             msg.innerHTML = `
@@ -412,7 +416,7 @@
                     <div class="mt-2">
                         <a id="selfDownloadQr" class="btn btn-sm btn-outline-primary" href="${qrURL}" download="${downloadName}">Download QR</a>
                     </div>
-                    <p class="mt-2 fw-bold">${fullName}</p>
+                    <p class="mt-2 font-bold">${fullName}</p>
                 </div>
             `;
 
@@ -421,7 +425,7 @@
                 img.style.display = 'none';
                 const dl = document.getElementById('selfDownloadQr');
                 if (dl) dl.style.display = 'none';
-                msg.querySelector('.alert').insertAdjacentHTML('beforeend', `<div class="mt-2 text-danger">QR generation failed — please copy this text instead: <br><strong>${fullName}</strong></div>`);
+                msg.querySelector('.alert').insertAdjacentHTML('beforeend', `<div class="mt-2 text-danger">QR generation failed — please copy this text instead: <br><strong>${token}</strong></div>`);
             };
         } else {
             msg.innerHTML = `<div class="alert alert-danger">${data.message || 'Save failed. Please try again.'}</div>`;

@@ -46,13 +46,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Households', 'url' => route('households.index')],
-            ['label' => 'Add Household'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Add New Household',
@@ -72,7 +65,7 @@
                 <div class="relative mb-[16px]" id="clientResults">
                     <label for="clientSearch" class="field-label">Search Head of Household <span class="text-danger">*</span></label>
                     <input type="text" id="clientSearch" class="form-control" placeholder="Type a client's name..." autocomplete="off">
-                    <div id="clientResultsList" class="d-none"></div>
+                    <div id="clientResultsList" class="hidden"></div>
                 </div>
 
                 <hr>
@@ -172,7 +165,7 @@
             clearTimeout(debounceTimer);
             const query = this.value.trim();
             if (query.length < 2) {
-                resultsList.classList.add('d-none');
+                resultsList.classList.add('hidden');
                 resultsList.innerHTML = '';
                 return;
             }
@@ -189,20 +182,21 @@
                                 const item = document.createElement('div');
                                 item.className = 'result-item';
                                 const location = [client.barangay_name, client.municipality_name].filter(Boolean).join(', ');
-                                item.textContent = client.full_name + (location ? ' — ' + location : '');
+                                const shownName = client.display_name || client.full_name;
+                                item.textContent = shownName + (location ? ' — ' + location : '');
                                 item.addEventListener('click', () => {
-                                    searchInput.value = client.full_name;
-                                    resultsList.classList.add('d-none');
+                                    searchInput.value = shownName;
+                                    resultsList.classList.add('hidden');
                                     loadClientDetails(client.id);
                                 });
                                 resultsList.appendChild(item);
                             });
                         }
-                        resultsList.classList.remove('d-none');
+                        resultsList.classList.remove('hidden');
                     })
                     .catch(() => {
                         resultsList.innerHTML = '<div class="result-item text-danger">Error searching clients</div>';
-                        resultsList.classList.remove('d-none');
+                        resultsList.classList.remove('hidden');
                     });
             }, 300);
         });
@@ -224,7 +218,7 @@
 
         document.addEventListener('click', function(e) {
             if (!document.getElementById('clientResults').contains(e.target)) {
-                resultsList.classList.add('d-none');
+                resultsList.classList.add('hidden');
             }
         });
     </script>

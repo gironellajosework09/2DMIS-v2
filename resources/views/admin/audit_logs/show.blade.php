@@ -10,13 +10,7 @@
 @extends('layouts.app')
 @section('title', 'Audit Log Details — 2D MIS')
 @section('content')
-@include('partials.breadcrumbs', [
-    'breadcrumbs' => [
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => 'Audit Logs', 'url' => route('admin.audit-logs.index')],
-        ['label' => 'Audit Entry'],
-    ],
-])
+
 @endif
 
 <div class="data-card p-[1.25rem]" data-panel-body>

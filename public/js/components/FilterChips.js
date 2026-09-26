@@ -135,6 +135,7 @@ const FilterChips = (function () {
             categories: readCategories(),
             dateRanges: readDateRanges(),
             lastApplied: null,
+            lastTrigger: null,
         };
 
         function categoryHasValues(key) {
@@ -398,12 +399,19 @@ const FilterChips = (function () {
             if (input) input.value = '';
         }
 
-        /* onlyKey: when given, open the popover showing just that category. */
-        function openMenu(onlyKey) {
+        /* onlyKey: when given, open the popover showing just that category.
+           triggerEl: the element whose click opened the menu (an external
+           per-filter pill on the Clients screen). It receives focus on close
+           and carries the aria-expanded state. */
+        function openMenu(onlyKey, triggerEl) {
+            state.lastTrigger = triggerEl || state.toggle || null;
             state.menu.hidden = false;
             if (onlyKey) revealCategory(onlyKey);
             else showMenu();
             if (state.toggle) state.toggle.setAttribute('aria-expanded', 'true');
+            if (state.lastTrigger && state.lastTrigger !== state.toggle) {
+                state.lastTrigger.setAttribute('aria-expanded', 'true');
+            }
             document.addEventListener('keydown', trapKey);
             requestAnimationFrame(function () {
                 const scope = onlyKey
@@ -416,10 +424,14 @@ const FilterChips = (function () {
 
         function closeMenu() {
             state.menu.hidden = true;
-            if (state.toggle) {
-                state.toggle.setAttribute('aria-expanded', 'false');
+            if (state.toggle) state.toggle.setAttribute('aria-expanded', 'false');
+            if (state.lastTrigger) state.lastTrigger.setAttribute('aria-expanded', 'false');
+            if (state.lastTrigger && state.lastTrigger.isConnected) {
+                state.lastTrigger.focus();
+            } else if (state.toggle) {
                 state.toggle.focus();
             }
+            state.lastTrigger = null;
             document.removeEventListener('keydown', trapKey);
         }
 
@@ -611,7 +623,7 @@ const FilterChips = (function () {
             setOptions: setOptions,
             close: closeMenu,
             open: openMenu,
-            openCategory: function (key) { openMenu(key); },
+            openCategory: function (key, triggerEl) { openMenu(key, triggerEl); },
         };
     }
 

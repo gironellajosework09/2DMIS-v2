@@ -20,17 +20,10 @@
     {{-- Batch F migration: token vocabulary around the untouched
          beneficiary/search/TUPAD workflows (ids and script below are
          byte-identical to the pre-migration view). --}}
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Transactions', 'url' => route('transactions.index')],
-            ['label' => 'Add Transaction'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Add Transaction',
-        'subtitle' => 'For client: '.$client->full_name,
+        'subtitle' => 'For client: '.$client->displayFullName(),
     ])
 
     <div class="data-card p-[1.25rem]">
@@ -203,7 +196,7 @@
                 .then(res => res.json())
                 .then(data => {
                     data.forEach(c => {
-                        const fullName = c.lastname + ', ' + c.firstname + ' ' + (c.middlename ?? '') + ' ' + (c.extensionname ?? '');
+                        const fullName = c.display_name || (c.lastname + ', ' + c.firstname + ' ' + (c.middlename ?? '') + ' ' + (c.extensionname ?? ''));
                         const li = document.createElement('li');
                         li.classList.add('list-group-item', 'list-group-item-action');
                         li.textContent = fullName.trim();

@@ -100,6 +100,10 @@ const DetailsPanel = (function () {
 
         currentModule = null;
         currentEntityId = null;
+
+        // Module peer notification (Clients uses it to restore a stashed Add
+        // form after a duplicate-review detour).
+        document.dispatchEvent(new CustomEvent('details:closed'));
     }
 
     function load(module, entityId, options = {}) {
@@ -194,11 +198,28 @@ const DetailsPanel = (function () {
     }
 
     function executeScripts(container) {
+        // A script only runs when it is inserted into the LIVE document. The
+        // panel fragment is parsed into a detached Document (DOMParser), so
+        // replacing the inline-script stubs THERE never executes them — that
+        // left the panel's delete-confirm + Family Composition/Transactions
+        // accordions inert. NOTE: `container.isConnected` cannot discriminate
+        // here — a Document is its own root, so a detached DOMParser document
+        // also reports isConnected === true (verified in a real browser). Only
+        // membership in the live document is a trustworthy test: detached
+        // containers get their scripts injected into the live body (global
+        // scope, like the legacy innerHTML + per-container execution), while a
+        // genuinely live container keeps the original in-place replace
+        // contract.
+        const isLive = container === document || document.contains(container);
         const scripts = container.querySelectorAll('script');
         scripts.forEach(oldScript => {
             const fresh = document.createElement('script');
             fresh.textContent = oldScript.textContent;
-            oldScript.parentNode.replaceChild(fresh, oldScript);
+            if (isLive) {
+                oldScript.parentNode.replaceChild(fresh, oldScript);
+            } else {
+                document.body.appendChild(fresh);
+            }
         });
     }
 

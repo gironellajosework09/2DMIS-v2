@@ -36,8 +36,8 @@
      role="dialog"
      aria-modal="true"
      aria-labelledby="uiConfirmTitle"
-     aria-describedby="uiConfirmMessage"
-     class="pointer-events-none fixed inset-0 z-[200]">
+    aria-describedby="uiConfirmMessage"
+    class="pointer-events-none fixed inset-0 z-[210]">
     <div x-show="open"
          x-transition.opacity.duration.200ms
          @click="dismiss(false)"

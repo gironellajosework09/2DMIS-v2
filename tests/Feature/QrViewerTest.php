@@ -87,4 +87,71 @@ class QrViewerTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('client.full_name', 'DELA CRUZ, JUAN R');
     }
+
+    public function test_qr_verify_returns_qr_token_for_payload(): void
+    {
+        $client = $this->client();
+        $this->transaction($client);
+
+        $this->post(route('grantee-search.verify', ['kind' => 'grantee']), [
+            'action' => 'verify',
+            'client_id' => $client->id,
+            'municipality_id' => $client->city_municipality,
+        ])
+            ->assertOk()
+            ->assertJsonPath('client.qr_token', $client->qr_token);
+    }
+
+    public function test_qr_verify_qr_token_is_base62_16chars(): void
+    {
+        $client = $this->client();
+        $this->transaction($client);
+
+        $json = $this->post(route('grantee-search.verify', ['kind' => 'grantee']), [
+            'action' => 'verify',
+            'client_id' => $client->id,
+            'municipality_id' => $client->city_municipality,
+        ])->json();
+
+        $this->assertArrayHasKey('qr_token', $json['client']);
+        $this->assertMatchesRegularExpression('/^[0-9A-Za-z]{16}$/', $json['client']['qr_token']);
+    }
+
+    public function test_qr_verify_extension_client_payload_is_token_not_display_name(): void
+    {
+        $client = $this->client([
+            'lastname' => 'TESTCLIENT 0014',
+            'firstname' => 'MARIA',
+            'middlename' => 'L',
+            'extensionname' => 'JR',
+            'full_name' => 'TESTCLIENT 0014, MARIA L JR',
+            'match_name' => 'TESTCLIENT0014MARIALJR',
+        ]);
+        $this->transaction($client);
+
+        $json = $this->post(route('grantee-search.verify', ['kind' => 'grantee']), [
+            'action' => 'verify',
+            'client_id' => $client->id,
+            'municipality_id' => $client->city_municipality,
+        ])->json();
+
+        // C3-E: the QR payload (qr_token) is the opaque identity token, never
+        // the canonical display name and never the persisted comma-form name.
+        $payload = $json['client']['qr_token'];
+        $this->assertMatchesRegularExpression('/^[0-9A-Za-z]{16}$/', $payload);
+        $this->assertSame($client->qr_token, $payload);
+        $this->assertNotSame($payload, $client->displayFullName());
+        $this->assertNotSame($payload, $client->full_name);
+        $this->assertSame('TESTCLIENT 0014, MARIA (JR) L', $client->displayFullName());
+    }
+
+    public function test_qr_viewer_page_wires_qr_token_payload_and_not_fullname(): void
+    {
+        $html = $this->get(route('qr-viewer'))->getContent();
+
+        // C3-E: the page's JS builds the QR data from qr_token, not fullName.
+        $this->assertStringContainsString('data.client.qr_token', $html);
+        $this->assertStringContainsString('encodeURIComponent(qrPayload)', $html);
+        $this->assertStringNotContainsString('encodeURIComponent(fullName)', $html);
+    }
 }

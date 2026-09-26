@@ -83,7 +83,7 @@
                 <span class="hidden sm:inline">Welcome, {{ auth()->user()->username }}</span>
                 <span class="sm:hidden">{{ strtoupper(substr(auth()->user()->username, 0, 2)) }}</span>
             </button>
-            <ul class="dropdown-menu dropdown-menu-end" :class="{ 'show': open }" aria-labelledby="userDropdown">
+            <ul class="dropdown-menu dropdown-menu-end" :class="{ 'dropdown-open': open }" aria-labelledby="userDropdown">
                 <li>
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf

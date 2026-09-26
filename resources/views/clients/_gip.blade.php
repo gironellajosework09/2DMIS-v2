@@ -10,8 +10,8 @@
         <div class="accordion mt-[12px]">
             <div class="accordion-item">
                 <h2 class="accordion-header" id="headingGIP">
-                    <button class="accordion-button fw-bold" type="button"
-                        :class="{ 'collapsed': !accordionOpen }"
+                    <button class="accordion-button font-bold" type="button"
+                        :class="{ 'accordion-open': accordionOpen }"
                         @click="accordionOpen = !accordionOpen"
                         :aria-expanded="accordionOpen.toString()"
                         aria-controls="collapseGIP">
@@ -103,7 +103,7 @@
                      x-show="modalOpen"
                      x-transition.opacity.duration.200ms
                      @keydown.tab.prevent.stop="handleTab($event)"
-                     class="pointer-events-auto flex w-full max-w-[800px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+                     class="pointer-events-auto flex w-full max-w-[800px] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">
                     <form method="POST" action="{{ route('gip.store', $client) }}">
                         @csrf
 
@@ -119,7 +119,7 @@
                             </button>
                         </div>
 
-                        <div class="max-h-[70vh] overflow-y-auto p-[1.25rem]">
+                        <div class="scrollbars-subtle max-h-[70vh] overflow-y-auto p-[1.25rem]">
                             <input type="hidden" name="client_id" value="{{ $client->id }}">
 
                             <div class="grid grid-cols-1 gap-[12px] md:grid-cols-2">
@@ -265,5 +265,83 @@
                 }
             };
         };
+    })();
+</script>
+
+<script>
+    (function () {
+        'use strict';
+        // UX polish: when the details panel is open, submitting Add/Edit GIP
+        // keeps the user inside the panel instead of causing a full-page
+        // navigation to the redirect target. The full-page flow is untouched
+        // (native POST + redirect + flash). GipController is NOT modified —
+        // it still redirects; with Accept: application/json the fetch follows
+        // that redirect, so response.ok is treated as success and the panel is
+        // reloaded with the saved row (the client's GIP accordion state that
+        // was open stays open after the reload).
+        var form = document.querySelector('form[action*="/gip"]');
+        if (!form) return;
+
+        form.addEventListener('submit', function (ev) {
+            var panelApi = window.DetailsPanel;
+            if (!panelApi || !panelApi.isOpen || !panelApi.isOpen()) return;
+
+            var accordionBtn = document.querySelector('#headingGIP .accordion-button');
+            var wasOpen = accordionBtn ? accordionBtn.getAttribute('aria-expanded') === 'true' : false;
+            var submitBtn = form.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
+            ev.preventDefault();
+
+            function notifyError(message) {
+                if (window.notify && typeof window.notify === 'function') {
+                    window.notify({ type: 'error', title: 'Could not save GIP details', message: message });
+                }
+            }
+
+            fetch(form.getAttribute('action'), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
+                },
+                body: new FormData(form)
+            })
+                .then(function (r) {
+                    if (!r.ok) {
+                        notifyError('Please check the form and try again.');
+                        if (submitBtn) submitBtn.disabled = false;
+                        return;
+                    }
+                    var entity = panelApi.getCurrentEntity();
+                    var clientId = entity && entity.id;
+                    if (!clientId) {
+                        var m = (form.getAttribute('action') || '').match(/\/clients\/(\d+)/);
+                        clientId = m ? m[1] : null;
+                    }
+                    if (!clientId) {
+                        if (window.notify && typeof window.notify === 'function') {
+                            window.notify({ type: 'success', title: 'Success', message: 'GIP details saved.' });
+                        }
+                        if (submitBtn) submitBtn.disabled = false;
+                        return;
+                    }
+                    panelApi.load(entity.module || 'clients', clientId, {
+                        url: '/clients/' + clientId + '?panel=1',
+                        onSuccess: function () {
+                            if (wasOpen) {
+                                var toggle = document.querySelector('#headingGIP .accordion-button');
+                                if (toggle && toggle.getAttribute('aria-expanded') !== 'true') toggle.click();
+                            }
+                        }
+                    });
+                    if (submitBtn) submitBtn.disabled = false;
+                })
+                .catch(function () {
+                    notifyError('A network error occurred.');
+                    if (submitBtn) submitBtn.disabled = false;
+                });
+        });
     })();
 </script>

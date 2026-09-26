@@ -3,13 +3,6 @@
 @section('title', 'Add Client — 2D MIS')
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Clients', 'url' => route('clients.index')],
-            ['label' => 'Add Client'],
-        ],
-    ])
 
     @include('partials.page-header', ['title' => 'Add New Client'])
 

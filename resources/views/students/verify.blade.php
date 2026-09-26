@@ -9,7 +9,6 @@
          verification contract is unchanged. Phase 27: the Bootstrap CSS CDN
          link is removed; ui.css §4.8–4.10 owns the shared families. --}}
     @vite(['resources/css/app.css'])
-    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {

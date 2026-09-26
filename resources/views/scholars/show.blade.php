@@ -9,13 +9,7 @@
 @extends('layouts.app')
 @section('title', 'Scholar Profile — 2D MIS')
 @section('content')
-@include('partials.breadcrumbs', [
-    'breadcrumbs' => [
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => 'Scholars', 'url' => route('scholars.index')],
-        ['label' => 'Scholar Profile'],
-    ],
-])
+
 @endif
 
 <div class="data-card p-[1.25rem]" data-panel-body>

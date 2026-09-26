@@ -90,13 +90,14 @@
     @if ($photo)
         <img class="details-avatar-photo"
             src="{{ asset('storage/uploads/client_photos/'.$photo->photo_path) }}"
-            alt="{{ $client->full_name }}" width="64" height="64">
+            alt="{{ $client->displayFullName() }}" width="64" height="64">
     @else
         <span class="details-avatar-initials">{{ $initials }}</span>
     @endif
 </div>
 
-<div class="data-card p-[1.25rem]" data-panel-body>
+<div class="mb-[16px]"></div>
+<div @class(['data-card p-[1.25rem]', 'mx-auto w-full max-w-[80rem] [&_.details-section]:mx-auto [&_.details-section]:w-full [&_.details-section]:max-w-[60rem] [&_.accordion]:mx-auto [&_.accordion]:w-full [&_.accordion]:max-w-[60rem]' => ! $isPanel]) data-panel-body>
     @if (! $isPanel)
         {{-- Full-page sticky profile header: identity (photo / name / ID ·
              category) plus the page actions, pinned to the top of the
@@ -104,42 +105,50 @@
              the client's sections below. Wraps cleanly on narrow widths. --}}
         <div class="details-full-header">
             <div class="details-full-head">
-                <div class="mb-[16px] flex items-center gap-[12px]">
+                <a href="{{ route('clients.index') }}" class="back-btn mb-[6px] inline-flex items-center gap-[6px] text-dense font-medium">&#8249; Back to Client Registry</a>
+                <div class="mb-[12px] flex flex-wrap gap-x-[12px] gap-y-[16px] md:items-center">
                     <h1 class="m-0 text-page-title font-heading font-bold text-ink">Client Profile</h1>
-                    <div class="flex flex-1 flex-wrap items-center justify-end gap-[8px]">
-                        <a href="{{ route('clients.index') }}" class="btn-subtle no-underline">Back</a>
-                        @if ($acl->canAccessPage($user, 'all_transactions.php'))
-                            <a href="{{ route('transactions.create', $client) }}" class="btn-navy no-underline">+ Add Transaction</a>
-                        @endif
-                        @if ($canEdit)
-                            <button type="button" class="btn-gold" data-edit-client-modal="{{ $client->id }}">Edit</button>
-                        @endif
-                        @if ($canDelete)
-                            <form method="POST" action="{{ route('clients.destroy', $client) }}" class="inline mb-0"
-                                data-delete-client-form data-message="Are you sure you want to delete this client? This cannot be undone.">
-                                @csrf
-                                <button type="submit" class="btn-red">Delete</button>
-                            </form>
-                        @endif
+                    <div class="order-3 flex w-full flex-wrap items-center gap-[8px] md:order-2 md:w-auto md:flex-1 md:justify-end">
+                        <div class="flex w-full flex-wrap items-center gap-[8px] rounded-control ring-1 ring-line-light px-[4px] py-[3px] md:flex-nowrap md:px-[6px] md:inline-flex md:w-auto">
+                            @if ($acl->canAccessPage($user, 'all_transactions.php'))
+                                <a href="{{ route('transactions.create', $client) }}" class="btn-navy no-underline grow md:grow-0">+ Add Transaction</a>
+                            @endif
+                            @if ($canEdit)
+                                <button type="button" class="btn-gold grow md:grow-0" data-edit-client-modal="{{ $client->id }}">Edit</button>
+                            @endif
+                            @if ($canDelete)
+                                <form method="POST" action="{{ route('clients.destroy', $client) }}" class="mb-0 grow md:grow-0 md:inline"
+                                    data-delete-client-form data-message="Are you sure you want to delete this client? This cannot be undone.">
+                                    @csrf
+                                    <button type="submit" class="btn-red w-full md:w-auto">Delete</button>
+                                </form>
+                            @endif
+                        </div>
                     </div>
-                </div>
 
-                {{-- Identity (the panel header supplies this in panel mode, so
-                     it is only rendered on the standalone page). --}}
-                <div class="mb-[12px] flex items-start gap-[16px]">
-                    <div class="shrink-0">
-                        @if ($photo)
-                            <img src="{{ asset('storage/uploads/client_photos/'.$photo->photo_path) }}" alt="Client photo"
-                                class="rounded-panel ring-1 ring-line object-cover" style="width:96px;height:96px;">
-                        @else
-                            <div class="grid place-items-center rounded-panel ring-1 ring-line text-dense text-ink-muted"
-                                style="width:96px;height:96px;">No photo</div>
-                        @endif
-                    </div>
-                    <div class="min-w-0">
-                        <div class="text-dense font-semibold text-ink">{{ $client->full_name }}</div>
+                    {{-- Identity (the panel header supplies this in panel mode, so
+                         it is only rendered on the standalone page). --}}
+                    <div class="order-2 flex w-full flex-col items-center gap-[12px] md:order-3 md:flex-row md:items-center md:gap-[24px]">
+                        <div class="flex w-full flex-col items-center md:w-auto md:shrink-0">
+                            @if ($photo)
+                                <img src="{{ asset('storage/uploads/client_photos/'.$photo->photo_path) }}" alt="Client photo"
+                                    class="details-profile-photo rounded-panel ring-1 ring-line object-cover">
+                            @else
+                                <div class="details-profile-photo grid place-items-center rounded-panel ring-1 ring-line text-dense text-ink-muted">No photo</div>
+                            @endif
+                            @if ($canEdit)
+                                {{-- UX polish: the client photo modal (#photoModal) exists but
+                                     had no visible trigger; surface it here on the full-page
+                                     profile header (gated by the same EDIT ACL as the Edit button). --}}
+                                <button type="button" class="btn-subtle mt-[6px] w-full" onclick="window.openClientPhotoModal()"
+                                    aria-label="Change profile photo">Change Photo</button>
+                            @endif
+                        </div>
+<div class="min-w-0 max-md:text-center">
+                        <div class="text-dense font-semibold text-ink">{{ $client->displayFullName() }}</div>
                         <div class="mt-[2px] text-dense text-ink-muted">ID: {{ $clientIdLabel }}</div>
-                        <div class="mt-[2px]"><span class="status-badge is-neutral">{{ $client->category }}</span></div>
+                        <div class="mt-[2px]"><span class="status-badge is-category">{{ $client->category }}</span></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -158,6 +167,27 @@
             <div class="details-field"><label>Age</label><span class="value {{ $client->age === null ? 'muted' : '' }}">{{ $client->age ?? '—' }}</span></div>
             <div class="details-field"><label>Gender</label><span class="value {{ trim((string) $client->sex) === '' ? 'muted' : '' }}">{{ $client->sex ?: '—' }}</span></div>
             <div class="details-field"><label>Civil Status</label><span class="value {{ trim((string) $client->civil_status) === '' ? 'muted' : '' }}">{{ $client->civil_status ?: '—' }}</span></div>
+        </div>
+    </div>
+
+    {{-- QR IDENTITY CARD (C3-F, UI cleanup): machine QR identity = the persisted
+         qr_token ONLY; the qrserver endpoint/payload are unchanged. Presentation
+         is a compact horizontal card — a 120px QR beside explanatory text. No
+         Print/Download controls; the 2x2 action grid stays untouched. --}}
+    <div class="details-section">
+        <h4 class="details-section-title">QR Identity Card</h4>
+        <div @class(['data-card p-[1.25rem]', 'md:w-fit md:max-w-full' => ! $isPanel])>
+            <div class="flex flex-wrap items-center gap-[16px]">
+                <img id="clientQrImage"
+                    src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data={{ urlencode($client->qr_token) }}&format=png"
+                    alt="Client QR code"
+                    class="h-[120px] w-[120px] shrink-0 ring-1 ring-line"
+                    width="120" height="120">
+                <div class="min-w-0">
+                    <div id="clientQrLabel" class="text-dense font-semibold text-ink">Client QR Code</div>
+                    <div id="clientQrHint" class="mt-[2px] text-dense text-ink-muted">For easy scan access</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -205,7 +235,7 @@
         @if ($client->household && $client->household->headClient)
             <div class="mt-[12px] details-field">
                 <label>Head of Household</label>
-                <span class="value">{{ $client->household->headClient->full_name ?: '—' }}</span>
+                <span class="value">{{ $client->household->headClient?->displayFullName() ?: '—' }}</span>
             </div>
         @endif
     </div>
@@ -220,12 +250,10 @@
             </button>
         </h4>
         <div id="famPanel" class="details-accordion-panel" role="region" aria-labelledby="famToggle" hidden>
-            @if (! $isPanel)
-                <div class="mb-[12px] text-right">
-                    <a href="{{ route('family-members.create', $client) }}" class="btn-subtle no-underline">+ Add Family Member</a>
-                </div>
-            @endif
-            <div class="overflow-x-auto">
+            <div class="mb-[12px] text-right">
+                <a href="{{ route('family-members.create', $client) }}" class="btn-subtle no-underline">+ Add Family Member</a>
+            </div>
+            <div class="scrollbars-subtle overflow-x-auto">
                 <table class="w-full min-w-[24rem] border-collapse text-left text-dense">
                     <thead>
                         <tr class="border-b border-line">
@@ -236,7 +264,7 @@
                     <tbody>
                         @forelse ($client->familyMembers as $member)
                             <tr class="border-b border-line-light">
-                                <td class="py-2 pr-[16px]">{{ $member->relative->full_name ?? '—' }}</td>
+                                <td class="py-2 pr-[16px]">{{ $member->relative?->displayFullName() ?? '—' }}</td>
                                 <td class="py-2">{{ $member->relationship ?: '—' }}</td>
                             </tr>
                         @empty
@@ -258,7 +286,7 @@
             </button>
         </h4>
         <div id="txPanel" class="details-accordion-panel" role="region" aria-labelledby="txToggle" hidden>
-            <div class="overflow-x-auto">
+            <div class="scrollbars-subtle overflow-x-auto">
                 <table class="w-full min-w-[36rem] border-collapse text-left text-dense">
                     <thead>
                         <tr class="border-b border-line">
@@ -298,24 +326,34 @@
 
     @include('clients._gip')
 
-    {{-- AUDIT INFORMATION --}}
+    {{-- AUDIT INFORMATION (default-collapsed: low-churn metadata stays out of
+     the primary scan; follows the same accessible accordion pattern as
+     Family Composition / Transactions). --}}
     <div class="details-section">
-        <h4 class="details-section-title">Audit Information</h4>
-        <div class="details-grid">
-            <div class="details-field"><label>Created By</label><span class="value {{ $createdBy === '—' ? 'muted' : '' }}">{{ $createdBy }}</span></div>
-            <div class="details-field"><label>Created At</label><span class="value">{{ $createdAt }}</span></div>
-            <div class="details-field"><label>Last Updated By</label><span class="value {{ $updatedBy === '—' ? 'muted' : '' }}">{{ $updatedBy }}</span></div>
-            <div class="details-field"><label>Last Updated At</label><span class="value {{ $updatedAt === '—' ? 'muted' : '' }}">{{ $updatedAt }}</span></div>
+        <h4 class="details-section-title">
+            <button type="button" class="details-accordion-toggle" id="auditToggle"
+                aria-expanded="false" aria-controls="auditPanel">
+                <span>Audit Information</span>
+                <svg class="details-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+        </h4>
+        <div id="auditPanel" class="details-accordion-panel" role="region" aria-labelledby="auditToggle" hidden>
+            <div class="details-grid">
+                <div class="details-field"><label>Created By</label><span class="value {{ $createdBy === '—' ? 'muted' : '' }}">{{ $createdBy }}</span></div>
+                <div class="details-field"><label>Created At</label><span class="value">{{ $createdAt }}</span></div>
+                <div class="details-field"><label>Last Updated By</label><span class="value {{ $updatedBy === '—' ? 'muted' : '' }}">{{ $updatedBy }}</span></div>
+                <div class="details-field"><label>Last Updated At</label><span class="value {{ $updatedAt === '—' ? 'muted' : '' }}">{{ $updatedAt }}</span></div>
+            </div>
         </div>
     </div>
 
     {{-- Panel is now view-only — Edit opens the modal via data-panel-actions --}}
 </div>
 
-<div data-panel-title style="display:none;">{{ $client->full_name }}</div>
+<div data-panel-title style="display:none;">{{ $client->displayFullName() }}</div>
 <div data-panel-sub style="display:none;">ID: {{ $clientIdLabel }}</div>
 <div data-panel-meta style="display:none;">
-    <span class="status-badge is-neutral details-category">{{ $client->category }}</span>
+    <span class="status-badge is-category details-category">{{ $client->category }}</span>
 </div>
 <div data-panel-actions style="display:none;">
     <div class="details-actions-line">
@@ -358,13 +396,13 @@
          @click="close()"
          class="pointer-events-auto absolute inset-0 bg-ink/40"
          aria-hidden="true"></div>
-    <div class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto p-4">
+    <div class="scrollbars-subtle pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto p-4">
         <div x-ref="dialog"
              x-show="open"
              x-transition.opacity.duration.200ms
              @keydown.escape="close()"
              @keydown.tab.prevent.stop="handleTab($event)"
-             class="pointer-events-auto flex w-full max-w-[600px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+             class="pointer-events-auto flex w-full max-w-[600px] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">
             <form method="POST" action="{{ route('clients.photo.store') }}" enctype="multipart/form-data">
                 @csrf
                 <div class="flex items-center justify-between gap-2 border-b border-line p-[1.25rem] pb-3">
@@ -612,6 +650,7 @@
 
         bindAccordion('famToggle', 'famPanel');
         bindAccordion('txToggle', 'txPanel');
+        bindAccordion('auditToggle', 'auditPanel');
     })();
 </script>
 
@@ -635,14 +674,19 @@
                 subtitle: 'Update client information',
                 submitLabel: 'Save Client',
                 _prevFocus: null,
+                dirty: false,
+                _stashed: null,
+                _keepStash: false,
                 show: function (mode, id) {
                     var isEdit = mode === 'edit';
                     this.title = isEdit ? 'Edit Client' : 'Add Client';
                     this.subtitle = isEdit ? 'Update client information' : 'Register a new client in the registry';
                     this.submitLabel = isEdit ? 'Save Client' : 'Add Client';
                     this._prevFocus = document.activeElement;
+                    this.dirty = false;
                     document.body.style.overflow = 'hidden';
                     this.open = true;
+                    var self = this;
                     var body = document.getElementById('clientFormModalBody');
                     if (body) {
                         body.innerHTML = '<div class="flex items-center justify-center py-[2rem] text-ink-muted"><span>Loading form...</span></div>';
@@ -654,6 +698,10 @@
                                 var form = body.querySelector('form');
                                 if (form) form.dataset.clientId = id;
                                 executeScripts(body);
+                                // UX polish: track edits for the discard guard and
+                                // move focus into the modal once the form is ready.
+                                bindFormChanged(body, self);
+                                focusFirstModalField(body);
                             })
                             .catch(function () {
                                 body.innerHTML = '<div class="flex items-center justify-center py-[2rem] text-danger">Failed to load form.</div>';
@@ -662,15 +710,51 @@
                 },
                 hide: function () {
                     this.open = false;
+                    this.dirty = false;
                     document.body.style.overflow = '';
                     if (this._prevFocus && typeof this._prevFocus.focus === 'function') {
                         this._prevFocus.focus();
                     }
                     this._prevFocus = null;
                     var body = document.getElementById('clientFormModalBody');
-                    if (body) body.innerHTML = '';
+                    if (body && !this._keepStash) body.innerHTML = '';
+                    if (!this._keepStash) this._stashed = null;
+                    this._keepStash = false;
+                },
+                requestClose: function () {
+                    var self = this;
+                    if (!this.open) return;
+                    if (!this.dirty) { this.hide(); return; }
+                    window.uiConfirm({
+                        title: 'Discard unsaved changes?',
+                        message: 'Your changes will be lost if you close this form.',
+                        confirmLabel: 'Discard'
+                    }).then(function (ok) {
+                        if (ok) {
+                            self.hide();
+                            return;
+                        }
+                        // Stay in the form: uiConfirm released the scroll lock.
+                        document.body.style.overflow = 'hidden';
+                        var body = document.getElementById('clientFormModalBody');
+                        var first = body && body.querySelector('input:not([disabled]):not([type=hidden]), select, textarea, button:not([disabled])');
+                        if (first && first.focus) first.focus();
+                    });
                 }
             });
+
+            function bindFormChanged(body, self) {
+                if (!body) return;
+                function markDirty() { self.dirty = true; }
+                body.addEventListener('input', markDirty);
+                body.addEventListener('change', markDirty);
+            }
+
+            function focusFirstModalField(body) {
+                if (!body) return;
+                var first = body.querySelector('input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])');
+                if (first && first.focus) first.focus();
+            }
 
             // Feedback modal store (Phase 9) — full-page / panel fallback when
             // the index partial is not present. Guarded against redeclaration.
@@ -775,13 +859,13 @@
                 el.innerHTML =
                     '<div x-show="$store.clientFormModal.open" x-transition.opacity.duration.200ms class="pointer-events-auto absolute inset-0 bg-ink/40" aria-hidden="true"></div>'
                     + '<div class="pointer-events-none absolute inset-0 flex items-center justify-center overflow-y-auto p-4">'
-                    + '<div x-show="$store.clientFormModal.open" x-ref="dialog" x-transition.opacity.duration.200ms @keydown.tab.prevent.stop="handleTab($event)" class="pointer-events-auto flex w-full max-w-[800px] max-h-[90vh] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">'
+                    + '<div x-show="$store.clientFormModal.open" x-ref="dialog" x-transition.opacity.duration.200ms @keydown.escape="$store.clientFormModal.requestClose()" @keydown.tab.prevent.stop="handleTab($event)" class="pointer-events-auto flex w-full max-w-[800px] max-h-[90vh] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">'
                     + '<div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">'
                     + '<div class="min-w-0">'
                     + '<h5 id="cfmTitle" class="mb-0 text-dense font-heading font-semibold text-white" x-text="$store.clientFormModal.title"></h5>'
                     + '<p id="cfmSubtitle" class="mb-0 mt-0.5 text-sm text-white/80" x-text="$store.clientFormModal.subtitle"></p>'
                     + '</div>'
-                    + '<button type="button" class="cfm-close inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-white/70 transition duration-150 ease-standard hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gold" @click="$store.clientFormModal.hide()" aria-label="Close">'
+                    + '<button type="button" class="cfm-close inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-white/70 transition duration-150 ease-standard hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gold" @click="$store.clientFormModal.requestClose()" aria-label="Close">'
                     + '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'
                     + '</button>'
                     + '</div>'
@@ -818,6 +902,11 @@
         }
 
         function showToast(message) {
+            if (!message) return;
+            if (typeof window.notify === 'function') {
+                window.notify({ type: 'success', title: 'Success', message: message });
+                return;
+            }
             var stack = document.getElementById('clientsToastStack');
             if (!stack) {
                 stack = document.createElement('div');
@@ -856,7 +945,7 @@
                 el.innerHTML =
                     '<div x-show="$store.clientFeedbackModal.open" x-transition.opacity.duration.200ms @click="$store.clientFeedbackModal.hide()" class="pointer-events-auto absolute inset-0 bg-ink/40" aria-hidden="true"></div>'
                     + '<div class="pointer-events-none absolute inset-0 flex items-center justify-center p-4">'
-                    + '<div x-show="$store.clientFeedbackModal.open" x-ref="dialog" x-transition.opacity.duration.200ms @keydown.escape="$store.clientFeedbackModal.hide()" @keydown.tab.prevent.stop="handleTab($event)" class="pointer-events-auto flex w-full max-w-[500px] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">'
+                    + '<div x-show="$store.clientFeedbackModal.open" x-ref="dialog" x-transition.opacity.duration.200ms @keydown.escape="$store.clientFeedbackModal.hide()" @keydown.tab.prevent.stop="handleTab($event)" class="pointer-events-auto flex w-full max-w-[500px] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">'
                     + '<div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">'
                     + '<h5 id="clientFeedbackTitle" class="text-dense font-heading font-semibold text-white" x-text="$store.clientFeedbackModal.title"></h5>'
                     + '<button type="button" class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-white/70 transition duration-150 ease-standard hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gold" @click="$store.clientFeedbackModal.hide()" aria-label="Close">'
@@ -876,6 +965,14 @@
         }
 
         function showFeedback(title, type, message) {
+            if (typeof window.notify === 'function' && message) {
+                var notifyType = type === 'error' ? 'error'
+                    : type === 'warning' ? 'warning'
+                    : type === 'success' ? 'success'
+                    : 'info';
+                window.notify({ type: notifyType, title: title || 'Notice', message: message });
+                return;
+            }
             getOrCreateFeedbackModal();
             var body = document.createElement('div');
             body.innerHTML = '<p class="mb-0">' + message + '</p>';
@@ -928,6 +1025,16 @@
                             });
                         }
                         photoPost.then(function () {
+                            // Preserve the server-provided success message
+                            // across the reload (the profile re-renders from
+                            // server HTML, so the JSON payload would otherwise
+                            // be dropped). clients/show.blade.php flushes it
+                            // through the shared unified notify stack.
+                            try {
+                                sessionStorage.setItem('2dmis_client_flash', JSON.stringify({
+                                    message: data.message || 'Client saved successfully.'
+                                }));
+                            } catch (e) {}
                             window.location.reload();
                         }).catch(function () {
                             showFeedback('Photo not saved', 'error', 'Client was saved, but the photo could not be uploaded. Please try again from Edit.');
@@ -966,7 +1073,7 @@
 
         document.addEventListener('click', function (e) {
             if (e.target.closest('[data-fp-edit-cancel]')) {
-                Alpine.store('clientFormModal').hide();
+                Alpine.store('clientFormModal').requestClose();
             }
         });
     })();

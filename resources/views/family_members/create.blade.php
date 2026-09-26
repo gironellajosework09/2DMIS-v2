@@ -29,18 +29,10 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Clients', 'url' => route('clients.index')],
-            ['label' => $parent->full_name, 'url' => route('clients.show', $parent)],
-            ['label' => 'Add Family Member'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Add Family Member',
-        'subtitle' => 'For '.$parent->full_name.' — link an existing client as a family member.',
+        'subtitle' => 'For '.$parent->displayFullName().' — link an existing client as a family member.',
     ])
 
     <div id="family-member-screen">
@@ -59,7 +51,7 @@
                     <div class="relative mb-[16px]">
                         <label for="existing_client_search" class="field-label">Search Existing Client</label>
                         <input type="text" id="existing_client_search" class="form-control" placeholder="Type to search..." autocomplete="off">
-                        <div id="existing_client_results" class="border bg-white mt-1 d-none"></div>
+                        <div id="existing_client_results" class="border bg-white mt-1 hidden"></div>
                         <input type="hidden" name="existing_client_id" id="existing_client_id">
                     </div>
 
@@ -98,7 +90,7 @@
 
             clearTimeout(debounceTimer);
             if (query.length < 2) {
-                resultsDiv.classList.add('d-none');
+                resultsDiv.classList.add('hidden');
                 resultsDiv.innerHTML = '';
                 return;
             }
@@ -113,25 +105,26 @@
                         } else {
                             data.forEach(client => {
                                 const div = document.createElement('div');
+                                const fullName = client.display_name || (client.lastname + ', ' + client.firstname);
                                 const loc = [client.barangay_name, client.municipality_name].filter(Boolean).join(', ');
-                                div.textContent = client.lastname + ', ' + client.firstname + (loc ? ' — ' + loc : '');
+                                div.textContent = fullName + (loc ? ' — ' + loc : '');
                                 div.classList.add('p-1', 'hover-bg');
                                 div.addEventListener('click', () => {
                                     searchInput.value = div.textContent;
                                     existingClientIdInput.value = client.id;
                                     submitBtn.disabled = false;
-                                    resultsDiv.classList.add('d-none');
+                                    resultsDiv.classList.add('hidden');
                                 });
                                 resultsDiv.appendChild(div);
                             });
                         }
-                        resultsDiv.classList.remove('d-none');
+                        resultsDiv.classList.remove('hidden');
                     });
             }, 300);
         });
 
         document.addEventListener('click', e => {
-            if (e.target !== searchInput) resultsDiv.classList.add('d-none');
+            if (e.target !== searchInput) resultsDiv.classList.add('hidden');
         });
     </script>
 @endpush

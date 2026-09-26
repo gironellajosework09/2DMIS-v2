@@ -3,12 +3,6 @@
 @section('title', 'Payouts — 2D MIS')
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Payouts'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Payouts',

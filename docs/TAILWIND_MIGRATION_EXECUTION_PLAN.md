@@ -520,6 +520,22 @@ These must be migrated **before** their consumers, or consumers will break (they
   token transplant is complete, `ui.css` may be **retired entirely** — that is the terminal,
   separately-reviewed step (§K, item 6). Do not retire it sooner; unmigrated screens still
   reference `--ui-*`/`.btn-*`/`.tag` classes it provides.
+- **The removal audit (2026-09-07) confirmed `ui.css` is NOT delete-safe today**: it is the
+  only provider of the `--ui-*` tokens consumed by the built `app.css` (39 refs),
+  `public/css/datatables.css` (L532/552/562/567/568/571/572), and three views
+  (`dashboard` 29 refs, `scanners/scan` L38, `clients/index` L47/135); of the §4.10 Reboot/
+  type layer; of the §3 global `:focus-visible` + `prefers-reduced-motion`; and of the
+  Bootstrap-parity vocabulary still used across ~46 of 68 blades (incl. the JS-contract
+  `.d-none` on 10 files). **The execution roadmap to make deletion safe is the dedicated
+  document `docs/UI_CSS_RETIREMENT_PLAN.md`** (six migrations M1–M6: tokens → `@theme`,
+  Reboot/type port, a11y port, parity completion, JS contracts, deletion gate).
+  **§J update 2026-09-07:** M1 (token port → `@theme static`), **M2 (Reboot/``_type.scss``
+  element parity → `app.css` `@layer base`, Option B — Preflight OFF)**, and **M3 (global
+  `:focus-visible` + `prefers-reduced-motion` → `@layer base`)** all **LANDED, gate PASS**
+  as part of the ui.css retirement — every `--ui-*` consumer reference remapped to canonical
+  tokens, §4.10's element/heading rules and §3's a11y rules ported verbatim into a base layer
+  with zero computed-style drift (ui.css still linked/unlayered and wins with identical
+  values); see `docs/IMPLEMENTATION_LOG.md` 2026-09-07 M1 + M2 + M3 entries.
 
 ---
 

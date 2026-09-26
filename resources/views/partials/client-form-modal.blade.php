@@ -19,8 +19,9 @@
         <div x-show="$store.clientFormModal.open"
              x-ref="dialog"
              x-transition.opacity.duration.200ms
+             @keydown.escape="$store.clientFormModal.requestClose()"
              @keydown.tab.prevent.stop="handleTab($event)"
-             class="pointer-events-auto flex w-full max-w-[800px] max-h-[90vh] flex-col rounded-panel bg-surface shadow-pop ring-1 ring-line">
+             class="pointer-events-auto flex w-full max-w-[800px] max-h-[90vh] flex-col overflow-hidden rounded-panel bg-surface shadow-pop ring-1 ring-line">
             <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-navy px-[1.25rem] py-[1rem]">
                 <div class="min-w-0">
                     <h5 id="cfmTitle" class="mb-0 text-dense font-heading font-semibold text-white" x-text="$store.clientFormModal.title"></h5>
@@ -28,7 +29,7 @@
                 </div>
                 <button type="button"
                     class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-btn text-white/70 transition duration-150 ease-standard hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-gold"
-                    @click="$store.clientFormModal.hide()"
+                    @click="$store.clientFormModal.requestClose()"
                     aria-label="Close">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-4 w-4" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
@@ -41,7 +42,7 @@
             </div>
 
             <div class="flex shrink-0 items-center justify-end gap-2 border-t border-line bg-neutral-100 px-[1.25rem] py-[0.9rem]">
-                <button type="button" class="btn-subtle" @click="$store.clientFormModal.hide()">Cancel</button>
+                <button type="button" class="btn-subtle" @click="$store.clientFormModal.requestClose()">Cancel</button>
                 <button type="submit" form="clientForm" class="btn-gold" id="clientFormSubmit" x-text="$store.clientFormModal.submitLabel">Add Client</button>
             </div>
         </div>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Services\AccessControlService;
+use App\Services\ClientService;
 use App\Services\FamilyMemberService;
 use App\Support\RecordMunicipality;
 use Illuminate\Http\JsonResponse;
@@ -17,6 +18,7 @@ class FamilyMemberController extends Controller
     public function __construct(
         private readonly FamilyMemberService $family,
         private readonly AccessControlService $acl,
+        private readonly ClientService $clientService,
     ) {}
 
     public function create(Request $request, Client $client): View
@@ -87,6 +89,17 @@ class FamilyMemberController extends Controller
             ->orderByRaw('CASE WHEN c.firstname LIKE ? THEN 0 WHEN c.lastname LIKE ? THEN 1 WHEN c.full_name LIKE ? THEN 2 ELSE 3 END, c.lastname, c.firstname', ["{$q}%", "{$q}%", "{$q}%"])
             ->limit(15)
             ->get();
+
+        foreach ($rows as $row) {
+            // Additive display-only transport (C3-B); machine search/order
+            // above still use the persisted full_name key untouched.
+            $row->display_name = $this->clientService->deriveDisplayName(
+                (string) $row->lastname,
+                (string) $row->firstname,
+                $row->middlename ?? null,
+                $row->extensionname ?? null,
+            );
+        }
 
         return response()->json($rows);
     }

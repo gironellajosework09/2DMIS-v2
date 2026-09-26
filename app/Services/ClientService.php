@@ -66,6 +66,44 @@ class ClientService
     }
 
     /**
+     * Canonical display-only full name (C3-B): "LAST, FIRST (EXT) MIDDLE".
+     *
+     * Human-facing rendering only. It is deliberately decoupled from the
+     * persisted full_name machine/lookup key (C3-A) — it is never used by the
+     * scanner fleet or by QR payloads. Stored casing is preserved; the middle
+     * name follows the deriveFullName rules (blank or 'N/A' omitted); the
+     * extension is rendered parenthesized BEFORE the middle name. The output
+     * never contains leading/trailing/double spaces or empty parentheses.
+     */
+    public function deriveDisplayName(
+        string $lastname,
+        string $firstname,
+        ?string $middlename = null,
+        ?string $extensionname = null,
+    ): string {
+        $clean = static fn (?string $value): string => (string) preg_replace(
+            '/\s+/',
+            ' ',
+            trim((string) $value),
+        );
+
+        $middle = $clean($middlename);
+        $extension = $clean($extensionname);
+
+        $name = $clean($lastname).', '.$clean($firstname);
+
+        if ($extension !== '') {
+            $name .= ' ('.$extension.')';
+        }
+
+        if ($middle !== '' && strtoupper($middle) !== 'N/A') {
+            $name .= ' '.$middle;
+        }
+
+        return $name;
+    }
+
+    /**
      * Duplicate-matching helper. v1's edit path used the no-space uppercase
      * concatenation; v2 applies it consistently on add as well (A6 fix).
      */

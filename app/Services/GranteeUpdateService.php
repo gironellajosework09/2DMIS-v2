@@ -41,7 +41,7 @@ class GranteeUpdateService
 
     /**
      * @param  array<string, mixed>  $input
-     * @return array{success: bool, message?: string}
+     * @return array{success: bool, message?: string, qr_token?: string}
      */
     public function update(array $input, string $ip): array
     {
@@ -118,7 +118,14 @@ class GranteeUpdateService
                 ]);
             });
 
-            return ['success' => true];
+            // C3-E: the immutable qr_token rides the success payload so the
+            // self-service page can render the client's QR — the token is
+            // never composed client-side and is unaffected by this update
+            // (name parts here are PRESERVED from the DB row per v1 parity,
+            // so the read is trivial; it exists purely as the QR payload).
+            $token = Client::query()->where('id', $clientId)->value('qr_token');
+
+            return ['success' => true, 'qr_token' => (string) $token];
         } catch (\Throwable $e) {
             report($e);
 

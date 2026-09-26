@@ -53,12 +53,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Scholarship Reports'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Scholarship Reports',

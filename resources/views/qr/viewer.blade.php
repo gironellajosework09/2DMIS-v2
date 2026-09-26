@@ -6,15 +6,15 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Scholar QR Code Viewer — 2D MIS</title>
     {{-- Batch G migration: standalone public head shares the built app
-         stylesheet + ui.css (see auth/login). The grantee search/verify
-         fetch contracts and the persisted comma-form QR payload
-         (Decision C) are unchanged — the script below is byte-preserved;
-         JS-injected markup keeps its Bootstrap classes via the ui.css
-         parity layer (Phase 27: the CDN stylesheet link is removed;
-         §4.8–4.10 own form-label/accordion/list-group, utilities and
-         Reboot/type parity). --}}
+         stylesheet + ui.css (see auth/login). C3-E switches the QR data
+         payload from persisted full_name to qr_token; the public search /
+         grantee-search verify fetch contracts and human-facing display
+         remain unchanged — the script below is byte-preserved apart from
+         the payload wiring; JS-injected markup keeps its Bootstrap classes
+         via the ui.css parity layer (Phase 27: the CDN stylesheet link is
+         removed; §4.8–4.10 own form-label/accordion/list-group, utilities
+         and Reboot/type parity). --}}
     @vite(['resources/css/app.css'])
-    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -67,7 +67,7 @@
         <label for="nameInput" class="field-label">Search your name</label>
         <div class="position-relative">
             <input id="nameInput" class="form-control uppercase" placeholder="Type your full name (e.g., DELA CRUZ, JUAN PEDRO)" autocomplete="off">
-            <div id="suggestList" class="suggestions-list d-none"></div>
+            <div id="suggestList" class="suggestions-list hidden"></div>
         </div>
     </div>
 
@@ -78,21 +78,21 @@
                 <option value="">-- Select Municipality --</option>
             </select>
         </div>
-        <div class="col-md-6 d-flex align-items-end">
+        <div class="col-md-6 flex align-items-end">
             <button id="verifyBtn" class="btn-navy w-full" disabled>Verify &amp; Load My QR Code</button>
         </div>
     </div>
 
     <div id="alertBox"></div>
 
-    <div id="qrContainer" class="text-center d-none">
+    <div id="qrContainer" class="text-center hidden">
         <hr>
         <h2 id="qrName" class="mb-3 text-base font-semibold text-ink"></h2>
         <div id="qrImage"></div>
 
         <p class="note-text">Take a screenshot or download this QR code</p>
 
-        <div class="mt-3 d-flex justify-content-center gap-2">
+        <div class="mt-3 flex justify-content-center gap-2">
             <a id="downloadLink" class="btn-gold no-underline" download>Download QR Code</a>
             <button class="btn-subtle" id="resetBtn">Search Another</button>
         </div>
@@ -127,7 +127,7 @@
         const q = nameInput.value.trim();
         if (debounce) clearTimeout(debounce);
         if (!q) {
-            suggestList.classList.add('d-none');
+            suggestList.classList.add('hidden');
             return;
         }
         debounce = setTimeout(() => {
@@ -136,7 +136,7 @@
                 .then(data => {
                     if (!data.success || !data.results.length) {
                         suggestList.innerHTML = '<div class="p-2">No matches</div>';
-                        suggestList.classList.remove('d-none');
+                        suggestList.classList.remove('hidden');
                         return;
                     }
                     suggestList.innerHTML = '';
@@ -148,24 +148,24 @@
                         btn.onclick = () => {
                             nameInput.value = r.full_name.toUpperCase();
                             selectedClientId = r.id;
-                            suggestList.classList.add('d-none');
+                            suggestList.classList.add('hidden');
                             document.getElementById('verifyBtn').disabled = false;
                         };
                         suggestList.appendChild(btn);
                     });
-                    suggestList.classList.remove('d-none');
+                    suggestList.classList.remove('hidden');
                 })
                 .catch(err => {
                     console.error(err);
                     suggestList.innerHTML = '<div class="p-2">Error searching</div>';
-                    suggestList.classList.remove('d-none');
+                    suggestList.classList.remove('hidden');
                 });
         }, 220);
     });
 
     document.addEventListener('click', e => {
         if (!document.querySelector('.position-relative').contains(e.target)) {
-            suggestList.classList.add('d-none');
+            suggestList.classList.add('hidden');
         }
     });
 
@@ -196,12 +196,14 @@
                     return;
                 }
 
-                // Decision C: the QR must encode the persisted comma-form
-                // full_name (what the P4 scanners match against), never a
-                // re-composed name.
+                // C3-E: the QR encodes the client's opaque identity token.
+                // The persisted full_name continues to be the human-facing
+                // display name but is intentionally removed from the QR data
+                // payload (scanner resolution was token-first since C3-D).
                 const fullName = (data.client.full_name || '').trim();
+                const qrPayload = (data.client.qr_token || '').trim();
 
-                const encoded = encodeURIComponent(fullName);
+                const encoded = encodeURIComponent(qrPayload);
                 const size = '220x220';
                 const qrURL = 'https://api.qrserver.com/v1/create-qr-code/?size=' + size + '&data=' + encoded + '&format=png';
 
@@ -211,7 +213,7 @@
                 downloadLink.href = qrURL;
                 downloadLink.setAttribute('download', fullName.replace(/\s+/g, '_') + '.png');
 
-                document.getElementById('qrContainer').classList.remove('d-none');
+                document.getElementById('qrContainer').classList.remove('hidden');
                 document.getElementById('verifyBtn').disabled = true;
                 document.getElementById('nameInput').disabled = true;
                 document.getElementById('municipalitySelect').disabled = true;
@@ -223,7 +225,7 @@
     });
 
     document.getElementById('resetBtn').addEventListener('click', () => {
-        document.getElementById('qrContainer').classList.add('d-none');
+        document.getElementById('qrContainer').classList.add('hidden');
         document.getElementById('nameInput').disabled = false;
         document.getElementById('municipalitySelect').disabled = false;
         document.getElementById('verifyBtn').disabled = true;

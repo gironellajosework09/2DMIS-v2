@@ -18,20 +18,13 @@
 
 @section('content')
     @php($client = $transaction->client)
-    @php($clientName = $client ? trim($client->lastname.', '.$client->firstname.' '.$client->middlename.' '.$client->extensionname) : '')
+    @php($clientName = $client ? $client->displayFullName() : '')
     @php($isSelf = $client !== null && trim($transaction->patient_name ?? '') === trim($client->lastname.', '.$client->firstname.' '.$client->middlename))
     @php($isCustom = ! $isSelf && ! empty($transaction->patient_name))
 
     {{-- Batch F migration: token vocabulary around the untouched
          beneficiary/search workflow (ids and script below are
          byte-identical to the pre-migration view). --}}
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Transactions', 'url' => route('transactions.index')],
-            ['label' => 'Edit Transaction'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Edit Transaction',
@@ -204,7 +197,7 @@
                 .then(res => res.json())
                 .then(data => {
                     data.forEach(c => {
-                        const fullName = c.lastname + ', ' + c.firstname + ' ' + (c.middlename ?? '') + ' ' + (c.extensionname ?? '');
+                        const fullName = c.display_name || (c.lastname + ', ' + c.firstname + ' ' + (c.middlename ?? '') + ' ' + (c.extensionname ?? ''));
                         const li = document.createElement('li');
                         li.classList.add('list-group-item', 'list-group-item-action');
                         li.textContent = fullName.trim();

@@ -14,7 +14,6 @@
          The POST login.attempt contract and session-status messaging are
          unchanged. --}}
     @vite(['resources/css/app.css'])
-    <link href="{{ asset('css/ui.css') }}" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -32,7 +31,7 @@
 </head>
 <body>
 
-<div class="d-flex align-items-center justify-content-center min-vh-100 p-3">
+<div class="flex align-items-center justify-content-center min-vh-100 p-3">
     <div class="w-full max-w-[420px]">
         <div class="data-card !p-[1.75rem]">
             <div class="mb-4 text-center">

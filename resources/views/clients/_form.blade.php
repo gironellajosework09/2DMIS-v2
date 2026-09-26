@@ -14,7 +14,7 @@
      token vocabulary. Functional hooks preserved verbatim for the inline
      script below and the modal AJAX handler: element ids (municipality,
      barangay, birthdate, age, category, ipSelect, ipGroupDiv,
-     aff-org-wrapper), the input.uppercase casing hook, the d-none toggle
+     aff-org-wrapper), the input.uppercase casing hook, the hidden toggle
      on #ipGroupDiv, all field names / old() bindings / validation error
      targets.
 
@@ -261,7 +261,7 @@
                         <option value="YES" @selected(old('ip', $client?->ip) === 'YES')>YES</option>
                     </select>
                 </div>
-                <div id="ipGroupDiv" @if (old('ip', $client?->ip ?? 'NO') !== 'YES') class="d-none" @endif>
+                <div id="ipGroupDiv" @if (old('ip', $client?->ip ?? 'NO') !== 'YES') class="hidden" @endif>
                     <label class="field-label" for="ip_group">IP Group</label>
                     <select name="ip_group" id="ip_group" class="form-select">
                         <option value="">--Select Group--</option>
@@ -425,9 +425,9 @@
         if (IP_SELECT && IP_GROUP_DIV) {
             IP_SELECT.addEventListener('change', function() {
                 if (this.value === 'YES') {
-                    IP_GROUP_DIV.classList.remove('d-none');
+                    IP_GROUP_DIV.classList.remove('hidden');
                 } else {
-                    IP_GROUP_DIV.classList.add('d-none');
+                    IP_GROUP_DIV.classList.add('hidden');
                     IP_GROUP_DIV.querySelector('select').value = '';
                 }
             });

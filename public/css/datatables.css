@@ -475,9 +475,13 @@ div.table-responsive > div.dataTables_wrapper > div.row > div[class^=col-]:last-
 }
 
 /* B2. Filter input (.form-control.form-control-sm) and length select
-   (.form-select.form-select-sm). Focus states stay ui.css classes
-   (.form-control:focus / .form-select:focus), which match by class
-   name and remain valid after Bootstrap's stylesheet is removed. */
+   (.form-select.form-select-sm). The focus ring is OWNED by B2 (M5.2):
+   it mirrors ui.css .form-control:focus / .form-select:focus
+   (outline: 0 + box-shadow), re-pointed at the canonical --shadow-focus
+   token. color/background-color/border-color are intentionally NOT
+   re-declared on :focus — the B2 base rules above already own them at
+   higher specificity (#212529/#fff/#dee2e6), so focused computed values
+   are unchanged and non-DataTables forms keep ui.css focus styling. */
 .dataTables_wrapper div.dataTables_length label,
 .dataTables_wrapper div.dataTables_filter label {
     display: inline-block; /* Bootstrap reboot label */
@@ -515,10 +519,15 @@ div.table-responsive > div.dataTables_wrapper > div.row > div[class^=col-]:last-
     border-radius: 0.25rem; /* --bs-border-radius-sm; screens override (6px) */
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
+.dataTables_wrapper .dataTables_filter input:focus,
+.dataTables_wrapper .dataTables_length select:focus {
+    outline: 0;                      /* ui.css .form-control/.form-select:focus */
+    box-shadow: var(--shadow-focus); /* canonical @theme token (was --ui-focus-ring) */
+}
 
 /* B3. Pagination (.pagination .page-item .page-link). Structure/
    default colors mirror Bootstrap 5.3.2; identity colors follow the
-   app's ui.css re-pointing (navy, gold focus ring). */
+   app's canonical @theme tokens (navy, gold focus ring). */
 .dataTables_wrapper .pagination {
     display: flex;
     padding-left: 0;
@@ -529,7 +538,7 @@ div.table-responsive > div.dataTables_wrapper > div.row > div[class^=col-]:last-
     display: block;
     padding: 0.375rem 0.75rem;
     font-size: 1rem;
-    color: var(--ui-navy); /* ui.css re-point */
+    color: var(--color-navy); /* canonical @theme token (navy) */
     text-decoration: none;
     background-color: #fff;
     border: 1px solid #dee2e6;
@@ -549,7 +558,7 @@ div.table-responsive > div.dataTables_wrapper > div.row > div[class^=col-]:last-
 }
 .dataTables_wrapper .pagination .page-link:hover {
     z-index: 2;
-    color: var(--ui-navy-hover); /* ui.css re-point */
+    color: var(--color-navy-hover); /* canonical @theme token (navy hover) */
     background-color: #e9ecef;   /* Bootstrap --bs-pagination-hover-bg */
     border-color: #dee2e6;
 }
@@ -559,17 +568,17 @@ div.table-responsive > div.dataTables_wrapper > div.row > div[class^=col-]:last-
     color: #0a58ca; /* Bootstrap --bs-pagination-focus-color (unchanged) */
     background-color: #e9ecef;
     outline: 0;
-    box-shadow: var(--ui-focus-ring); /* ui.css re-point (gold) */
+    box-shadow: var(--shadow-focus); /* canonical @theme token (was ui.css focus ring) */
 }
 .dataTables_wrapper .pagination .page-item.active .page-link {
     z-index: 3;
-    color: #fff;                /* Bootstrap --bs-pagination-active-color */
-    background-color: var(--ui-navy); /* ui.css + per-screen skins */
-    border-color: var(--ui-navy);
+    color: #fff !important;                /* Bootstrap --bs-pagination-active-color */
+    background-color: var(--color-navy); /* canonical @theme token + per-screen skins */
+    border-color: var(--color-navy);
 }
 .dataTables_wrapper .pagination .page-item.active .page-link:focus-visible {
-    background-color: var(--ui-navy);
-    box-shadow: var(--ui-focus-ring);
+    background-color: var(--color-navy);
+    box-shadow: var(--shadow-focus);
 }
 .dataTables_wrapper .pagination .page-item.disabled .page-link {
     color: #6c757d; /* Bootstrap --bs-pagination-disabled-color */

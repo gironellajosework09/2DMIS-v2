@@ -3,13 +3,6 @@
 @section('title', 'Create User — 2D MIS')
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'User Management', 'url' => route('admin.users.index')],
-            ['label' => 'Create User'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Create User',

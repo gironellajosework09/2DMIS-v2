@@ -55,13 +55,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Clients', 'url' => route('clients.index')],
-            ['label' => 'Duplicate Clients'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Duplicate Clients',

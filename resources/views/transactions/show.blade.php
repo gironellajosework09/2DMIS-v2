@@ -14,13 +14,7 @@
 
 @if (! $isPanel)
 @section('content')
-@include('partials.breadcrumbs', [
-    'breadcrumbs' => [
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => 'Transactions', 'url' => route('transactions.index')],
-        ['label' => 'Transaction Details'],
-    ],
-])
+
 @endif
 
 <div class="data-card p-[1.25rem]" data-panel-body>
@@ -55,7 +49,7 @@
             <dt class="ui-micro-label">Client</dt>
             <dd class="m-0 text-dense text-ink">
                 @if ($transaction->client)
-                    <a href="{{ route('clients.show', $transaction->client) }}" class="font-medium text-navy no-underline hover:text-navy-hover hover:underline">{{ $transaction->client->full_name }}</a>
+                    <a href="{{ route('clients.show', $transaction->client) }}" class="font-medium text-navy no-underline hover:text-navy-hover hover:underline">{{ $transaction->client->displayFullName() }}</a>
                 @else
                     —
                 @endif
@@ -135,7 +129,7 @@
 </div>
 
 <div data-panel-title style="display:none;">Transaction #{{ $transaction->id }} &middot; {{ $transaction->program }}</div>
-<div data-panel-sub style="display:none;">{{ $transaction->client->full_name ?? '—' }}</div>
+<div data-panel-sub style="display:none;">{{ $transaction->client?->displayFullName() ?? '—' }}</div>
 <div data-panel-meta style="display:none;">
     <span class="status-badge {{ $statusClass }}">{{ $transaction->status }}</span>
     <span class="program-tag">{{ $transaction->program }}</span>

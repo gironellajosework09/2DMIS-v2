@@ -5,12 +5,6 @@
 {{-- Batch G migration (UI_UX_ANALYSIS §8.9 Group 4): single-device
      exemption toggle. GET select + POST toggle contract unchanged. --}}
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Multiple Device Exemptions'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'Manage Multiple Device Exemptions',

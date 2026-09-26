@@ -80,12 +80,6 @@
 @endpush
 
 @section('content')
-    @include('partials.breadcrumbs', [
-        'breadcrumbs' => [
-            ['label' => 'Dashboard', 'url' => route('dashboard')],
-            ['label' => 'Transactions'],
-        ],
-    ])
 
     @include('partials.page-header', [
         'title' => 'All Transactions',
@@ -95,7 +89,7 @@
                 <button type="button" class="btn-subtle dropdown-toggle" @click="open = !open" :aria-expanded="open.toString()">
                     Export
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end" :class="{ \'show\': open }">
+                <ul class="dropdown-menu dropdown-menu-end" :class="{ \'dropdown-open\': open }">
                     <li><button type="button" class="dropdown-item export-link" data-mode="csv">Export CSV</button></li>
                     <li><button type="button" class="dropdown-item export-link" data-mode="custom">Export Custom CSV</button></li>
                     <li><button type="button" class="dropdown-item export-link" data-mode="custom2">Export CSV 2</button></li>
@@ -278,8 +272,8 @@
             }
 
             function showRowActions($row, editing) {
-                $row.find('.edit-btn, .delete-btn').toggleClass('d-none', editing);
-                $row.find('.save-btn, .cancel-btn').toggleClass('d-none', !editing);
+                $row.find('.edit-btn, .delete-btn').toggleClass('hidden', editing);
+                $row.find('.save-btn, .cancel-btn').toggleClass('hidden', !editing);
             }
 
             $('#transactionsTable tbody').on('click', '.edit-btn', function() {

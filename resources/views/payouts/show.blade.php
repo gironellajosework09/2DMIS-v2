@@ -10,13 +10,7 @@
 @extends('layouts.app')
 @section('title', $config['title'].' — 2D MIS')
 @section('content')
-@include('partials.breadcrumbs', [
-    'breadcrumbs' => [
-        ['label' => 'Dashboard', 'url' => route('dashboard')],
-        ['label' => $config['title'], 'url' => route('payout-attendance.'.$variant.'.index')],
-        ['label' => 'Payout Details'],
-    ],
-])
+
 @endif
 
 <div class="data-card p-[1.25rem]" data-panel-body>
