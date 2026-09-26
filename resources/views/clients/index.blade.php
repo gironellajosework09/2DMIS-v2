@@ -269,6 +269,18 @@
                 gap: 6px;
             }
         }
+
+        /* Narrow screens: horizontal scrolling applies ONLY to the actual
+           table when its columns don't fit. The table (block + its own
+           overflow) becomes the scroll region, so the DataTables info text
+           and Previous/page-number/Next pager (.bottom-chrome) remain fully
+           visible beneath it and never scroll away with the columns. */
+        @media (max-width: 767px) {
+            #clients-screen #clientsTable {
+                display: block;
+                overflow-x: auto;
+            }
+        }
     </style>
 @endpush
 
@@ -362,8 +374,8 @@
                 @include('partials.filter-chips', ['filterChips' => $filterChips])
             </div>
 
-            <div class="scrollbars-subtle overflow-x-auto px-[1.25rem] pb-[1.25rem]" tabindex="0" aria-label="Client table, scrolls horizontally on narrow screens">
-                <table id="clientsTable" class="table table-sm" style="width:100%;">
+            <div class="px-[1.25rem] pb-[1.25rem]">
+                <table id="clientsTable" class="table table-sm scrollbars-subtle" style="width:100%;" tabindex="0" aria-label="Client table, scrolls horizontally on narrow screens">
                     <thead>
                         <tr>
                             <th>Client</th>
